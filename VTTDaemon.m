@@ -49,6 +49,8 @@ typedef struct {
 @property (strong) NSMenuItem *loggingToggleItem;
 @property (nonatomic) AudioDeviceID selectedMicrophoneID;
 @property (strong) NSMenuItem *micMenuItem;
+@property (nonatomic) CGKeyCode hotkeyCode;
+@property (strong) NSMenuItem *hotkeyMenuItem;
 #ifdef USE_WHISPER_LIB
 @property (nonatomic) struct whisper_context *wctx;
 #endif
@@ -123,6 +125,14 @@ static void audioInputCallback(void* userData,
         [defaults setObject:self.selectedModel forKey:@"selectedModel"];
     }
 
+    // Load hotkey preference (default: Right Alt/Option = keycode 61)
+    if ([defaults objectForKey:@"hotkeyCode"]) {
+        self.hotkeyCode = (CGKeyCode)[defaults integerForKey:@"hotkeyCode"];
+    } else {
+        self.hotkeyCode = 61; // Default: Right Alt/Option
+        [defaults setInteger:self.hotkeyCode forKey:@"hotkeyCode"];
+    }
+
     // Set up menu bar
     self.statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
     self.statusItem.button.title = @"VTT ⏸";
@@ -165,6 +175,14 @@ static void audioInputCallback(void* userData,
     [self populateMicrophoneMenu:micMenu];
     self.micMenuItem.submenu = micMenu;
     [self.menu addItem:self.micMenuItem];
+
+    // Hotkey customization menu item
+    NSString *hotkeyName = [self hotkeyNameForCode:self.hotkeyCode];
+    self.hotkeyMenuItem = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"Hotkey: %@", hotkeyName]
+                                                      action:@selector(changeHotkey:)
+                                               keyEquivalent:@""];
+    self.hotkeyMenuItem.target = self;
+    [self.menu addItem:self.hotkeyMenuItem];
 
     [self.menu addItem:[NSMenuItem separatorItem]];
 
@@ -561,11 +579,11 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         CGEventFlags flags = CGEventGetFlags(event);
         CGKeyCode kc = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
         BOOL altDown = (flags & kCGEventFlagMaskAlternate) != 0;
-        BOOL isRightOption = (kc == (CGKeyCode)61); // ANSI Right Option
-        VTTLog(@"Modifier event: flags=%llu keyCode=%u rightOpt=%d altDown=%d", flags, kc, isRightOption, altDown);
+        BOOL isHotkey = (kc == self.hotkeyCode);
+        VTTLog(@"Modifier event: flags=%llu keyCode=%u hotkey=%d altDown=%d", flags, kc, isHotkey, altDown);
 
-        // Start only when Right Option goes down
-        if (isRightOption && altDown && !self.audioState->isRecording) {
+        // Start only when hotkey goes down
+        if (isHotkey && altDown && !self.audioState->isRecording) {
             VTTLog(@"PTT (flagsChanged) DOWN - starting recording");
             [self startRecording];
             return NULL; // swallow
@@ -1299,6 +1317,151 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     [[NSUserDefaults standardUserDefaults] synchronize];
     self.loggingToggleItem.state = self.loggingEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     self.loggingToggleItem.title = self.loggingEnabled ? @"Logging: On" : @"Logging: Off";
+}
+
+- (NSString *)hotkeyNameForCode:(CGKeyCode)code {
+    NSDictionary *keyNames = @{
+        @58: @"Left Option",
+        @61: @"Right Option",
+        @59: @"Left Control",
+        @62: @"Right Control",
+        @55: @"Left Command",
+        @54: @"Right Command",
+        @56: @"Left Shift",
+        @60: @"Right Shift",
+        @63: @"Fn",
+        @122: @"F1",
+        @120: @"F2",
+        @99: @"F3",
+        @118: @"F4",
+        @96: @"F5",
+        @97: @"F6",
+        @98: @"F7",
+        @100: @"F8",
+        @101: @"F9",
+        @109: @"F10",
+        @103: @"F11",
+        @111: @"F12",
+    };
+    NSString *name = keyNames[@(code)];
+    return name ? name : [NSString stringWithFormat:@"Key %d", code];
+}
+
+- (BOOL)isLoginItem {
+    NSString *appPath = [[NSBundle mainBundle] bundlePath];
+    LSSharedFileListRef loginItems = LSSharedFileListCreate(NULL, kLSSharedFileListSessionLoginItems, NULL);
+    if (!loginItems) return NO;
+
+    UInt32 seed = 0U;
+    NSArray *currentLoginItems = (__bridge_transfer NSArray *)LSSharedFileListCopySnapshot(loginItems, &seed);
+    BOOL found = NO;
+
+    for (id item in currentLoginItems) {
+        LSSharedFileListItemRef itemRef = (__bridge LSSharedFileListItemRef)item;
+        CFURLRef url = NULL;
+        if (LSSharedFileListItemResolve(itemRef, 0, &url, NULL) == noErr) {
+            NSString *itemPath = [(__bridge NSURL *)url path];
+            if ([itemPath isEqualToString:appPath]) {
+                found = YES;
+            }
+            if (url) CFRelease(url);
+        }
+        if (found) break;
+    }
+
+    CFRelease(loginItems);
+    return found;
+}
+
+- (void)toggleStartup:(id)sender {
+    NSMenuItem *item = (NSMenuItem *)sender;
+    NSString *appPath = [[NSBundle mainBundle] bundlePath];
+    NSURL *appURL = [NSURL fileURLWithPath:appPath];
+
+    LSSharedFileListRef loginItems = LSSharedFileListCreate(NULL, kLSSharedFileListSessionLoginItems, NULL);
+    if (!loginItems) return;
+
+    if ([self isLoginItem]) {
+        // Remove from login items
+        UInt32 seed = 0U;
+        NSArray *currentLoginItems = (__bridge_transfer NSArray *)LSSharedFileListCopySnapshot(loginItems, &seed);
+        for (id currentItem in currentLoginItems) {
+            LSSharedFileListItemRef itemRef = (__bridge LSSharedFileListItemRef)currentItem;
+            CFURLRef url = NULL;
+            if (LSSharedFileListItemResolve(itemRef, 0, &url, NULL) == noErr) {
+                NSString *itemPath = [(__bridge NSURL *)url path];
+                if ([itemPath isEqualToString:appPath]) {
+                    LSSharedFileListItemRemove(loginItems, itemRef);
+                }
+                if (url) CFRelease(url);
+            }
+        }
+        item.state = NSControlStateValueOff;
+        item.title = @"Run on Startup: Off";
+    } else {
+        // Add to login items
+        LSSharedFileListItemRef newItem = LSSharedFileListInsertItemURL(loginItems, kLSSharedFileListItemLast, NULL, NULL, (__bridge CFURLRef)appURL, NULL, NULL);
+        if (newItem) CFRelease(newItem);
+        item.state = NSControlStateValueOn;
+        item.title = @"Run on Startup: On";
+    }
+
+    CFRelease(loginItems);
+}
+
+- (void)changeHotkey:(id)sender {
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = @"Change Hotkey";
+    alert.informativeText = @"Press the modifier key you want to use for push-to-talk (e.g., Right Option, Left Command, F5, etc.)";
+    alert.alertStyle = NSAlertStyleInformational;
+    [alert addButtonWithTitle:@"Cancel"];
+
+    // Create a simple panel to capture key press
+    NSPanel *panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, 300, 100)
+                                                styleMask:NSWindowStyleMaskTitled
+                                                  backing:NSBackingStoreBuffered
+                                                    defer:NO];
+    panel.title = @"Press a key...";
+    panel.level = NSFloatingWindowLevel;
+    [panel center];
+
+    NSTextField *label = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 30, 260, 40)];
+    label.stringValue = @"Press any modifier key\n(Option, Command, Control, Shift, Fn, or F-key)";
+    label.bordered = NO;
+    label.editable = NO;
+    label.backgroundColor = [NSColor clearColor];
+    label.alignment = NSTextAlignmentCenter;
+    [panel.contentView addSubview:label];
+
+    __block CGKeyCode capturedKey = 0;
+    __block id eventMonitor = nil;
+
+    eventMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskFlagsChanged | NSEventMaskKeyDown handler:^NSEvent *(NSEvent *event) {
+        capturedKey = event.keyCode;
+        [NSApp stopModal];
+        return nil;
+    }];
+
+    [panel makeKeyAndOrderFront:nil];
+    [NSApp runModalForWindow:panel];
+
+    [NSEvent removeMonitor:eventMonitor];
+    [panel close];
+
+    if (capturedKey != 0) {
+        self.hotkeyCode = capturedKey;
+        [[NSUserDefaults standardUserDefaults] setInteger:self.hotkeyCode forKey:@"hotkeyCode"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+
+        NSString *hotkeyName = [self hotkeyNameForCode:self.hotkeyCode];
+        self.hotkeyMenuItem.title = [NSString stringWithFormat:@"Hotkey: %@", hotkeyName];
+
+        NSAlert *confirm = [[NSAlert alloc] init];
+        confirm.messageText = @"Hotkey Changed";
+        confirm.informativeText = [NSString stringWithFormat:@"Your new hotkey is: %@\n\nHold this key to record, release to transcribe.", hotkeyName];
+        confirm.alertStyle = NSAlertStyleInformational;
+        [confirm runModal];
+    }
 }
 
 - (void)quit:(id)sender {
