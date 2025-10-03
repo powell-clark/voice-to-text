@@ -1,9 +1,11 @@
 # VTT Makefile - Clean Objective-C Menu Bar App
 
 CC = clang
+# Build as Universal Binary (Intel + Apple Silicon)
+ARCH_FLAGS = -arch x86_64 -arch arm64
 # Build as Objective-C++; separate compile and link flags
-COMPILE_FLAGS = -fobjc-arc -x objective-c++ -std=c++17
-LINK_FLAGS = -framework Cocoa -framework CoreAudio -framework AudioToolbox -framework ApplicationServices -framework AVFoundation -framework IOKit -framework Metal -framework Accelerate -lc++
+COMPILE_FLAGS = -fobjc-arc -x objective-c++ -std=c++17 $(ARCH_FLAGS)
+LINK_FLAGS = -framework Cocoa -framework CoreAudio -framework AudioToolbox -framework ApplicationServices -framework AVFoundation -framework IOKit -framework Metal -framework Accelerate -lc++ $(ARCH_FLAGS)
 APP_NAME = VTT
 
 # Vendor paths
@@ -34,11 +36,13 @@ all: whisper-lib app
 # Build the menu bar app binary (Objective-C)
 app: $(APP_NAME)
 
-$(APP_NAME): VTTDaemon.m
+$(APP_NAME): VTTDaemon.m VTTOnboarding.m
 	$(CC) $(COMPILE_FLAGS) -c VTTDaemon.m -o VTTDaemon.o
-	$(CC) $(LINK_FLAGS) VTTDaemon.o $(LDFLAGS) -o $(APP_NAME)
-	rm -f VTTDaemon.o
-	@echo "✅ Built VTT menu bar app"
+	$(CC) $(COMPILE_FLAGS) -c VTTOnboarding.m -o VTTOnboarding.o
+	$(CC) $(LINK_FLAGS) VTTDaemon.o VTTOnboarding.o $(LDFLAGS) -o $(APP_NAME)
+	rm -f VTTDaemon.o VTTOnboarding.o
+	@echo "✅ Built VTT menu bar app (Universal Binary)"
+	@lipo -info $(APP_NAME) || echo "Note: Single architecture build"
 
 # Create the complete app bundle
 bundle: app

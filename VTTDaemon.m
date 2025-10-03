@@ -44,6 +44,8 @@ typedef struct {
 @property (atomic) NSUInteger sessionCounter;
 @property (nonatomic) BOOL loggingEnabled;
 @property (strong) NSMenuItem *loggingToggleItem;
+@property (nonatomic) AudioDeviceID selectedMicrophoneID;
+@property (strong) NSMenuItem *micMenuItem;
 #ifdef USE_WHISPER_LIB
 @property (nonatomic) struct whisper_context *wctx;
 #endif
@@ -152,6 +154,15 @@ static void audioInputCallback(void* userData,
     self.modelMenuItem.submenu = modelMenu;
     [self.menu addItem:self.modelMenuItem];
 
+    // Microphone selection submenu
+    self.micMenuItem = [[NSMenuItem alloc] initWithTitle:@"Microphone: Default"
+                                                   action:nil
+                                            keyEquivalent:@""];
+    NSMenu *micMenu = [[NSMenu alloc] init];
+    [self populateMicrophoneMenu:micMenu];
+    self.micMenuItem.submenu = micMenu;
+    [self.menu addItem:self.micMenuItem];
+
     [self.menu addItem:[NSMenuItem separatorItem]];
 
     NSMenuItem *permissionsItem = [[NSMenuItem alloc] initWithTitle:@"Check Permissions..."
@@ -259,20 +270,102 @@ static void audioInputCallback(void* userData,
     self.audioState = (AudioState *)calloc(1, sizeof(AudioState));
 
     // Configure audio format
-    // Detect actual mic sample rate to avoid relying on implicit conversion
+    // Force use of built-in microphone to avoid interrupting AirPods music
     Float64 detectedRate = SAMPLE_RATE;
-    // Query default input device
-    AudioDeviceID deviceID = 0;
-    UInt32 size = sizeof(deviceID);
-    AudioObjectPropertyAddress addr = {
-        kAudioHardwarePropertyDefaultInputDevice,
+    AudioDeviceID builtInMicID = 0;
+
+    // Get all audio devices
+    AudioObjectPropertyAddress devicesAddr = {
+        kAudioHardwarePropertyDevices,
         kAudioObjectPropertyScopeGlobal,
         kAudioObjectPropertyElementMain
     };
-    OSStatus q1 = AudioObjectGetPropertyData(kAudioObjectSystemObject, &addr, 0, NULL, &size, &deviceID);
-    if (q1 == noErr && deviceID != kAudioObjectUnknown) {
+
+    UInt32 propSize = 0;
+    OSStatus status = AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &devicesAddr, 0, NULL, &propSize);
+
+    if (status == noErr) {
+        int deviceCount = propSize / sizeof(AudioDeviceID);
+        AudioDeviceID *devices = (AudioDeviceID *)malloc(propSize);
+        status = AudioObjectGetPropertyData(kAudioObjectSystemObject, &devicesAddr, 0, NULL, &propSize, devices);
+
+        if (status == noErr) {
+            // Find the built-in microphone
+            for (int i = 0; i < deviceCount; i++) {
+                // Check if this is an input device
+                AudioObjectPropertyAddress streamAddr = {
+                    kAudioDevicePropertyStreams,
+                    kAudioDevicePropertyScopeInput,
+                    kAudioObjectPropertyElementMain
+                };
+
+                UInt32 streamSize = 0;
+                status = AudioObjectGetPropertyDataSize(devices[i], &streamAddr, 0, NULL, &streamSize);
+                if (status != noErr || streamSize == 0) continue; // Not an input device
+
+                // Get device name
+                CFStringRef deviceName = NULL;
+                UInt32 nameSize = sizeof(deviceName);
+                AudioObjectPropertyAddress nameAddr = {
+                    kAudioDevicePropertyDeviceNameCFString,
+                    kAudioObjectPropertyScopeGlobal,
+                    kAudioObjectPropertyElementMain
+                };
+                status = AudioObjectGetPropertyData(devices[i], &nameAddr, 0, NULL, &nameSize, &deviceName);
+
+                if (status == noErr && deviceName != NULL) {
+                    NSString *name = (__bridge NSString *)deviceName;
+                    VTTLog(@"Found audio device: %@ (ID: %d)", name, devices[i]);
+
+                    // Look for MacBook Pro Microphone or built-in microphone
+                    if ([name containsString:@"MacBook"] && [name containsString:@"Microphone"]) {
+                        builtInMicID = devices[i];
+                        VTTLog(@"Selected built-in microphone: %@ (ID: %d)", name, devices[i]);
+                        CFRelease(deviceName);
+                        break;
+                    } else if ([name containsString:@"Built-in Microphone"]) {
+                        builtInMicID = devices[i];
+                        VTTLog(@"Selected built-in microphone: %@ (ID: %d)", name, devices[i]);
+                        CFRelease(deviceName);
+                        break;
+                    }
+                    CFRelease(deviceName);
+                }
+            }
+        }
+        free(devices);
+    }
+
+    // Determine which device to use based on user preference
+    AudioDeviceID deviceID = 0;
+
+    if (self.selectedMicrophoneID != 0) {
+        // User has explicitly selected a microphone
+        deviceID = self.selectedMicrophoneID;
+        VTTLog(@"Using user-selected microphone (ID: %u)", deviceID);
+    } else {
+        // Use built-in mic if found, otherwise fall back to default
+        deviceID = (builtInMicID != 0) ? builtInMicID : 0;
+
+        if (deviceID == 0) {
+            // Fallback to default if built-in mic not found
+            VTTLog(@"Built-in microphone not found, using default input device");
+            UInt32 size = sizeof(deviceID);
+            AudioObjectPropertyAddress addr = {
+                kAudioHardwarePropertyDefaultInputDevice,
+                kAudioObjectPropertyScopeGlobal,
+                kAudioObjectPropertyElementMain
+            };
+            AudioObjectGetPropertyData(kAudioObjectSystemObject, &addr, 0, NULL, &size, &deviceID);
+        } else {
+            VTTLog(@"Auto-selected built-in microphone (ID: %u)", deviceID);
+        }
+    }
+
+    // Get sample rate from selected device
+    if (deviceID != 0 && deviceID != kAudioObjectUnknown) {
         Float64 rate = 0;
-        size = sizeof(rate);
+        UInt32 size = sizeof(rate);
         AudioObjectPropertyAddress addr2 = {
             kAudioDevicePropertyNominalSampleRate,
             kAudioDevicePropertyScopeInput,
@@ -292,18 +385,32 @@ static void audioInputCallback(void* userData,
 
     // Create audio queue
     VTTLog(@"🔥 [INIT] Creating AudioQueue at %.0f Hz...", self.audioState->format.mSampleRate);
-    OSStatus status = AudioQueueNewInput(&self.audioState->format,
+    OSStatus qstatus = AudioQueueNewInput(&self.audioState->format,
                                          audioInputCallback,
                                          self.audioState,
                                          NULL,
                                          kCFRunLoopCommonModes,
                                          0,
                                          &self.audioState->queue);
-    VTTLog(@"🔥 [INIT] AudioQueueNewInput result: %d", (int)status);
+    VTTLog(@"🔥 [INIT] AudioQueueNewInput result: %d", (int)qstatus);
 
-    if (status != noErr) {
-        VTTLog(@"Failed to create audio queue: %d", status);
+    if (qstatus != noErr) {
+        VTTLog(@"Failed to create audio queue: %d", qstatus);
         return;
+    }
+
+    // Set the audio queue to use the specific device we selected
+    if (deviceID != 0) {
+        UInt32 size = sizeof(deviceID);
+        OSStatus setStatus = AudioQueueSetProperty(self.audioState->queue,
+                                                   kAudioQueueProperty_CurrentDevice,
+                                                   &deviceID,
+                                                   size);
+        if (setStatus == noErr) {
+            VTTLog(@"🔥 [INIT] Successfully set AudioQueue to use selected microphone (ID: %u)", deviceID);
+        } else {
+            VTTLog(@"🔥 [INIT] Failed to set specific device, using default: %d", (int)setStatus);
+        }
     }
 
     // Allocate buffers
@@ -981,6 +1088,123 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
         [self.downloadTask launch];
     }
+}
+
+- (void)populateMicrophoneMenu:(NSMenu *)menu {
+    // Get all audio input devices
+    AudioObjectPropertyAddress devicesAddr = {
+        kAudioHardwarePropertyDevices,
+        kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMain
+    };
+
+    UInt32 propSize = 0;
+    OSStatus status = AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &devicesAddr, 0, NULL, &propSize);
+    if (status != noErr) return;
+
+    int deviceCount = propSize / sizeof(AudioDeviceID);
+    AudioDeviceID *devices = (AudioDeviceID *)malloc(propSize);
+    status = AudioObjectGetPropertyData(kAudioObjectSystemObject, &devicesAddr, 0, NULL, &propSize, devices);
+    if (status != noErr) { free(devices); return; }
+
+    // Load saved preference
+    NSNumber *savedID = [[NSUserDefaults standardUserDefaults] objectForKey:@"selectedMicrophoneID"];
+    self.selectedMicrophoneID = savedID ? [savedID unsignedIntValue] : 0;
+
+    // Add "Default" option
+    NSMenuItem *defaultItem = [[NSMenuItem alloc] initWithTitle:@"Default (Auto-Select)"
+                                                         action:@selector(selectMicrophone:)
+                                                  keyEquivalent:@""];
+    defaultItem.target = self;
+    defaultItem.tag = 0;  // 0 = default
+    defaultItem.state = (self.selectedMicrophoneID == 0) ? NSControlStateValueOn : NSControlStateValueOff;
+    [menu addItem:defaultItem];
+
+    [menu addItem:[NSMenuItem separatorItem]];
+
+    // Add each input device
+    for (int i = 0; i < deviceCount; i++) {
+        // Check if this is an input device
+        AudioObjectPropertyAddress streamAddr = {
+            kAudioDevicePropertyStreams,
+            kAudioDevicePropertyScopeInput,
+            kAudioObjectPropertyElementMain
+        };
+
+        UInt32 streamSize = 0;
+        status = AudioObjectGetPropertyDataSize(devices[i], &streamAddr, 0, NULL, &streamSize);
+        if (status != noErr || streamSize == 0) continue;
+
+        // Get device name
+        CFStringRef deviceName = NULL;
+        UInt32 nameSize = sizeof(deviceName);
+        AudioObjectPropertyAddress nameAddr = {
+            kAudioDevicePropertyDeviceNameCFString,
+            kAudioObjectPropertyScopeGlobal,
+            kAudioObjectPropertyElementMain
+        };
+        status = AudioObjectGetPropertyData(devices[i], &nameAddr, 0, NULL, &nameSize, &deviceName);
+
+        if (status == noErr && deviceName != NULL) {
+            NSString *name = (__bridge_transfer NSString *)deviceName;
+
+            NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:name
+                                                          action:@selector(selectMicrophone:)
+                                                   keyEquivalent:@""];
+            item.target = self;
+            item.tag = devices[i];
+            item.state = (devices[i] == self.selectedMicrophoneID) ? NSControlStateValueOn : NSControlStateValueOff;
+            [menu addItem:item];
+
+            // Update menu title if this is the selected device
+            if (devices[i] == self.selectedMicrophoneID) {
+                self.micMenuItem.title = [NSString stringWithFormat:@"Microphone: %@", name];
+            }
+        }
+    }
+
+    free(devices);
+
+    // If default is selected, update title
+    if (self.selectedMicrophoneID == 0) {
+        self.micMenuItem.title = @"Microphone: Default";
+    }
+}
+
+- (void)selectMicrophone:(id)sender {
+    NSMenuItem *item = (NSMenuItem *)sender;
+    AudioDeviceID deviceID = (AudioDeviceID)item.tag;
+
+    // Update checkmarks
+    for (NSMenuItem *menuItem in item.menu.itemArray) {
+        menuItem.state = NSControlStateValueOff;
+    }
+    item.state = NSControlStateValueOn;
+
+    // Save selection
+    self.selectedMicrophoneID = deviceID;
+    [[NSUserDefaults standardUserDefaults] setObject:@(deviceID) forKey:@"selectedMicrophoneID"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+
+    // Update menu title
+    if (deviceID == 0) {
+        self.micMenuItem.title = @"Microphone: Default";
+    } else {
+        self.micMenuItem.title = [NSString stringWithFormat:@"Microphone: %@", item.title];
+    }
+
+    // Reinitialize audio with new device
+    if (self.audioState) {
+        if (self.audioState->queue) {
+            AudioQueueDispose(self.audioState->queue, true);
+        }
+        free(self.audioState);
+        self.audioState = NULL;
+    }
+    [self initializeAudio];
+
+    VTTLog(@"Switched to microphone: %@ (ID: %u)", item.title, deviceID);
+    self.statusMenuItem.title = [NSString stringWithFormat:@"Status: Using %@", item.title];
 }
 
 - (void)toggleLogging:(id)sender {
