@@ -18,7 +18,7 @@ brew tap powell-clark/voice-to-text
 brew install --cask voice-to-text
 ```
 
-VTT automatically installs to /Applications.
+Voice to Text automatically installs to /Applications.
 
 ### Build from Source
 ```bash
@@ -73,12 +73,12 @@ Choose your microphone from the menu bar. **Use your system default microphone**
 ## Troubleshooting
 
 ### Microphone not activating
-1. Check Input Monitoring permission for VTT
+1. Check Input Monitoring permission for Voice to Text
 2. Toggle permission OFF then ON
-3. Restart VTT
+3. Restart Voice to Text
 
 ### No transcription output
-1. Enable logging: VTT menu → Logging: On
+1. Enable logging: Voice to Text menu → Logging: On
 2. Check logs: `log stream --predicate 'process == "VTT"'`
 3. Verify whisper model is downloaded
 
