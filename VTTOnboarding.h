@@ -1,10 +1,10 @@
-// VTTOnboarding.h - First-run walkthrough and permission helper
+// VTTOnboarding.h - Beautiful first-run onboarding window
 
 #import <Cocoa/Cocoa.h>
 
-@interface VTTOnboarding : NSObject
+@interface VTTOnboardingWindow : NSWindowController
 
-// Show onboarding if first run
+// Show onboarding if needed (first run or missing permissions)
 + (void)showIfNeeded;
 
 // Show onboarding manually
@@ -12,6 +12,11 @@
 
 // Check if all permissions are granted
 + (BOOL)hasAllPermissions;
+
+@end
+
+// Onboarding helper methods
+@interface VTTOnboarding : NSObject
 
 // Individual permission checks
 + (BOOL)hasMicrophonePermission;

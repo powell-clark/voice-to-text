@@ -5,6 +5,7 @@
 #import <ApplicationServices/ApplicationServices.h>
 #import <AVFoundation/AVFoundation.h>
 #import <IOKit/hidsystem/ev_keymap.h>
+#import "VTTOnboarding.h"
 #include <unistd.h>
 
 #ifdef USE_WHISPER_LIB
@@ -203,8 +204,8 @@ static void audioInputCallback(void* userData,
     // Initialize audio
     [self initializeAudio];
 
-    // Request permissions
-    [self requestPermissions];
+    // Show beautiful onboarding window if needed
+    [VTTOnboardingWindow showIfNeeded];
 
     // Set up keyboard monitoring
     [self setupKeyboardMonitoring];
