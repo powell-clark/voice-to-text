@@ -14,14 +14,20 @@ Voice-to-text using OpenAI Whisper. Hold Right Alt to speak, release when finish
 ## Installation
 
 ### Homebrew (Recommended)
+
+**Step 1:** Open Terminal and run these commands:
 ```bash
 brew tap powell-clark/voice-to-text
 brew install voice-to-text
+```
 
-# Copy to Applications and launch
+**Step 2:** Copy VTT to Applications and launch:
+```bash
 cp -r /usr/local/opt/voice-to-text/VTT.app /Applications/
 open /Applications/VTT.app
 ```
+
+**Step 3:** Grant the three permissions when prompted (Microphone, Accessibility, Input Monitoring)
 
 ### Build from Source
 ```bash
