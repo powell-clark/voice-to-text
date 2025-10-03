@@ -116,7 +116,9 @@ VTT.app/
 
 ## License
 
-Apache 2.0
+Copyright © 2025 Powell-Clark Limited
+
+Licensed under the Apache License, Version 2.0
 
 ## Credits
 
