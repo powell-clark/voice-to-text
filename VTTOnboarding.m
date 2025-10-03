@@ -85,25 +85,17 @@
     [self.contentView addSubview:icon];
 
     // Title
-    NSTextField *title = [[NSTextField alloc] initWithFrame:NSMakeRect(50, 280, 500, 40)];
-    title.stringValue = @"Welcome to VTT";
+    NSTextField *title = [NSTextField labelWithString:@"Welcome to VTT"];
+    title.frame = NSMakeRect(50, 280, 500, 40);
     title.font = [NSFont boldSystemFontOfSize:32];
-    title.bordered = NO;
-    title.editable = NO;
-    title.selectable = NO;
-    title.backgroundColor = [NSColor clearColor];
     title.alignment = NSTextAlignmentCenter;
     [self.contentView addSubview:title];
 
     // Subtitle
-    NSTextField *subtitle = [[NSTextField alloc] initWithFrame:NSMakeRect(50, 220, 500, 50)];
-    subtitle.stringValue = @"Voice to Text - Real-time transcription for macOS\nHold Right Option, speak, release to paste.";
+    NSTextField *subtitle = [NSTextField labelWithString:@"Voice to Text - Real-time transcription for macOS\nHold Right Option, speak, release to paste."];
+    subtitle.frame = NSMakeRect(50, 220, 500, 50);
     subtitle.font = [NSFont systemFontOfSize:16];
     subtitle.textColor = [NSColor grayColor];
-    subtitle.bordered = NO;
-    subtitle.editable = NO;
-    subtitle.selectable = NO;
-    subtitle.backgroundColor = [NSColor clearColor];
     subtitle.alignment = NSTextAlignmentCenter;
     [self.contentView addSubview:subtitle];
 
@@ -117,13 +109,9 @@
 
     CGFloat yPos = 150;
     for (NSString *feature in features) {
-        NSTextField *featureLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(100, yPos, 400, 20)];
-        featureLabel.stringValue = feature;
+        NSTextField *featureLabel = [NSTextField labelWithString:feature];
+        featureLabel.frame = NSMakeRect(100, yPos, 400, 20);
         featureLabel.font = [NSFont systemFontOfSize:14];
-        featureLabel.bordered = NO;
-        featureLabel.editable = NO;
-        featureLabel.selectable = NO;
-        featureLabel.backgroundColor = [NSColor clearColor];
         [self.contentView addSubview:featureLabel];
         yPos -= 25;
     }
