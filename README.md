@@ -1,4 +1,4 @@
-# VTT - Voice to Text
+# Voice to Text
 
 A lightweight macOS menu bar app for instant voice-to-text transcription using OpenAI's Whisper.
 
