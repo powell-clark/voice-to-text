@@ -130,11 +130,11 @@
 
     // Get Started button
     NSButton *startButton = [[NSButton alloc] initWithFrame:NSMakeRect(200, 40, 200, 40)];
-    startButton.title = @"Get Started";
-    startButton.bezelStyle = NSBezelStyleRounded;
-    startButton.font = [NSFont boldSystemFontOfSize:16];
-    startButton.target = self;
-    startButton.action = @selector(startPermissionFlow);
+    [startButton setTitle:@"Get Started"];
+    [startButton setBezelStyle:NSBezelStyleRounded];
+    [startButton setFont:[NSFont boldSystemFontOfSize:16]];
+    [startButton setTarget:self];
+    [startButton setAction:@selector(startPermissionFlow)];
     [self.contentView addSubview:startButton];
 }
 
@@ -253,11 +253,11 @@
 
     // Grant button
     NSButton *grantButton = [[NSButton alloc] initWithFrame:NSMakeRect(150, 70, 300, 40)];
-    grantButton.title = buttonTitle;
-    grantButton.bezelStyle = NSBezelStyleRounded;
-    grantButton.font = [NSFont boldSystemFontOfSize:14];
-    grantButton.target = self;
-    grantButton.action = action;
+    [grantButton setTitle:buttonTitle];
+    [grantButton setBezelStyle:NSBezelStyleRounded];
+    [grantButton setFont:[NSFont boldSystemFontOfSize:14]];
+    [grantButton setTarget:self];
+    [grantButton setAction:action];
     [self.contentView addSubview:grantButton];
 
     // Status label (for checking)
@@ -319,11 +319,11 @@
 
     // Done button
     NSButton *doneButton = [[NSButton alloc] initWithFrame:NSMakeRect(200, 80, 200, 40)];
-    doneButton.title = @"Start Using VTT";
-    doneButton.bezelStyle = NSBezelStyleRounded;
-    doneButton.font = [NSFont boldSystemFontOfSize:16];
-    doneButton.target = self;
-    doneButton.action = @selector(finishOnboarding);
+    [doneButton setTitle:@"Start Using VTT"];
+    [doneButton setBezelStyle:NSBezelStyleRounded];
+    [doneButton setFont:[NSFont boldSystemFontOfSize:16]];
+    [doneButton setTarget:self];
+    [doneButton setAction:@selector(finishOnboarding)];
     [self.contentView addSubview:doneButton];
 
     // Mark onboarding as seen
