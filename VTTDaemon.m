@@ -39,6 +39,8 @@ typedef struct {
 @property (strong) NSString *selectedModel;
 @property (strong) NSMenuItem *modelMenuItem;
 @property (strong) NSTask *downloadTask;
+@property (nonatomic) NSInteger downloadRetryCount;
+@property (strong) NSString *downloadingModel;
 @property (strong) dispatch_queue_t transcribeQueue;
 @property (atomic) NSInteger pendingJobs;
 @property (atomic) NSUInteger sessionCounter;
@@ -592,6 +594,30 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         return;
     }
 
+    // Check microphone permission before recording
+    AVAuthorizationStatus micStatus = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
+    if (micStatus != AVAuthorizationStatusAuthorized) {
+        VTTLog(@"🔥 [ERROR] Microphone permission not granted");
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSAlert *alert = [[NSAlert alloc] init];
+            alert.messageText = @"Microphone Permission Required";
+            alert.informativeText = @"VTT needs microphone access to record audio.\n\nPlease grant permission in System Settings → Privacy & Security → Microphone";
+            alert.alertStyle = NSAlertStyleWarning;
+            [alert addButtonWithTitle:@"Open Settings"];
+            [alert addButtonWithTitle:@"Cancel"];
+            NSInteger response = [alert runModal];
+            if (response == NSAlertFirstButtonReturn) {
+                [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"]];
+            }
+        });
+        return;
+    }
+
+    // Check accessibility permission (needed for paste)
+    if (!AXIsProcessTrusted()) {
+        VTTLog(@"🔥 [WARNING] Accessibility permission not granted - paste may fail");
+    }
+
     if (self.audioState->isRecording) {
         VTTLog(@"🔥 [WARNING] Already recording, ignoring start request");
         return;
@@ -753,6 +779,14 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     } else {
         VTTLog(@"Model not found in bundled or external locations");
         self.statusMenuItem.title = [NSString stringWithFormat:@"Model %@ not found", self.selectedModel];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSAlert *alert = [[NSAlert alloc] init];
+            alert.messageText = @"Model Not Found";
+            alert.informativeText = [NSString stringWithFormat:@"Whisper model '%@' is not installed.\n\nPlease select a model from the VTT menu bar to download it automatically.", self.selectedModel];
+            alert.alertStyle = NSAlertStyleWarning;
+            [alert addButtonWithTitle:@"OK"];
+            [alert runModal];
+        });
         return;
     }
 
@@ -796,6 +830,14 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         VTTLog(@"whisper-cli not found in common locations");
         self.statusMenuItem.title = @"whisper-cli not installed";
         self.statusItem.button.title = @"VTT ⚠️";
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSAlert *alert = [[NSAlert alloc] init];
+            alert.messageText = @"Whisper Not Installed";
+            alert.informativeText = @"whisper-cli was not found on your system.\n\nPlease install whisper.cpp:\n  brew install whisper-cpp\n\nOr build from source and ensure whisper-cli is in your PATH.";
+            alert.alertStyle = NSAlertStyleCritical;
+            [alert addButtonWithTitle:@"OK"];
+            [alert runModal];
+        });
         return;
     }
 
@@ -824,6 +866,14 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         free(fsamples);
         if (rc != 0) {
             VTTLog(@"whisper_full failed: %d", rc);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                NSAlert *alert = [[NSAlert alloc] init];
+                alert.messageText = @"Transcription Failed";
+                alert.informativeText = [NSString stringWithFormat:@"Whisper transcription failed with error code %d.\n\nPlease try again or select a different model.", rc];
+                alert.alertStyle = NSAlertStyleWarning;
+                [alert addButtonWithTitle:@"OK"];
+                [alert runModal];
+            });
         } else {
             int nseg = whisper_full_n_segments(self.wctx);
             for (int i = 0; i < nseg; ++i) {
@@ -882,6 +932,20 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 #endif
 
     VTTLog(@"Transcription result: %@", transcription);
+
+    // Trim whitespace
+    transcription = [[transcription stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] mutableCopy];
+
+    // Check if transcription is empty or failed
+    if (transcription.length == 0) {
+        VTTLog(@"Empty transcription - no speech detected or transcription failed");
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.statusMenuItem.title = @"Status: No speech detected";
+            self.statusItem.button.title = @"VTT";
+        });
+        free(out_pcm);
+        return;
+    }
 
     // Copy to clipboard and paste
     if (transcription.length > 0) {
@@ -1069,17 +1133,37 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
                     VTTLog(@"Downloaded and switched to model: %@", newModel);
                 } else {
-                    // Failed
-                    strongSelf.statusMenuItem.title = @"Status: Download failed";
-                    strongSelf.statusItem.button.title = @"VTT ⚠️";
-                    VTTLog(@"Failed to download model: %@", newModel);
+                    // Failed - retry up to 3 times
+                    VTTLog(@"Download failed (attempt %ld/3): %@", (long)strongSelf.downloadRetryCount + 1, newModel);
 
-                    // Revert checkmark
-                    item.state = NSControlStateValueOff;
-                    for (NSMenuItem *menuItem in item.menu.itemArray) {
-                        if ([menuItem.title isEqualToString:strongSelf.selectedModel]) {
-                            menuItem.state = NSControlStateValueOn;
-                            break;
+                    if (strongSelf.downloadRetryCount < 3) {
+                        strongSelf.downloadRetryCount++;
+                        strongSelf.statusMenuItem.title = [NSString stringWithFormat:@"Retrying download (%ld/3)...", (long)strongSelf.downloadRetryCount];
+
+                        // Retry after 2 seconds
+                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                            [strongSelf selectModel:sender];
+                        });
+                    } else {
+                        // All retries failed
+                        strongSelf.downloadRetryCount = 0;
+                        strongSelf.statusMenuItem.title = @"Status: Download failed";
+                        strongSelf.statusItem.button.title = @"VTT ⚠️";
+
+                        NSAlert *alert = [[NSAlert alloc] init];
+                        alert.messageText = @"Download Failed";
+                        alert.informativeText = [NSString stringWithFormat:@"Failed to download Whisper model '%@' after 3 attempts.\n\nPlease check your internet connection and try again.", newModel];
+                        alert.alertStyle = NSAlertStyleCritical;
+                        [alert addButtonWithTitle:@"OK"];
+                        [alert runModal];
+
+                        // Revert checkmark
+                        item.state = NSControlStateValueOff;
+                        for (NSMenuItem *menuItem in item.menu.itemArray) {
+                            if ([menuItem.title isEqualToString:strongSelf.selectedModel]) {
+                                menuItem.state = NSControlStateValueOn;
+                                break;
+                            }
                         }
                     }
                 }
