@@ -2,3 +2,5 @@ VTT
 VTT.app/
 *.bin
 .DS_Store
+*.zip
+vtt.rb
