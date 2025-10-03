@@ -185,7 +185,7 @@ static void audioInputCallback(void* userData,
     self.loggingToggleItem.state = self.loggingEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     [self.menu addItem:self.loggingToggleItem];
 
-    NSMenuItem *aboutItem = [[NSMenuItem alloc] initWithTitle:@"About VTT"
+    NSMenuItem *aboutItem = [[NSMenuItem alloc] initWithTitle:@"About Voice to Text"
                                                         action:@selector(showAbout:)
                                                  keyEquivalent:@""];
     aboutItem.target = self;
@@ -454,10 +454,10 @@ static void audioInputCallback(void* userData,
 
 - (void)showPermissionDialog:(BOOL)hasAccessibility hasMicrophone:(BOOL)hasMicrophone {
     NSAlert *alert = [[NSAlert alloc] init];
-    alert.messageText = @"VTT Needs Permissions";
+    alert.messageText = @"Voice to Text Needs Permissions";
 
     NSMutableString *info = [NSMutableString string];
-    [info appendString:@"VTT needs these permissions to work:\n\n"];
+    [info appendString:@"Voice to Text needs these permissions to work:\n\n"];
 
     if (!hasAccessibility) {
         [info appendString:@"❌ Accessibility - for keyboard monitoring\n"];
@@ -473,9 +473,9 @@ static void audioInputCallback(void* userData,
 
     [info appendString:@"\nClick 'Open Settings' to grant permissions."];
     [info appendString:@"\nYou'll need to:\n"];
-    [info appendString:@"1. Add VTT.app to each permission\n"];
+    [info appendString:@"1. Add Voice to Text to each permission\n"];
     [info appendString:@"2. Toggle the switch ON\n"];
-    [info appendString:@"3. Restart VTT when done"];
+    [info appendString:@"3. Restart Voice to Text when done"];
 
     alert.informativeText = info;
     [alert addButtonWithTitle:@"Open Settings"];
@@ -514,8 +514,8 @@ static void audioInputCallback(void* userData,
 
         // Show permission dialog specifically for Input Monitoring
         NSAlert *alert = [[NSAlert alloc] init];
-        alert.messageText = @"VTT Needs Input Monitoring Permission";
-        alert.informativeText = @"VTT needs Input Monitoring permission to detect when you hold the Right Option key.\n\n1. Click 'Open Settings'\n2. Find and select VTT.app\n3. Toggle the switch ON\n4. Restart VTT";
+        alert.messageText = @"Voice to Text Needs Input Monitoring Permission";
+        alert.informativeText = @"Voice to Text needs Input Monitoring permission to detect when you hold the Right Option key.\n\n1. Click 'Open Settings'\n2. Find and select VTT.app\n3. Toggle the switch ON\n4. Restart Voice to Text";
         [alert addButtonWithTitle:@"Open Settings"];
         [alert addButtonWithTitle:@"Cancel"];
 
@@ -602,7 +602,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         dispatch_async(dispatch_get_main_queue(), ^{
             NSAlert *alert = [[NSAlert alloc] init];
             alert.messageText = @"Microphone Permission Required";
-            alert.informativeText = @"VTT needs microphone access to record audio.\n\nPlease grant permission in System Settings → Privacy & Security → Microphone";
+            alert.informativeText = @"Voice to Text needs microphone access to record audio.\n\nPlease grant permission in System Settings → Privacy & Security → Microphone";
             alert.alertStyle = NSAlertStyleWarning;
             [alert addButtonWithTitle:@"Open Settings"];
             [alert addButtonWithTitle:@"Cancel"];
@@ -783,7 +783,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         dispatch_async(dispatch_get_main_queue(), ^{
             NSAlert *alert = [[NSAlert alloc] init];
             alert.messageText = @"Model Not Found";
-            alert.informativeText = [NSString stringWithFormat:@"Whisper model '%@' is not installed.\n\nPlease select a model from the VTT menu bar to download it automatically.", self.selectedModel];
+            alert.informativeText = [NSString stringWithFormat:@"Whisper model '%@' is not installed.\n\nPlease select a model from the Voice to Text menu bar to download it automatically.", self.selectedModel];
             alert.alertStyle = NSAlertStyleWarning;
             [alert addButtonWithTitle:@"OK"];
             [alert runModal];
@@ -1001,7 +1001,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     if (hasAccessibility && hasMicrophone) {
         NSAlert *alert = [[NSAlert alloc] init];
         alert.messageText = @"Permissions OK";
-        alert.informativeText = @"✅ All permissions granted!\n\nVTT is ready to use.";
+        alert.informativeText = @"✅ All permissions granted!\n\nVoice to Text is ready to use.";
         [alert addButtonWithTitle:@"Great!"];
         [alert runModal];
     } else {
@@ -1011,7 +1011,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
 - (void)showAbout:(id)sender {
     NSAlert *alert = [[NSAlert alloc] init];
-    alert.messageText = @"VTT - Voice to Text";
+    alert.messageText = @"Voice to Text";
     alert.informativeText = @"Pure C/Objective-C implementation\nHold Right Option to record\nRelease to transcribe";
     [alert addButtonWithTitle:@"OK"];
     [alert runModal];

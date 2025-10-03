@@ -1,8 +1,8 @@
-This directory holds vendored third-party code used by VTT.
+This directory holds vendored third-party code used by Voice to Text.
 
 whisper.cpp (https://github.com/ggerganov/whisper.cpp)
 - We include it as a git submodule or a plain clone.
-- The build integrates a static library (libwhisper.a) for a zero-dependency VTT.
+- The build integrates a static library (libwhisper.a) for a zero-dependency Voice to Text.
 - The bundled model (ggml-small.en.bin) is used by default at runtime.
 
 Fetch options:

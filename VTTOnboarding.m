@@ -19,14 +19,14 @@
 
 + (void)show {
     NSAlert *alert = [[NSAlert alloc] init];
-    alert.messageText = @"VTT Setup Required";
-    alert.informativeText = @"VTT needs 3 permissions to work:\n\n"
+    alert.messageText = @"Voice to Text Setup Required";
+    alert.informativeText = @"Voice to Text needs 3 permissions to work:\n\n"
                             @"1. Go to System Settings → Privacy & Security\n"
                             @"2. Grant these permissions:\n"
                             @"   • Microphone (to record your voice)\n"
                             @"   • Accessibility (to paste text)\n"
                             @"   • Input Monitoring (to detect Right Option key)\n\n"
-                            @"3. Restart VTT after granting permissions\n\n"
+                            @"3. Restart Voice to Text after granting permissions\n\n"
                             @"Usage: Hold Right Option, speak, release to paste.";
     alert.alertStyle = NSAlertStyleInformational;
     [alert addButtonWithTitle:@"Open System Settings"];
@@ -73,8 +73,8 @@
 
 + (void)show {
     NSAlert *alert = [[NSAlert alloc] init];
-    alert.messageText = @"Welcome to VTT! 🎙️";
-    alert.informativeText = @"VTT needs a few permissions to work:\n\n"
+    alert.messageText = @"Welcome to Voice to Text! 🎙️";
+    alert.informativeText = @"Voice to Text needs a few permissions to work:\n\n"
                             @"✓ Microphone - Record your voice\n"
                             @"✓ Accessibility - Paste transcribed text\n"
                             @"✓ Input Monitoring - Detect Right Option key\n\n"
@@ -103,10 +103,10 @@
     NSAlert *alert = [[NSAlert alloc] init];
     alert.messageText = @"Grant Permissions";
     alert.informativeText = @"Click each button below to open System Settings:\n\n"
-                            @"1️⃣ Microphone - Allow VTT to record\n"
-                            @"2️⃣ Accessibility - Allow VTT to paste text\n"
-                            @"3️⃣ Input Monitoring - Allow VTT to detect keys\n\n"
-                            @"After granting each permission, restart VTT.";
+                            @"1️⃣ Microphone - Allow Voice to Text to record\n"
+                            @"2️⃣ Accessibility - Allow Voice to Text to paste text\n"
+                            @"3️⃣ Input Monitoring - Allow Voice to Text to detect keys\n\n"
+                            @"After granting each permission, restart Voice to Text.";
     alert.alertStyle = NSAlertStyleInformational;
 
     // Create custom view with buttons for each permission
