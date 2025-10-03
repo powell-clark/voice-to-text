@@ -1,16 +1,15 @@
 # Voice to Text
 
-A lightweight macOS menu bar app for instant voice-to-text transcription using OpenAI's Whisper.
+Voice-to-text using OpenAI Whisper. Hold Right Alt to speak, release when finished. Your text appears in any focused input box.
 
-## Features
+## How It Works
 
-- **Push-to-talk recording**: Hold Right Option key to record, release to transcribe
-- **Instant paste**: Automatically pastes transcribed text at cursor position
-- **Menu bar app**: Runs quietly in background with status indicator
-- **Multiple Whisper models**: Choose from tiny, base, small, medium, or large models
-- **Zero-latency recording**: Optimized audio queue for instant recording start
-- **Embedded Whisper**: Built-in whisper.cpp for fast local transcription
-- **No network required**: All transcription happens locally on your Mac
+1. Hold **Right Alt** (Right Option key)
+2. Speak
+3. Release when finished
+4. Text appears in your focused input box
+
+**No internet required** - all transcription happens locally on your Mac.
 
 ## Installation
 
@@ -40,33 +39,30 @@ cp -R VTT.app /Applications/
 open /Applications/VTT.app
 ```
 
-## Usage
+## First Run Setup
 
-1. Click VTT icon in menu bar to see status
-2. Hold **Right Option** key to start recording (🎤 appears)
-3. Speak your text
-4. Release Right Option to stop and transcribe
-5. Text is automatically pasted at cursor position
+**IMPORTANT:** Grant these three permissions in System Settings → Privacy & Security or the app won't work:
+- **Microphone** - To record your voice
+- **Accessibility** - To paste text
+- **Input Monitoring** - To detect Right Alt key
 
-## Permissions Required
+The app will prompt you on first launch.
 
-VTT needs these macOS permissions to function:
-- **Accessibility**: To simulate keyboard paste (Cmd+V)
-- **Input Monitoring**: To detect Right Option key press/release
-- **Microphone**: To record audio
+## Choose a Model
 
-Grant these in System Settings → Privacy & Security
+Select a model from the menu bar. **We recommend starting with small (244 MB)** - it provides the best balance of speed and accuracy.
 
-## Models
+- **tiny** (39 MB) - Fastest, less accurate
+- **base** (74 MB) - Fast, good for simple dictation
+- **small** (244 MB) - **Recommended** - good accuracy, reasonable speed
+- **medium** (769 MB) - Slower, more accurate
+- **large** (1550 MB) - Slowest, best accuracy
 
-Select different Whisper models from the menu:
-- **tiny**: Fastest, least accurate (39 MB)
-- **base**: Fast, good for quick notes (74 MB)
-- **small**: Balanced speed/accuracy (244 MB) - Default
-- **medium**: Slower, more accurate (769 MB)
-- **large**: Slowest, best accuracy (1550 MB)
+**Larger models take longer to transcribe but are more accurate.** Models download automatically on first selection.
 
-Models download automatically on first selection.
+## Microphone Selection
+
+Choose your microphone from the menu bar. **Use your system default microphone** (usually "Built-in Microphone") for best results.
 
 ## Technical Details
 
