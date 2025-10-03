@@ -14,16 +14,20 @@ A lightweight macOS menu bar app for instant voice-to-text transcription using O
 
 ## Installation
 
-### Quick Install
-1. Download the latest VTT.app from releases
-2. Move to Applications folder
-3. Launch VTT
-4. Grant required permissions (Accessibility, Input Monitoring, Microphone)
+### Homebrew (Recommended)
+```bash
+brew tap powell-clark/voice-to-text
+brew install voice-to-text
+
+# Copy to Applications and launch
+cp -r /usr/local/opt/voice-to-text/VTT.app /Applications/
+open /Applications/VTT.app
+```
 
 ### Build from Source
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/voice-to-text.git
+git clone https://github.com/powell-clark/voice-to-text.git
 cd voice-to-text
 
 # Build with embedded whisper
@@ -32,7 +36,7 @@ make whisper-lib     # Build whisper library
 make complete        # Build VTT.app
 
 # Install
-sudo cp -R VTT.app /Applications/
+cp -R VTT.app /Applications/
 open /Applications/VTT.app
 ```
 
