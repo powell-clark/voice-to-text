@@ -902,9 +902,17 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     fclose(wav);
 
     // Run whisper with selected model - check bundled model first, then external
+    // Map model names (large → large-v3 which is multilingual)
+    NSString *modelFile = self.selectedModel;
+    NSString *extension = @"en.bin"; // Default: English-only
+    if ([self.selectedModel isEqualToString:@"large"]) {
+        modelFile = @"large-v3";
+        extension = @"bin"; // large-v3 is multilingual
+    }
+
     NSString *homeDir = NSHomeDirectory();
-    NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.en.bin", self.selectedModel]];
-    NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.en.bin", homeDir, self.selectedModel];
+    NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.%@", modelFile, extension]];
+    NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.%@", homeDir, modelFile, extension];
 
     // Check for model: bundled first, then external location
     NSString *modelPath = nil;
