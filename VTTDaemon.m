@@ -7,6 +7,8 @@
 #import <IOKit/hidsystem/ev_keymap.h>
 #import "VTTOnboarding.h"
 #include <unistd.h>
+#include <mach/mach.h>
+#include <mach/mach_host.h>
 
 #ifdef USE_WHISPER_LIB
 #include "whisper.h"
@@ -1063,17 +1065,55 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         if (rc != 0) {
             VTTLog(@"❌ ❌ ❌ WHISPER_FULL FAILED ❌ ❌ ❌");
             VTTLog(@"Error code: %d", rc);
-            VTTLog(@"Error -6 = Failed to encode (encoder failure)");
-            VTTLog(@"Possible causes:");
-            VTTLog(@"  1. Model file corrupted or incompatible");
-            VTTLog(@"  2. GPU/Metal initialization failed");
-            VTTLog(@"  3. Audio format issue (sample rate, channels)");
-            VTTLog(@"  4. Insufficient memory");
+
+            // Check if model file is corrupted
+            NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.en.bin", self.selectedModel]];
+            NSString *externalModelPath = [[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/VTT"] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.en.bin", self.selectedModel]];
+            NSString *modelPath = [[NSFileManager defaultManager] fileExistsAtPath:bundledModelPath] ? bundledModelPath : externalModelPath;
+
+            BOOL isCorrupted = NO;
+            if ([[NSFileManager defaultManager] fileExistsAtPath:modelPath]) {
+                NSData *header = [NSData dataWithContentsOfFile:modelPath options:NSDataReadingMappedIfSafe error:nil];
+                if (header.length > 4) {
+                    const unsigned char *bytes = (const unsigned char *)header.bytes;
+                    BOOL isValid = (strncmp((const char *)bytes, "GGUF", 4) == 0 ||
+                                  strncmp((const char *)bytes, "ggml", 4) == 0);
+                    if (!isValid) {
+                        isCorrupted = YES;
+                        VTTLog(@"⚠️  MODEL FILE CORRUPTED! First bytes: %02x %02x %02x %02x", bytes[0], bytes[1], bytes[2], bytes[3]);
+                        VTTLog(@"Expected 'GGUF' or 'ggml', got invalid data");
+                    }
+                }
+            }
+
+            if (rc == -6) {
+                VTTLog(@"Error -6 = Failed to encode (encoder failure)");
+                VTTLog(@"Possible causes:");
+                if (isCorrupted) {
+                    VTTLog(@"  ⚠️  PRIMARY CAUSE: Model file is CORRUPTED (not a valid GGML file)");
+                    VTTLog(@"  → Delete and re-download the model");
+                } else {
+                    VTTLog(@"  1. Model file incompatible with whisper.cpp version");
+                    VTTLog(@"  2. Audio format issue (sample rate, channels)");
+                    VTTLog(@"  3. Insufficient memory");
+                }
+            }
             VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
             dispatch_async(dispatch_get_main_queue(), ^{
                 NSAlert *alert = [[NSAlert alloc] init];
-                alert.messageText = @"Transcription Failed";
-                alert.informativeText = [NSString stringWithFormat:@"Whisper transcription failed with error code %d.\n\nThis usually means:\n• Model file is corrupted\n• GPU/Metal failed to initialize\n• Audio format incompatibility\n\nTry:\n1. Selecting a different model\n2. Re-downloading the model\n3. Checking the logs (Show Logs from menu)", rc];
+                alert.messageText = [NSString stringWithFormat:@"Transcription Failed (Error %d)", rc];
+
+                NSString *message;
+                if (isCorrupted) {
+                    message = [NSString stringWithFormat:@"❌ MODEL FILE CORRUPTED\n\nThe %@ model file is not a valid GGML/GGUF file.\n\nThis happens when:\n• Download was interrupted\n• HTML error page was saved instead of model\n• File became corrupted\n\n✅ FIX: Delete the model and re-download:\n1. Select a different model from menu\n2. Then select %@ again to re-download", self.selectedModel, self.selectedModel];
+                } else if (rc == -6) {
+                    message = @"Encoder failure (error -6).\n\nPossible causes:\n• Model incompatible with whisper.cpp version\n• Audio format issue\n• Insufficient memory\n\nTry:\n1. Selecting a different model size\n2. Re-downloading the model\n3. Check logs (Show Logs from menu)";
+                } else {
+                    message = [NSString stringWithFormat:@"Whisper failed with error code %d.\n\nCheck logs (Show Logs from menu) for details.", rc];
+                }
+
+                alert.informativeText = message;
                 alert.alertStyle = NSAlertStyleWarning;
                 [alert addButtonWithTitle:@"OK"];
                 [alert runModal];
@@ -1332,27 +1372,72 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
     if ([[NSFileManager defaultManager] fileExistsAtPath:bundledModelPath] ||
         [[NSFileManager defaultManager] fileExistsAtPath:externalModelPath]) {
-        // Model exists, just switch to it
-        self.selectedModel = newModel;
-        self.modelMenuItem.title = [NSString stringWithFormat:@"Model: %@", newModel];
 
-        // Save preference
-        [[NSUserDefaults standardUserDefaults] setObject:newModel forKey:@"selectedModel"];
+        // Check available memory before attempting to load
+        NSProcessInfo *processInfo = [NSProcessInfo processInfo];
+        unsigned long long freeMemory = processInfo.physicalMemory - (processInfo.physicalMemory - [NSProcessInfo processInfo].physicalMemory);
 
-        self.statusMenuItem.title = [NSString stringWithFormat:@"Status: Using %@ model", newModel];
-        VTTLog(@"Switched to model: %@", newModel);
+        // Get approximate model size
+        NSDictionary *modelSizes = @{
+            @"tiny": @75,
+            @"base": @150,
+            @"small": @500,
+            @"medium": @1500,
+            @"large": @3000
+        };
+        NSNumber *modelSize = modelSizes[newModel] ?: @500;
+        unsigned long long requiredMemory = [modelSize unsignedLongLongValue] * 1024 * 1024; // Convert MB to bytes
+
+        // Check system memory availability
+        mach_port_t host_port = mach_host_self();
+        mach_msg_type_number_t host_size = sizeof(vm_statistics_data_t) / sizeof(integer_t);
+        vm_size_t pagesize;
+        vm_statistics_data_t vm_stat;
+        host_page_size(host_port, &pagesize);
+
+        if (host_statistics(host_port, HOST_VM_INFO, (host_info_t)&vm_stat, &host_size) == KERN_SUCCESS) {
+            unsigned long long free_memory = (unsigned long long)(vm_stat.free_count * pagesize);
+            unsigned long long available_memory = free_memory + (vm_stat.inactive_count * pagesize);
+
+            VTTLog(@"Memory check: Available=%lluMB, Required=%lluMB", available_memory/(1024*1024), requiredMemory/(1024*1024));
+
+            // Need at least 2x model size for safe loading (model + processing buffers)
+            if (available_memory < requiredMemory * 2) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    NSAlert *alert = [[NSAlert alloc] init];
+                    alert.messageText = @"Insufficient Memory";
+                    alert.informativeText = [NSString stringWithFormat:@"Not enough free memory to load %@ model.\n\nRequired: ~%lluMB\nAvailable: ~%lluMB\n\nTry:\n• Closing other applications\n• Using a smaller model (tiny or base)\n• Restarting your Mac",
+                        newModel,
+                        (requiredMemory * 2)/(1024*1024),
+                        available_memory/(1024*1024)];
+                    alert.alertStyle = NSAlertStyleWarning;
+                    [alert addButtonWithTitle:@"OK"];
+                    [alert runModal];
+                });
+                VTTLog(@"❌ Insufficient memory for model %@", newModel);
+                return;
+            }
+        }
+
+        // Store old model info in case we need to rollback
+        NSString *previousModel = self.selectedModel;
+        struct whisper_context *previousContext = self.wctx;
+
+        self.statusMenuItem.title = [NSString stringWithFormat:@"Status: Loading %@ model…", newModel];
+        VTTLog(@"Attempting to switch from %@ to %@", previousModel, newModel);
 
 #ifdef USE_WHISPER_LIB
-        // Reload whisper context for new model in background
-        if (self.wctx) { whisper_free(self.wctx); self.wctx = NULL; }
+        // Load new model in background WITHOUT freeing old one yet
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.en.bin", newModel]];
             NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.en.bin", NSHomeDirectory(), newModel];
             NSString *modelPath = [[NSFileManager defaultManager] fileExistsAtPath:bundledModelPath] ? bundledModelPath : externalModelPath;
+
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.statusMenuItem.title = [NSString stringWithFormat:@"Status: Loading %@ model…", newModel];
                 self.statusItem.button.title = @"VTT ⏳";
             });
+
             struct whisper_context_params cparams = whisper_context_default_params();
             // CPU-only mode - Metal only works on Apple Silicon, not Intel GPUs
             cparams.use_gpu = false;
@@ -1369,180 +1454,228 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
             }
 
             if (!ctx) {
-                VTTLog(@"❌ Failed to load model");
-            } else {
-                VTTLog(@"✅ Model loaded (GPU: %d)", cparams.use_gpu);
-            }
-            self.wctx = ctx;
-            dispatch_async(dispatch_get_main_queue(), ^{
-                if (self.wctx) {
-                    self.statusMenuItem.title = [NSString stringWithFormat:@"Status: %@ model ready", newModel];
+                VTTLog(@"❌ Failed to load new model - keeping previous model");
+
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    NSAlert *alert = [[NSAlert alloc] init];
+                    alert.messageText = @"Model Loading Failed";
+                    alert.informativeText = [NSString stringWithFormat:@"Failed to load %@ model.\n\nKeeping previous model: %@\n\nPossible causes:\n• Insufficient memory\n• Corrupted model file\n• System memory pressure\n\nTry closing other apps or using a smaller model.", newModel, previousModel];
+                    alert.alertStyle = NSAlertStyleWarning;
+                    [alert addButtonWithTitle:@"OK"];
+                    [alert runModal];
+
+                    // Revert UI to previous model
+                    self.statusMenuItem.title = [NSString stringWithFormat:@"Status: %@ model ready", previousModel];
                     self.statusItem.button.title = @"VTT ✅";
-                } else {
-                    self.statusMenuItem.title = @"Status: Whisper init failed";
-                    self.statusItem.button.title = @"VTT ⚠️";
-                }
-            });
-        });
-#endif
-    } else {
-        // Need to download model
-        VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        VTTLog(@"📥 MODEL DOWNLOAD START");
-        VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        VTTLog(@"Model: %@", newModel);
-        VTTLog(@"Target path: %@", externalModelPath);
+                    self.modelMenuItem.title = [NSString stringWithFormat:@"Model: %@", previousModel];
 
-        self.statusMenuItem.title = [NSString stringWithFormat:@"Downloading %@...", newModel];
-        self.statusItem.button.title = @"VTT ⏬";
-
-        // Download with curl showing progress
-        NSString *downloadURL = [NSString stringWithFormat:
-            @"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-%@.en.bin", newModel];
-
-        VTTLog(@"Download URL: %@", downloadURL);
-
-        // Ensure directory exists
-        NSString *modelsDir = [externalModelPath stringByDeletingLastPathComponent];
-        [[NSFileManager defaultManager] createDirectoryAtPath:modelsDir withIntermediateDirectories:YES attributes:nil error:nil];
-        VTTLog(@"Models directory: %@", modelsDir);
-
-        self.downloadTask = [[NSTask alloc] init];
-        self.downloadTask.launchPath = @"/usr/bin/curl";
-        self.downloadTask.arguments = @[@"-L", @"--fail", @"-#", @"-o", externalModelPath, downloadURL];
-
-        VTTLog(@"Executing: %@ %@", self.downloadTask.launchPath, [self.downloadTask.arguments componentsJoinedByString:@" "]);
-
-        // Capture progress output
-        NSPipe *pipe = [NSPipe pipe];
-        self.downloadTask.standardError = pipe;
-
-        // Monitor download progress
-        NSFileHandle *file = [pipe fileHandleForReading];
-
-        [[NSNotificationCenter defaultCenter] addObserverForName:NSFileHandleReadCompletionNotification
-                                                          object:file
-                                                           queue:nil
-                                                      usingBlock:^(NSNotification *note) {
-            NSData *data = note.userInfo[NSFileHandleNotificationDataItem];
-            if (data.length > 0) {
-                NSString *output = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-
-                // Parse curl progress (looks for ###% pattern)
-                NSRange range = [output rangeOfString:@"\\d+\\.\\d+%"
-                                              options:NSRegularExpressionSearch];
-                if (range.location != NSNotFound) {
-                    NSString *percent = [output substringWithRange:range];
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        self.statusMenuItem.title = [NSString stringWithFormat:@"Downloading %@: %@", newModel, percent];
-                    });
-                }
-
-                [file readInBackgroundAndNotify];
-            }
-        }];
-
-        [file readInBackgroundAndNotify];
-
-        __weak __typeof(self) weakSelf = self;
-        self.downloadTask.terminationHandler = ^(NSTask *task) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                __strong __typeof(weakSelf) strongSelf = weakSelf;
-                VTTLog(@"Download task terminated with status: %d", task.terminationStatus);
-
-                if (task.terminationStatus == 0) {
-                    // Check if file exists and has reasonable size
-                    NSError *error = nil;
-                    NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:externalModelPath error:&error];
-                    if (attrs) {
-                        unsigned long long fileSize = [attrs fileSize];
-                        VTTLog(@"✅ Download successful! File size: %.1f MB", fileSize / 1024.0 / 1024.0);
-
-                        if (fileSize < 1024 * 1024) {  // Less than 1MB is suspicious
-                            VTTLog(@"⚠️  Warning: Downloaded file seems too small (%.1f MB)", fileSize / 1024.0 / 1024.0);
+                    // Update menu checkmarks
+                    for (NSMenuItem *item in self.modelMenuItem.submenu.itemArray) {
+                        item.state = NSControlStateValueOff;
+                        if ([item.title isEqualToString:previousModel]) {
+                            item.state = NSControlStateValueOn;
                         }
-
-                        // Verify it's a binary file, not HTML
-                        NSData *header = [NSData dataWithContentsOfFile:externalModelPath options:NSDataReadingMappedIfSafe error:nil];
-                        if (header.length > 5) {
-                            const unsigned char *bytes = (const unsigned char *)header.bytes;
-                            // Check if it starts with "GGUF" or "ggml" (whisper model magic bytes)
-                            BOOL isValid = (strncmp((const char *)bytes, "GGUF", 4) == 0 ||
-                                          strncmp((const char *)bytes, "ggml", 4) == 0);
-
-                            if (!isValid) {
-                                VTTLog(@"❌ Downloaded file is not a valid GGML model (may be HTML error page)");
-                                VTTLog(@"First bytes: %02x %02x %02x %02x", bytes[0], bytes[1], bytes[2], bytes[3]);
-                                // Delete corrupted file
-                                [[NSFileManager defaultManager] removeItemAtPath:externalModelPath error:nil];
-
-                                strongSelf.statusMenuItem.title = @"Download failed: Invalid file format";
-                                strongSelf.statusItem.button.title = @"VTT ❌";
-                                return;
-                            }
-                        }
-                    } else {
-                        VTTLog(@"❌ Downloaded file not found: %@", error);
                     }
+                });
+            } else {
+                VTTLog(@"✅ New model loaded successfully (GPU: %d)", cparams.use_gpu);
 
-                    // Success
-                    strongSelf.selectedModel = newModel;
-                    strongSelf.modelMenuItem.title = [NSString stringWithFormat:@"Model: %@", newModel];
-                    strongSelf.statusMenuItem.title = [NSString stringWithFormat:@"Status: %@ model ready", newModel];
-                    strongSelf.statusItem.button.title = @"VTT ✅";
+                // NOW free the old model and switch to new one
+                if (previousContext) {
+                    whisper_free(previousContext);
+                    VTTLog(@"✅ Previous model freed");
+                }
 
-                    // Save preference
+                self.wctx = ctx;
+
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    // Update to new model
+                    self.selectedModel = newModel;
+                    self.modelMenuItem.title = [NSString stringWithFormat:@"Model: %@", newModel];
                     [[NSUserDefaults standardUserDefaults] setObject:newModel forKey:@"selectedModel"];
 
-                    VTTLog(@"Downloaded and switched to model: %@", newModel);
-                    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                } else {
-                    // Failed - retry up to 3 times
-                    VTTLog(@"❌ Download failed with exit code %d (attempt %ld/3): %@", task.terminationStatus, (long)strongSelf.downloadRetryCount + 1, newModel);
+                    self.statusMenuItem.title = [NSString stringWithFormat:@"Status: %@ model ready", newModel];
+                    self.statusItem.button.title = @"VTT ✅";
 
-                    if (strongSelf.downloadRetryCount < 3) {
-                        strongSelf.downloadRetryCount++;
-                        strongSelf.statusMenuItem.title = [NSString stringWithFormat:@"Retrying download (%ld/3)...", (long)strongSelf.downloadRetryCount];
+                    VTTLog(@"Switched to model: %@", newModel);
 
-                        // Retry after 2 seconds
-                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                            [strongSelf selectModel:sender];
-                        });
-                    } else {
-                        // All retries failed
-                        strongSelf.downloadRetryCount = 0;
-                        strongSelf.statusMenuItem.title = @"Status: Download failed";
-                        strongSelf.statusItem.button.title = @"VTT ⚠️";
-
-                        NSAlert *alert = [[NSAlert alloc] init];
-                        alert.messageText = @"Download Failed";
-                        alert.informativeText = [NSString stringWithFormat:@"Failed to download Whisper model '%@' after 3 attempts.\n\nPlease check your internet connection and try again.", newModel];
-                        alert.alertStyle = NSAlertStyleCritical;
-                        [alert addButtonWithTitle:@"OK"];
-                        [alert runModal];
-
-                        // Revert checkmark
+                    // Update menu checkmarks
+                    for (NSMenuItem *item in self.modelMenuItem.submenu.itemArray) {
                         item.state = NSControlStateValueOff;
-                        for (NSMenuItem *menuItem in item.menu.itemArray) {
-                            if ([menuItem.title isEqualToString:strongSelf.selectedModel]) {
-                                menuItem.state = NSControlStateValueOn;
-                                break;
-                            }
+                        if ([item.title isEqualToString:newModel]) {
+                            item.state = NSControlStateValueOn;
+                        }
+                    }
+                });
+            }
+        });
+#else
+        self.selectedModel = newModel;
+        self.modelMenuItem.title = [NSString stringWithFormat:@"Model: %@", newModel];
+        [[NSUserDefaults standardUserDefaults] setObject:newModel forKey:@"selectedModel"];
+        self.statusMenuItem.title = [NSString stringWithFormat:@"Status: Using %@ model", newModel];
+        VTTLog(@"Switched to model: %@", newModel);
+#endif
+
+        return; // Early return since we're switching
+    }
+
+    // Model doesn't exist - need to download
+    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    VTTLog(@"📥 MODEL DOWNLOAD START");
+    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    VTTLog(@"Model: %@", newModel);
+    VTTLog(@"Target path: %@", externalModelPath);
+
+    self.statusMenuItem.title = [NSString stringWithFormat:@"Downloading %@...", newModel];
+    self.statusItem.button.title = @"VTT ⏬";
+
+    // Download with curl showing progress
+    NSString *downloadURL = [NSString stringWithFormat:
+        @"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-%@.en.bin", newModel];
+
+    VTTLog(@"Download URL: %@", downloadURL);
+
+    // Ensure directory exists
+    NSString *modelsDir = [externalModelPath stringByDeletingLastPathComponent];
+    [[NSFileManager defaultManager] createDirectoryAtPath:modelsDir withIntermediateDirectories:YES attributes:nil error:nil];
+    VTTLog(@"Models directory: %@", modelsDir);
+
+    self.downloadTask = [[NSTask alloc] init];
+    self.downloadTask.launchPath = @"/usr/bin/curl";
+    self.downloadTask.arguments = @[@"-L", @"--fail", @"-#", @"-o", externalModelPath, downloadURL];
+
+    VTTLog(@"Executing: %@ %@", self.downloadTask.launchPath, [self.downloadTask.arguments componentsJoinedByString:@" "]);
+
+    // Capture progress output
+    NSPipe *pipe = [NSPipe pipe];
+    self.downloadTask.standardError = pipe;
+
+    // Monitor download progress
+    NSFileHandle *file = [pipe fileHandleForReading];
+
+    [[NSNotificationCenter defaultCenter] addObserverForName:NSFileHandleReadCompletionNotification
+                                                      object:file
+                                                       queue:nil
+                                                  usingBlock:^(NSNotification *note) {
+        NSData *data = note.userInfo[NSFileHandleNotificationDataItem];
+        if (data.length > 0) {
+            NSString *output = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+
+            // Parse curl progress (looks for ###% pattern)
+            NSRange range = [output rangeOfString:@"\\d+\\.\\d+%"
+                                          options:NSRegularExpressionSearch];
+            if (range.location != NSNotFound) {
+                NSString *percent = [output substringWithRange:range];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.statusMenuItem.title = [NSString stringWithFormat:@"Downloading %@: %@", newModel, percent];
+                });
+            }
+
+            [file readInBackgroundAndNotify];
+        }
+    }];
+
+    [file readInBackgroundAndNotify];
+
+    __weak __typeof(self) weakSelf = self;
+    self.downloadTask.terminationHandler = ^(NSTask *task) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong __typeof(weakSelf) strongSelf = weakSelf;
+            VTTLog(@"Download task terminated with status: %d", task.terminationStatus);
+
+            if (task.terminationStatus == 0) {
+                // Check if file exists and has reasonable size
+                NSError *error = nil;
+                NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:externalModelPath error:&error];
+                if (attrs) {
+                    unsigned long long fileSize = [attrs fileSize];
+                    VTTLog(@"✅ Download successful! File size: %.1f MB", fileSize / 1024.0 / 1024.0);
+
+                    if (fileSize < 1024 * 1024) {  // Less than 1MB is suspicious
+                        VTTLog(@"⚠️  Warning: Downloaded file seems too small (%.1f MB)", fileSize / 1024.0 / 1024.0);
+                    }
+
+                    // Verify it's a binary file, not HTML
+                    NSData *header = [NSData dataWithContentsOfFile:externalModelPath options:NSDataReadingMappedIfSafe error:nil];
+                    if (header.length > 5) {
+                        const unsigned char *bytes = (const unsigned char *)header.bytes;
+                        // Check if it starts with "GGUF" or "ggml" (whisper model magic bytes)
+                        BOOL isValid = (strncmp((const char *)bytes, "GGUF", 4) == 0 ||
+                                      strncmp((const char *)bytes, "ggml", 4) == 0);
+
+                        if (!isValid) {
+                            VTTLog(@"❌ Downloaded file is not a valid GGML model (may be HTML error page)");
+                            VTTLog(@"First bytes: %02x %02x %02x %02x", bytes[0], bytes[1], bytes[2], bytes[3]);
+                            // Delete corrupted file
+                            [[NSFileManager defaultManager] removeItemAtPath:externalModelPath error:nil];
+
+                            strongSelf.statusMenuItem.title = @"Download failed: Invalid file format";
+                            strongSelf.statusItem.button.title = @"VTT ❌";
+                            return;
+                        }
+                    }
+                } else {
+                    VTTLog(@"❌ Downloaded file not found: %@", error);
+                }
+
+                // Success
+                strongSelf.selectedModel = newModel;
+                strongSelf.modelMenuItem.title = [NSString stringWithFormat:@"Model: %@", newModel];
+                strongSelf.statusMenuItem.title = [NSString stringWithFormat:@"Status: %@ model ready", newModel];
+                strongSelf.statusItem.button.title = @"VTT ✅";
+
+                // Save preference
+                [[NSUserDefaults standardUserDefaults] setObject:newModel forKey:@"selectedModel"];
+
+                VTTLog(@"Downloaded and switched to model: %@", newModel);
+                VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            } else {
+                // Failed - retry up to 3 times
+                VTTLog(@"❌ Download failed with exit code %d (attempt %ld/3): %@", task.terminationStatus, (long)strongSelf.downloadRetryCount + 1, newModel);
+
+                if (strongSelf.downloadRetryCount < 3) {
+                    strongSelf.downloadRetryCount++;
+                    strongSelf.statusMenuItem.title = [NSString stringWithFormat:@"Retrying download (%ld/3)...", (long)strongSelf.downloadRetryCount];
+
+                    // Retry after 2 seconds
+                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                        [strongSelf selectModel:sender];
+                    });
+                } else {
+                    // All retries failed
+                    strongSelf.downloadRetryCount = 0;
+                    strongSelf.statusMenuItem.title = @"Status: Download failed";
+                    strongSelf.statusItem.button.title = @"VTT ⚠️";
+
+                    NSAlert *alert = [[NSAlert alloc] init];
+                    alert.messageText = @"Download Failed";
+                    alert.informativeText = [NSString stringWithFormat:@"Failed to download Whisper model '%@' after 3 attempts.\n\nPlease check your internet connection and try again.", newModel];
+                    alert.alertStyle = NSAlertStyleCritical;
+                    [alert addButtonWithTitle:@"OK"];
+                    [alert runModal];
+
+                    // Revert checkmark
+                    item.state = NSControlStateValueOff;
+                    for (NSMenuItem *menuItem in item.menu.itemArray) {
+                        if ([menuItem.title isEqualToString:strongSelf.selectedModel]) {
+                            menuItem.state = NSControlStateValueOn;
+                            break;
                         }
                     }
                 }
-            });
-        };
+            }
+        });
+    };
 
-        @try {
-            VTTLog(@"Launching download task...");
-            [self.downloadTask launch];
-            VTTLog(@"Download task launched successfully (PID: %d)", self.downloadTask.processIdentifier);
-        } @catch (NSException *exception) {
-            VTTLog(@"❌ Failed to launch download task: %@", exception);
-            self.statusMenuItem.title = @"Status: Download failed to start";
-            self.statusItem.button.title = @"VTT ⚠️";
-        }
+    @try {
+        VTTLog(@"Launching download task...");
+        [self.downloadTask launch];
+        VTTLog(@"Download task launched successfully (PID: %d)", self.downloadTask.processIdentifier);
+    } @catch (NSException *exception) {
+        VTTLog(@"❌ Failed to launch download task: %@", exception);
+        self.statusMenuItem.title = @"Status: Download failed to start";
+        self.statusItem.button.title = @"VTT ⚠️";
     }
 }
 
