@@ -1396,8 +1396,8 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         // Reload whisper context for new model in background
         if (self.wctx) { whisper_free(self.wctx); self.wctx = NULL; }
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.en.bin", newModel]];
-            NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.en.bin", NSHomeDirectory(), newModel];
+            NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.%@", modelFile, extension]];
+            NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.%@", NSHomeDirectory(), modelFile, extension];
             NSString *modelPath = [[NSFileManager defaultManager] fileExistsAtPath:bundledModelPath] ? bundledModelPath : externalModelPath;
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.statusMenuItem.title = [NSString stringWithFormat:@"Status: Loading %@ model…", newModel];
