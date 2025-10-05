@@ -12,9 +12,35 @@
 #include "whisper.h"
 #endif
 
-// Logging toggle (default OFF). Use VTTLog instead of NSLog.
-static volatile BOOL VTTLoggingEnabled = NO;
-#define VTTLog(fmt, ...) do { if (VTTLoggingEnabled) NSLog((fmt), ##__VA_ARGS__); } while (0)
+// Logging toggle (default ON for debugging). Use VTTLog instead of NSLog.
+static volatile BOOL VTTLoggingEnabled = YES;
+static NSString *VTTLogFilePath = nil;
+
+static void VTTLogToFile(NSString *message) {
+    if (!VTTLogFilePath) {
+        NSString *logsDir = [NSTemporaryDirectory() stringByAppendingPathComponent:@"VTT"];
+        [[NSFileManager defaultManager] createDirectoryAtPath:logsDir withIntermediateDirectories:YES attributes:nil error:nil];
+        VTTLogFilePath = [logsDir stringByAppendingPathComponent:@"vtt.log"];
+    }
+    NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:VTTLogFilePath];
+    if (!fh) {
+        [@"" writeToFile:VTTLogFilePath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        fh = [NSFileHandle fileHandleForWritingAtPath:VTTLogFilePath];
+    }
+    [fh seekToEndOfFile];
+    NSString *timestamp = [NSDateFormatter localizedStringFromDate:[NSDate date] dateStyle:NSDateFormatterNoStyle timeStyle:NSDateFormatterMediumStyle];
+    NSString *logLine = [NSString stringWithFormat:@"[%@] %@\n", timestamp, message];
+    [fh writeData:[logLine dataUsingEncoding:NSUTF8StringEncoding]];
+    [fh closeFile];
+}
+
+#define VTTLog(fmt, ...) do { \
+    if (VTTLoggingEnabled) { \
+        NSString *msg = [NSString stringWithFormat:fmt, ##__VA_ARGS__]; \
+        NSLog(@"%@", msg); \
+        VTTLogToFile(msg); \
+    } \
+} while (0)
 
 #define SAMPLE_RATE 16000
 #define CHANNELS 1
@@ -50,7 +76,9 @@ typedef struct {
 @property (nonatomic) AudioDeviceID selectedMicrophoneID;
 @property (strong) NSMenuItem *micMenuItem;
 @property (nonatomic) CGKeyCode hotkeyCode;
+@property (nonatomic) CGEventFlags hotkeyModifiers;
 @property (strong) NSMenuItem *hotkeyMenuItem;
+@property (strong) NSWindow *logWindow;
 #ifdef USE_WHISPER_LIB
 @property (nonatomic) struct whisper_context *wctx;
 #endif
@@ -128,9 +156,12 @@ static void audioInputCallback(void* userData,
     // Load hotkey preference (default: Right Alt/Option = keycode 61)
     if ([defaults objectForKey:@"hotkeyCode"]) {
         self.hotkeyCode = (CGKeyCode)[defaults integerForKey:@"hotkeyCode"];
+        self.hotkeyModifiers = (CGEventFlags)[defaults integerForKey:@"hotkeyModifiers"];
     } else {
         self.hotkeyCode = 61; // Default: Right Alt/Option
+        self.hotkeyModifiers = 0; // No modifiers for Right Alt
         [defaults setInteger:self.hotkeyCode forKey:@"hotkeyCode"];
+        [defaults setInteger:self.hotkeyModifiers forKey:@"hotkeyModifiers"];
     }
 
     // Set up menu bar
@@ -193,7 +224,7 @@ static void audioInputCallback(void* userData,
     [self.menu addItem:permissionsItem];
 
     // Logging toggle (default OFF)
-    self.loggingEnabled = [[NSUserDefaults standardUserDefaults] objectForKey:@"loggingEnabled"] ? [[NSUserDefaults standardUserDefaults] boolForKey:@"loggingEnabled"] : NO;
+    self.loggingEnabled = [[NSUserDefaults standardUserDefaults] objectForKey:@"loggingEnabled"] ? [[NSUserDefaults standardUserDefaults] boolForKey:@"loggingEnabled"] : YES;  // Default to ON for debugging
     VTTLoggingEnabled = self.loggingEnabled;
     NSString *logTitle = self.loggingEnabled ? @"Logging: On" : @"Logging: Off";
     self.loggingToggleItem = [[NSMenuItem alloc] initWithTitle:logTitle
@@ -202,6 +233,14 @@ static void audioInputCallback(void* userData,
     self.loggingToggleItem.target = self;
     self.loggingToggleItem.state = self.loggingEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     [self.menu addItem:self.loggingToggleItem];
+
+    NSMenuItem *showLogsItem = [[NSMenuItem alloc] initWithTitle:@"Show Logs"
+                                                          action:@selector(showLogs:)
+                                                   keyEquivalent:@""];
+    showLogsItem.target = self;
+    [self.menu addItem:showLogsItem];
+
+    [self.menu addItem:[NSMenuItem separatorItem]];
 
     NSMenuItem *aboutItem = [[NSMenuItem alloc] initWithTitle:@"About Voice to Text"
                                                         action:@selector(showAbout:)
@@ -256,16 +295,61 @@ static void audioInputCallback(void* userData,
                 self.statusItem.button.title = @"VTT ⏳";
             });
 
+            VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            VTTLog(@"📦 MODEL LOADING START");
+            VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+            // Check file exists and get size
+            NSError *error = nil;
+            NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:modelPath error:&error];
+            if (attrs) {
+                unsigned long long fileSize = [attrs fileSize];
+                VTTLog(@"Model file: %@", [modelPath lastPathComponent]);
+                VTTLog(@"Model path: %@", modelPath);
+                VTTLog(@"Model size: %.1f MB", fileSize / 1024.0 / 1024.0);
+            } else {
+                VTTLog(@"❌ Cannot read model file attributes: %@", error);
+            }
+
             struct whisper_context_params cparams = whisper_context_default_params();
-#if defined(__APPLE__) && defined(__aarch64__)
-            cparams.use_gpu = true; // enable Metal on Apple Silicon
-#else
+            // CPU-only mode - Metal only works on Apple Silicon, not Intel GPUs
             cparams.use_gpu = false;
-#endif
+            VTTLog(@"Platform: macOS (CPU mode - Metal requires Apple Silicon)");
             const char *mp = [modelPath UTF8String];
+            VTTLog(@"Attempting GPU load: %s", cparams.use_gpu ? "YES" : "NO");
+            VTTLog(@"Calling whisper_init_from_file_with_params...");
+
             struct whisper_context *ctx = whisper_init_from_file_with_params(mp, cparams);
+
+            // CRITICAL: Always fallback to CPU if GPU fails
+            // Metal initialization can fail for various reasons (driver issues, incompatible GPU, etc.)
+            if (!ctx && cparams.use_gpu) {
+                VTTLog(@"⚠️  GPU/Metal initialization failed!");
+                VTTLog(@"Falling back to CPU mode (this is normal on some systems)");
+                cparams.use_gpu = false;
+                ctx = whisper_init_from_file_with_params(mp, cparams);
+            }
+
+            // If STILL null after CPU attempt, try one more time with explicit CPU-only context
             if (!ctx) {
-                VTTLog(@"Failed to preload whisper context");
+                VTTLog(@"⚠️  First CPU attempt failed, trying with minimal params...");
+                cparams = whisper_context_default_params();
+                cparams.use_gpu = false;
+                ctx = whisper_init_from_file_with_params(mp, cparams);
+            }
+
+            if (!ctx) {
+                VTTLog(@"❌ ❌ ❌ MODEL LOADING FAILED ❌ ❌ ❌");
+                VTTLog(@"Tried: GPU=%@, CPU=%@",
+                    cparams.use_gpu ? @"NO" : @"YES",
+                    @"YES");
+                VTTLog(@"Model file may be corrupted or incompatible");
+                VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            } else {
+                VTTLog(@"✅ ✅ ✅ MODEL LOADED SUCCESSFULLY ✅ ✅ ✅");
+                VTTLog(@"Using: %s", cparams.use_gpu ? "Metal GPU" : "CPU");
+                VTTLog(@"Context address: %p", ctx);
+                VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             }
             self.wctx = ctx;
 
@@ -574,26 +658,52 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         return NULL;
     }
 
-    // Primary path for modifier keys: flagsChanged carries keycode for the modifier
-    if (type == kCGEventFlagsChanged) {
-        CGEventFlags flags = CGEventGetFlags(event);
-        CGKeyCode kc = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
-        BOOL altDown = (flags & kCGEventFlagMaskAlternate) != 0;
-        BOOL isHotkey = (kc == self.hotkeyCode);
-        VTTLog(@"Modifier event: flags=%llu keyCode=%u hotkey=%d altDown=%d", flags, kc, isHotkey, altDown);
+    // Check for hotkey activation (both standalone modifiers and combinations)
+    CGEventFlags currentFlags = CGEventGetFlags(event);
+    CGEventFlags relevantFlags = currentFlags & (kCGEventFlagMaskCommand | kCGEventFlagMaskAlternate | kCGEventFlagMaskShift | kCGEventFlagMaskControl);
 
-        // Start only when hotkey goes down
-        if (isHotkey && altDown && !self.audioState->isRecording) {
-            VTTLog(@"PTT (flagsChanged) DOWN - starting recording");
-            [self startRecording];
-            return NULL; // swallow
+    // Check if hotkey matches
+    BOOL hotkeyMatches = NO;
+
+    if (self.hotkeyModifiers == 0) {
+        // Standalone modifier key (e.g., Right Alt)
+        if (type == kCGEventFlagsChanged) {
+            CGKeyCode kc = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+            if (kc == self.hotkeyCode) {
+                // Check if the corresponding modifier flag is set
+                BOOL modifierDown = NO;
+                if (kc == 58 || kc == 61) modifierDown = (currentFlags & kCGEventFlagMaskAlternate) != 0; // Option
+                else if (kc == 59 || kc == 62) modifierDown = (currentFlags & kCGEventFlagMaskControl) != 0; // Control
+                else if (kc == 55 || kc == 54) modifierDown = (currentFlags & kCGEventFlagMaskCommand) != 0; // Command
+                else if (kc == 56 || kc == 60) modifierDown = (currentFlags & kCGEventFlagMaskShift) != 0; // Shift
+
+                if (modifierDown && !self.audioState->isRecording) {
+                    VTTLog(@"PTT (standalone modifier) DOWN - starting recording");
+                    [self startRecording];
+                    return NULL;
+                } else if (!modifierDown && self.audioState->isRecording) {
+                    VTTLog(@"PTT (standalone modifier) UP - stopping recording");
+                    [self stopRecording];
+                    return NULL;
+                }
+            }
         }
-
-        // Stop when Alt is no longer down (release of the last Option key)
-        if (!altDown && self.audioState->isRecording) {
-            VTTLog(@"PTT (flagsChanged) UP - stopping recording");
-            [self stopRecording];
-            return NULL; // swallow
+    } else {
+        // Combination (e.g., Cmd+Shift+R)
+        if (type == kCGEventKeyDown) {
+            if (keyCode == self.hotkeyCode && relevantFlags == self.hotkeyModifiers) {
+                if (!self.audioState->isRecording) {
+                    VTTLog(@"PTT (combination) DOWN - starting recording");
+                    [self startRecording];
+                    return NULL;
+                }
+            }
+        } else if (type == kCGEventKeyUp) {
+            if (keyCode == self.hotkeyCode && self.audioState->isRecording) {
+                VTTLog(@"PTT (combination) UP - stopping recording");
+                [self stopRecording];
+                return NULL;
+            }
         }
     }
 
@@ -758,10 +868,29 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
     // Resample to 16 kHz mono for Whisper
     double in_rate = self.audioState->format.mSampleRate;
+    VTTLog(@"Resampling from %.0f Hz (%zu samples) to 16000 Hz", in_rate, n_in);
     int16_t *out_pcm = NULL; size_t n_out = 0;
     resample_linear_i16_mono(in_pcm, n_in, in_rate, 16000.0, &out_pcm, &n_out);
     free(in_pcm);
-    if (!out_pcm || n_out == 0) { VTTLog(@"🔥 [ERROR] Resampler failed"); return; }
+    if (!out_pcm || n_out == 0) {
+        VTTLog(@"❌ [ERROR] Resampler failed (out_pcm=%p, n_out=%zu)", out_pcm, n_out);
+        return;
+    }
+    VTTLog(@"✅ Resampled to %zu samples (%.2f seconds)", n_out, (float)n_out / 16000.0f);
+
+    // Check if audio has actual content (not all zeros)
+    int32_t sum = 0;
+    int32_t max_val = 0;
+    for (size_t i = 0; i < MIN(n_out, 1000); i++) {
+        sum += abs(out_pcm[i]);
+        if (abs(out_pcm[i]) > max_val) max_val = abs(out_pcm[i]);
+    }
+    int32_t avg = sum / MIN(n_out, 1000);
+    VTTLog(@"Audio stats: avg=%d, max=%d (first 1000 samples)", avg, max_val);
+
+    if (max_val == 0) {
+        VTTLog(@"⚠️  WARNING: Audio appears to be silent (all zeros)");
+    }
 
     // Write WAV @ 16 kHz
     FILE* wav = fopen(wavFile, "wb");
@@ -863,13 +992,50 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     NSMutableString *transcription = [NSMutableString string];
 
 #ifdef USE_WHISPER_LIB
+    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    VTTLog(@"🔊 WHISPER TRANSCRIPTION START");
+    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     VTTLog(@"Using embedded whisper library (preloaded=%d)", self.wctx != NULL);
+    VTTLog(@"Model: %@", self.selectedModel);
+    VTTLog(@"Context pointer: %p", self.wctx);
+
     if (!self.wctx) {
-        VTTLog(@"Whisper context not ready; skipping lib path");
+        VTTLog(@"❌ Whisper context is NULL - model not loaded!");
+        VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSAlert *alert = [[NSAlert alloc] init];
+            alert.messageText = @"Model Not Loaded";
+            alert.informativeText = @"Whisper model context is not initialized.\n\nTry selecting the model again from the menu.";
+            alert.alertStyle = NSAlertStyleCritical;
+            [alert addButtonWithTitle:@"OK"];
+            [alert runModal];
+        });
     } else {
+        VTTLog(@"✅ Context is valid, proceeding with transcription");
+
         // Convert to float [-1,1]
+        VTTLog(@"Converting %zu int16 samples to float...", n_out);
         float *fsamples = (float *)malloc(n_out * sizeof(float));
+        if (!fsamples) {
+            VTTLog(@"❌ Failed to allocate float buffer for %zu samples", n_out);
+            VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            return;
+        }
+
         for (size_t i = 0; i < n_out; ++i) fsamples[i] = (float)out_pcm[i] / 32768.0f;
+
+        // Log sample stats
+        float min_val = 0.0f, max_val = 0.0f, sum = 0.0f;
+        for (size_t i = 0; i < MIN(n_out, 16000); i++) {
+            if (fsamples[i] < min_val) min_val = fsamples[i];
+            if (fsamples[i] > max_val) max_val = fsamples[i];
+            sum += fabsf(fsamples[i]);
+        }
+        float avg = sum / MIN(n_out, 16000);
+        VTTLog(@"Float audio stats (first 1s): min=%.4f, max=%.4f, avg=%.4f", min_val, max_val, avg);
+
+        VTTLog(@"Calling whisper_full with %zu samples (%.2f seconds)", n_out, (float)n_out / 16000.0f);
+
         struct whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
         params.print_progress = false;
         params.print_realtime = false;
@@ -881,26 +1047,54 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         // threads: auto-detect
         int nth = (int)MAX(1, (int)sysconf(_SC_NPROCESSORS_ONLN) - 1);
         params.n_threads = nth;
+
+        VTTLog(@"Whisper params:");
+        VTTLog(@"  - threads: %d", nth);
+        VTTLog(@"  - language: en");
+        VTTLog(@"  - sampling: GREEDY");
+        VTTLog(@"  - no_context: true");
+        VTTLog(@"Invoking whisper_full(ctx=%p, params, samples=%p, n=%d)...", self.wctx, fsamples, (int)n_out);
+
         int rc = whisper_full(self.wctx, params, fsamples, (int)n_out);
+
+        VTTLog(@"whisper_full returned: %d", rc);
         free(fsamples);
+
         if (rc != 0) {
-            VTTLog(@"whisper_full failed: %d", rc);
+            VTTLog(@"❌ ❌ ❌ WHISPER_FULL FAILED ❌ ❌ ❌");
+            VTTLog(@"Error code: %d", rc);
+            VTTLog(@"Error -6 = Failed to encode (encoder failure)");
+            VTTLog(@"Possible causes:");
+            VTTLog(@"  1. Model file corrupted or incompatible");
+            VTTLog(@"  2. GPU/Metal initialization failed");
+            VTTLog(@"  3. Audio format issue (sample rate, channels)");
+            VTTLog(@"  4. Insufficient memory");
+            VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             dispatch_async(dispatch_get_main_queue(), ^{
                 NSAlert *alert = [[NSAlert alloc] init];
                 alert.messageText = @"Transcription Failed";
-                alert.informativeText = [NSString stringWithFormat:@"Whisper transcription failed with error code %d.\n\nPlease try again or select a different model.", rc];
+                alert.informativeText = [NSString stringWithFormat:@"Whisper transcription failed with error code %d.\n\nThis usually means:\n• Model file is corrupted\n• GPU/Metal failed to initialize\n• Audio format incompatibility\n\nTry:\n1. Selecting a different model\n2. Re-downloading the model\n3. Checking the logs (Show Logs from menu)", rc];
                 alert.alertStyle = NSAlertStyleWarning;
                 [alert addButtonWithTitle:@"OK"];
                 [alert runModal];
             });
         } else {
+            VTTLog(@"✅ whisper_full succeeded!");
             int nseg = whisper_full_n_segments(self.wctx);
+            VTTLog(@"Number of segments: %d", nseg);
+
             for (int i = 0; i < nseg; ++i) {
                 const char *txt = whisper_full_get_segment_text(self.wctx, i);
                 if (txt && txt[0]) {
+                    VTTLog(@"Segment %d: \"%s\"", i, txt);
                     [transcription appendFormat:@"%s\n", txt];
                 }
             }
+
+            if (nseg == 0) {
+                VTTLog(@"⚠️  No segments returned (might be silence)");
+            }
+            VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         }
     }
 #else
@@ -955,6 +1149,26 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     // Trim whitespace
     transcription = [[transcription stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] mutableCopy];
 
+    // Remove common Whisper artifacts
+    NSArray *artifacts = @[@"bot", @"Bot", @"BOT", @"[BLANK_AUDIO]", @"(BLANK_AUDIO)", @"Thank you.", @"Thanks for watching!"];
+    for (NSString *artifact in artifacts) {
+        // Remove if it's the only word
+        if ([transcription isEqualToString:artifact]) {
+            transcription = [@"" mutableCopy];
+            break;
+        }
+        // Remove from start
+        if ([transcription hasPrefix:[NSString stringWithFormat:@"%@ ", artifact]]) {
+            transcription = [[transcription substringFromIndex:artifact.length + 1] mutableCopy];
+        }
+        if ([transcription hasPrefix:[NSString stringWithFormat:@"%@.", artifact]]) {
+            transcription = [[transcription substringFromIndex:artifact.length + 1] mutableCopy];
+        }
+    }
+
+    // Trim again after artifact removal
+    transcription = [[transcription stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] mutableCopy];
+
     // Check if transcription is empty or failed
     if (transcription.length == 0) {
         VTTLog(@"Empty transcription - no speech detected or transcription failed");
@@ -971,34 +1185,43 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         [[NSPasteboard generalPasteboard] clearContents];
         [[NSPasteboard generalPasteboard] setString:transcription forType:NSPasteboardTypeString];
 
-        // Simulate Cmd+V with proper modifier sequence and wait briefly
-        // to avoid clipboard races across queued jobs.
+        // Simulate Cmd+V with proper modifier sequence
+        // Small delay to ensure the previously active app has focus (not VTT menu)
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
         dispatch_async(dispatch_get_main_queue(), ^{
-            CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
-            CGEventRef cmdDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, true);  // left cmd
-            CGEventPost(kCGHIDEventTap, cmdDown);
-            CGEventRef vDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, true);
-            CGEventRef vUp   = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, false);
-            CGEventSetFlags(vDown, kCGEventFlagMaskCommand);
-            CGEventSetFlags(vUp,   kCGEventFlagMaskCommand);
-            CGEventPost(kCGHIDEventTap, vDown);
-            CGEventPost(kCGHIDEventTap, vUp);
-            CGEventRef cmdUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, false);
-            CGEventPost(kCGHIDEventTap, cmdUp);
-            if (src) CFRelease(src);
-            CFRelease(cmdDown);
-            CFRelease(vDown);
-            CFRelease(vUp);
-            CFRelease(cmdUp);
-            // Signal completion shortly after events are posted
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(150 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
-                dispatch_semaphore_signal(sema);
+            // Wait 50ms to ensure focus is on the target app, not VTT
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+                CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+
+                // Post Cmd+V to the system
+                CGEventRef cmdDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, true);  // left cmd
+                CGEventPost(kCGHIDEventTap, cmdDown);
+
+                CGEventRef vDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, true);
+                CGEventRef vUp   = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, false);
+                CGEventSetFlags(vDown, kCGEventFlagMaskCommand);
+                CGEventSetFlags(vUp,   kCGEventFlagMaskCommand);
+                CGEventPost(kCGHIDEventTap, vDown);
+                CGEventPost(kCGHIDEventTap, vUp);
+
+                CGEventRef cmdUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, false);
+                CGEventPost(kCGHIDEventTap, cmdUp);
+
+                if (src) CFRelease(src);
+                CFRelease(cmdDown);
+                CFRelease(vDown);
+                CFRelease(vUp);
+                CFRelease(cmdUp);
+
+                // Signal completion
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(100 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+                    dispatch_semaphore_signal(sema);
+                });
             });
         });
         // Block the serial transcribe queue briefly so the next job
         // does not overwrite the clipboard before this paste executes.
-        dispatch_time_t tmo = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(300 * NSEC_PER_MSEC));
+        dispatch_time_t tmo = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(400 * NSEC_PER_MSEC));
         (void)dispatch_semaphore_wait(sema, tmo);
     } else {
         VTTLog(@"No transcription text found");
@@ -1016,14 +1239,71 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     BOOL hasAccessibility = AXIsProcessTrusted();
     BOOL hasMicrophone = [self checkMicrophonePermission];
 
+    NSAlert *alert = [[NSAlert alloc] init];
+
     if (hasAccessibility && hasMicrophone) {
-        NSAlert *alert = [[NSAlert alloc] init];
-        alert.messageText = @"Permissions OK";
-        alert.informativeText = @"✅ All permissions granted!\n\nVoice to Text is ready to use.";
-        [alert addButtonWithTitle:@"Great!"];
-        [alert runModal];
+        alert.messageText = @"Permissions Status";
+        alert.informativeText = @"✅ Accessibility\n✅ Microphone\n✅ Input Monitoring (assumed)\n\nVoice to Text is ready to use.\n\n"
+                               @"🔧 If VTT still doesn't work:\n"
+                               @"1. Open System Settings → Privacy & Security\n"
+                               @"2. Remove VTT from Microphone, Accessibility, and Input Monitoring\n"
+                               @"3. Quit VTT completely\n"
+                               @"4. Relaunch VTT and grant all permissions\n"
+                               @"5. Restart VTT one more time\n\n"
+                               @"This forces macOS to properly register the permissions.";
+        [alert addButtonWithTitle:@"OK"];
+        [alert addButtonWithTitle:@"Open System Settings"];
+        NSModalResponse response = [alert runModal];
+        if (response == NSAlertSecondButtonReturn) {
+            [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy"]];
+        }
     } else {
-        [self showPermissionDialog:hasAccessibility hasMicrophone:hasMicrophone];
+        alert.messageText = @"Missing Permissions";
+
+        NSMutableString *info = [NSMutableString string];
+        [info appendString:@"Voice to Text needs these permissions:\n\n"];
+
+        if (!hasAccessibility) {
+            [info appendString:@"❌ Accessibility - for keyboard monitoring and pasting text\n"];
+        } else {
+            [info appendString:@"✅ Accessibility\n"];
+        }
+
+        if (!hasMicrophone) {
+            [info appendString:@"❌ Microphone - for recording audio\n"];
+        } else {
+            [info appendString:@"✅ Microphone\n"];
+        }
+
+        [info appendString:@"⚠️  Input Monitoring - for detecting hotkey presses\n\n"];
+
+        [info appendString:@"📋 Setup Steps:\n"];
+        [info appendString:@"1. Click 'Open System Settings'\n"];
+        [info appendString:@"2. Grant missing permissions to VTT\n"];
+        [info appendString:@"3. Restart VTT\n"];
+        [info appendString:@"4. Click 'Check Permissions' again\n\n"];
+
+        [info appendString:@"⚠️ If problems persist:\n"];
+        [info appendString:@"• Remove VTT from all Privacy settings\n"];
+        [info appendString:@"• Quit VTT completely\n"];
+        [info appendString:@"• Relaunch and re-grant all permissions\n"];
+        [info appendString:@"• Restart VTT one more time"];
+
+        alert.informativeText = info;
+        alert.alertStyle = NSAlertStyleWarning;
+        [alert addButtonWithTitle:@"Open System Settings"];
+        [alert addButtonWithTitle:@"Cancel"];
+
+        NSModalResponse response = [alert runModal];
+        if (response == NSAlertFirstButtonReturn) {
+            if (!hasAccessibility) {
+                [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"]];
+            } else if (!hasMicrophone) {
+                [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"]];
+            } else {
+                [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"]];
+            }
+        }
     }
 }
 
@@ -1074,12 +1354,28 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
                 self.statusItem.button.title = @"VTT ⏳";
             });
             struct whisper_context_params cparams = whisper_context_default_params();
-#if defined(__APPLE__) && defined(__aarch64__)
-            cparams.use_gpu = true;
+#if defined(__APPLE__)
+            cparams.use_gpu = true; // Try Metal first
 #else
             cparams.use_gpu = false;
 #endif
-            struct whisper_context *ctx = whisper_init_from_file_with_params([modelPath UTF8String], cparams);
+            const char *mp = [modelPath UTF8String];
+            VTTLog(@"Loading model from: %s (GPU: %d)", mp, cparams.use_gpu);
+
+            struct whisper_context *ctx = whisper_init_from_file_with_params(mp, cparams);
+
+            // Fallback to CPU if GPU fails
+            if (!ctx && cparams.use_gpu) {
+                VTTLog(@"GPU loading failed, trying CPU fallback...");
+                cparams.use_gpu = false;
+                ctx = whisper_init_from_file_with_params(mp, cparams);
+            }
+
+            if (!ctx) {
+                VTTLog(@"❌ Failed to load model");
+            } else {
+                VTTLog(@"✅ Model loaded (GPU: %d)", cparams.use_gpu);
+            }
             self.wctx = ctx;
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (self.wctx) {
@@ -1319,7 +1615,176 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     self.loggingToggleItem.title = self.loggingEnabled ? @"Logging: On" : @"Logging: Off";
 }
 
-- (NSString *)hotkeyNameForCode:(CGKeyCode)code {
+- (void)refreshLogContent {
+    NSString *logsDir = [NSTemporaryDirectory() stringByAppendingPathComponent:@"VTT"];
+    NSString *logPath = [logsDir stringByAppendingPathComponent:@"vtt.log"];
+    NSString *logs = [NSString stringWithContentsOfFile:logPath encoding:NSUTF8StringEncoding error:nil];
+    if (!logs) logs = @"(Error reading log file)";
+
+    if (self.logWindow && [self.logWindow isVisible]) {
+        NSScrollView *scrollView = [[self.logWindow.contentView subviews] firstObject];
+        if ([scrollView isKindOfClass:[NSScrollView class]]) {
+            NSTextView *textView = (NSTextView *)scrollView.documentView;
+            textView.string = logs;
+            [textView scrollRangeToVisible:NSMakeRange(logs.length, 0)];
+        }
+    }
+}
+
+- (void)showLogs:(id)sender {
+    // Get log file path
+    NSString *logsDir = [NSTemporaryDirectory() stringByAppendingPathComponent:@"VTT"];
+    NSString *logPath = [logsDir stringByAppendingPathComponent:@"vtt.log"];
+
+    // Check if log file exists
+    if (![[NSFileManager defaultManager] fileExistsAtPath:logPath]) {
+        NSAlert *alert = [[NSAlert alloc] init];
+        alert.messageText = @"No Logs Yet";
+        alert.informativeText = [NSString stringWithFormat:@"Logging is %@.\n\nLogs will appear in:\n%@\n\nTry recording something first, then check logs again.",
+                                self.loggingEnabled ? @"enabled" : @"disabled", logPath];
+        alert.alertStyle = NSAlertStyleInformational;
+        [alert addButtonWithTitle:@"OK"];
+        [alert runModal];
+        return;
+    }
+
+    // Read log file
+    NSString *logs = [NSString stringWithContentsOfFile:logPath encoding:NSUTF8StringEncoding error:nil];
+    if (!logs) logs = @"(Error reading log file)";
+
+    // Reuse existing window if it exists and is visible
+    if (self.logWindow && [self.logWindow isVisible]) {
+        [self refreshLogContent];
+        [self.logWindow makeKeyAndOrderFront:nil];
+        return;
+    }
+
+    // Create new log viewer window (regular NSWindow, not NSPanel)
+    self.logWindow = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 800, 600)
+                                                  styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable)
+                                                    backing:NSBackingStoreBuffered
+                                                      defer:NO];
+    self.logWindow.title = @"VTT Logs";
+    [self.logWindow center];
+
+    // Text view for logs
+    NSScrollView *scrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 50, 800, 550)];
+    scrollView.hasVerticalScroller = YES;
+    scrollView.hasHorizontalScroller = YES;
+    scrollView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+    NSTextView *textView = [[NSTextView alloc] initWithFrame:scrollView.bounds];
+    textView.string = logs;
+    textView.editable = NO;
+    textView.selectable = YES;  // Allow text selection
+    textView.font = [NSFont fontWithName:@"Monaco" size:11];
+    textView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    scrollView.documentView = textView;
+
+    [self.logWindow.contentView addSubview:scrollView];
+
+    // Buttons
+    NSButton *refreshButton = [[NSButton alloc] initWithFrame:NSMakeRect(20, 10, 100, 32)];
+    [refreshButton setButtonType:NSButtonTypeMomentaryPushIn];
+    [refreshButton setBezelStyle:NSBezelStyleRounded];
+    refreshButton.title = @"Refresh";
+    refreshButton.target = self;
+    refreshButton.action = @selector(refreshLogContent);
+    [self.logWindow.contentView addSubview:refreshButton];
+
+    NSButton *clearButton = [[NSButton alloc] initWithFrame:NSMakeRect(130, 10, 100, 32)];
+    [clearButton setButtonType:NSButtonTypeMomentaryPushIn];
+    [clearButton setBezelStyle:NSBezelStyleRounded];
+    clearButton.title = @"Clear Logs";
+    clearButton.target = self;
+    clearButton.action = @selector(clearLogs:);
+    [self.logWindow.contentView addSubview:clearButton];
+
+    NSButton *copyAllButton = [[NSButton alloc] initWithFrame:NSMakeRect(240, 10, 100, 32)];
+    [copyAllButton setButtonType:NSButtonTypeMomentaryPushIn];
+    [copyAllButton setBezelStyle:NSBezelStyleRounded];
+    copyAllButton.title = @"Copy All";
+    [self.logWindow.contentView addSubview:copyAllButton];
+
+    NSButton *copyPathButton = [[NSButton alloc] initWithFrame:NSMakeRect(350, 10, 120, 32)];
+    [copyPathButton setButtonType:NSButtonTypeMomentaryPushIn];
+    [copyPathButton setBezelStyle:NSBezelStyleRounded];
+    copyPathButton.title = @"Copy Path";
+    [self.logWindow.contentView addSubview:copyPathButton];
+
+    // Copy all button action
+    copyAllButton.target = nil;
+    copyAllButton.action = nil;
+    __weak NSButton *weakCopyAllButton = copyAllButton;
+
+    // Copy path button action
+    copyPathButton.target = nil;
+    copyPathButton.action = nil;
+    __weak NSButton *weakPathButton = copyPathButton;
+
+    __block id mouseMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown handler:^NSEvent *(NSEvent *event) {
+        NSPoint location = [self.logWindow.contentView convertPoint:event.locationInWindow fromView:nil];
+
+        // Copy All button
+        if (NSPointInRect(location, weakCopyAllButton.frame)) {
+            NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+            [pasteboard clearContents];
+            [pasteboard setString:logs forType:NSPasteboardTypeString];
+
+            NSAlert *alert = [[NSAlert alloc] init];
+            alert.messageText = @"Logs Copied";
+            alert.informativeText = @"All logs have been copied to clipboard.";
+            [alert addButtonWithTitle:@"OK"];
+            [alert runModal];
+
+            return nil;
+        }
+
+        // Copy Path button
+        if (NSPointInRect(location, weakPathButton.frame)) {
+            NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+            [pasteboard clearContents];
+            [pasteboard setString:logPath forType:NSPasteboardTypeString];
+
+            NSAlert *alert = [[NSAlert alloc] init];
+            alert.messageText = @"Path Copied";
+            alert.informativeText = [NSString stringWithFormat:@"Log file path copied to clipboard:\n\n%@\n\nYou can tail it with:\ntail -f %@", logPath, logPath];
+            [alert addButtonWithTitle:@"OK"];
+            [alert runModal];
+
+            return nil;
+        }
+        return event;
+    }];
+
+    [self.logWindow makeKeyAndOrderFront:nil];
+
+    // Scroll to bottom
+    [textView scrollRangeToVisible:NSMakeRange(logs.length, 0)];
+}
+
+- (void)clearLogs:(id)sender {
+    NSString *logsDir = [NSTemporaryDirectory() stringByAppendingPathComponent:@"VTT"];
+    NSString *logPath = [logsDir stringByAppendingPathComponent:@"vtt.log"];
+    [@"" writeToFile:logPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = @"Logs Cleared";
+    alert.informativeText = @"The log file has been cleared.";
+    [alert addButtonWithTitle:@"OK"];
+    [alert runModal];
+}
+
+- (NSString *)hotkeyNameForCode:(CGKeyCode)code withModifiers:(CGEventFlags)modifiers {
+    NSMutableString *result = [NSMutableString string];
+
+    // Add modifiers
+    if (modifiers & kCGEventFlagMaskControl) [result appendString:@"⌃"];
+    if (modifiers & kCGEventFlagMaskAlternate) [result appendString:@"⌥"];
+    if (modifiers & kCGEventFlagMaskShift) [result appendString:@"⇧"];
+    if (modifiers & kCGEventFlagMaskCommand) [result appendString:@"⌘"];
+
+    // Add key name
     NSDictionary *keyNames = @{
         @58: @"Left Option",
         @61: @"Right Option",
@@ -1342,9 +1807,28 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         @109: @"F10",
         @103: @"F11",
         @111: @"F12",
+        @0: @"A", @11: @"B", @8: @"C", @2: @"D", @14: @"E", @3: @"F",
+        @5: @"G", @4: @"H", @34: @"I", @38: @"J", @40: @"K", @37: @"L",
+        @46: @"M", @45: @"N", @31: @"O", @35: @"P", @12: @"Q", @15: @"R",
+        @1: @"S", @17: @"T", @32: @"U", @9: @"V", @13: @"W", @7: @"X",
+        @16: @"Y", @6: @"Z",
+        @18: @"1", @19: @"2", @20: @"3", @21: @"4", @22: @"5",
+        @23: @"6", @24: @"7", @25: @"8", @26: @"9", @29: @"0",
+        @49: @"Space", @36: @"Return", @51: @"Delete", @53: @"Escape",
     };
-    NSString *name = keyNames[@(code)];
-    return name ? name : [NSString stringWithFormat:@"Key %d", code];
+
+    NSString *keyName = keyNames[@(code)];
+    if (keyName) {
+        [result appendString:keyName];
+    } else {
+        [result appendFormat:@"Key %d", code];
+    }
+
+    return [result copy];
+}
+
+- (NSString *)hotkeyNameForCode:(CGKeyCode)code {
+    return [self hotkeyNameForCode:code withModifiers:self.hotkeyModifiers];
 }
 
 - (BOOL)isLoginItem {
@@ -1410,55 +1894,134 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 }
 
 - (void)changeHotkey:(id)sender {
-    NSAlert *alert = [[NSAlert alloc] init];
-    alert.messageText = @"Change Hotkey";
-    alert.informativeText = @"Press the modifier key you want to use for push-to-talk (e.g., Right Option, Left Command, F5, etc.)";
-    alert.alertStyle = NSAlertStyleInformational;
-    [alert addButtonWithTitle:@"Cancel"];
-
-    // Create a simple panel to capture key press
-    NSPanel *panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, 300, 100)
-                                                styleMask:NSWindowStyleMaskTitled
+    // Create recording window
+    NSPanel *panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, 400, 180)
+                                                styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable)
                                                   backing:NSBackingStoreBuffered
                                                     defer:NO];
-    panel.title = @"Press a key...";
+    panel.title = @"Record Hotkey";
     panel.level = NSFloatingWindowLevel;
     [panel center];
 
-    NSTextField *label = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 30, 260, 40)];
-    label.stringValue = @"Press any modifier key\n(Option, Command, Control, Shift, Fn, or F-key)";
-    label.bordered = NO;
-    label.editable = NO;
-    label.backgroundColor = [NSColor clearColor];
-    label.alignment = NSTextAlignmentCenter;
-    [panel.contentView addSubview:label];
+    // Instruction label
+    NSTextField *instructionLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 130, 360, 40)];
+    instructionLabel.stringValue = @"Press a key combination or single key\n(e.g., ⌘⇧R, Right Option, F5)";
+    instructionLabel.bordered = NO;
+    instructionLabel.editable = NO;
+    instructionLabel.backgroundColor = [NSColor clearColor];
+    instructionLabel.alignment = NSTextAlignmentCenter;
+    instructionLabel.font = [NSFont systemFontOfSize:13];
+    [panel.contentView addSubview:instructionLabel];
+
+    // Display captured combination
+    NSTextField *capturedLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 80, 360, 40)];
+    capturedLabel.stringValue = @"Waiting...";
+    capturedLabel.bordered = NO;
+    capturedLabel.editable = NO;
+    capturedLabel.backgroundColor = [NSColor clearColor];
+    capturedLabel.alignment = NSTextAlignmentCenter;
+    capturedLabel.font = [NSFont boldSystemFontOfSize:18];
+    capturedLabel.textColor = [NSColor systemBlueColor];
+    [panel.contentView addSubview:capturedLabel];
+
+    // Buttons
+    NSButton *cancelButton = [[NSButton alloc] initWithFrame:NSMakeRect(220, 20, 80, 32)];
+    [cancelButton setButtonType:NSButtonTypeMomentaryPushIn];
+    [cancelButton setBezelStyle:NSBezelStyleRounded];
+    cancelButton.title = @"Cancel";
+    cancelButton.keyEquivalent = @"\e"; // Escape key
+    [panel.contentView addSubview:cancelButton];
+
+    NSButton *confirmButton = [[NSButton alloc] initWithFrame:NSMakeRect(310, 20, 70, 32)];
+    [confirmButton setButtonType:NSButtonTypeMomentaryPushIn];
+    [confirmButton setBezelStyle:NSBezelStyleRounded];
+    confirmButton.title = @"OK";
+    confirmButton.keyEquivalent = @"\r"; // Return key
+    confirmButton.enabled = NO;
+    [panel.contentView addSubview:confirmButton];
 
     __block CGKeyCode capturedKey = 0;
-    __block id eventMonitor = nil;
+    __block CGEventFlags capturedModifiers = 0;
+    __block BOOL hasCaptured = NO;
 
-    eventMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskFlagsChanged | NSEventMaskKeyDown handler:^NSEvent *(NSEvent *event) {
-        capturedKey = event.keyCode;
-        [NSApp stopModal];
-        return nil;
+    // Event monitor for key capture
+    __block id eventMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:(NSEventMaskFlagsChanged | NSEventMaskKeyDown) handler:^NSEvent *(NSEvent *event) {
+        if (event.type == NSEventTypeKeyDown) {
+            capturedKey = event.keyCode;
+            capturedModifiers = event.modifierFlags & (kCGEventFlagMaskCommand | kCGEventFlagMaskAlternate | kCGEventFlagMaskShift | kCGEventFlagMaskControl);
+            hasCaptured = YES;
+        } else if (event.type == NSEventTypeFlagsChanged) {
+            // Detect standalone modifier keys
+            CGKeyCode kc = event.keyCode;
+            // Only accept standalone modifiers if no other modifiers are pressed
+            if (kc == 58 || kc == 61 || kc == 59 || kc == 62 || kc == 55 || kc == 54 || kc == 56 || kc == 60 || kc == 63) {
+                capturedKey = kc;
+                capturedModifiers = 0; // Standalone modifier
+                hasCaptured = YES;
+            }
+        }
+
+        if (hasCaptured) {
+            NSString *displayName = [self hotkeyNameForCode:capturedKey withModifiers:capturedModifiers];
+            capturedLabel.stringValue = displayName;
+            confirmButton.enabled = YES;
+        }
+
+        return event;
+    }];
+
+    // Button actions
+    __block BOOL confirmed = NO;
+    __block BOOL buttonPressed = NO;
+
+    confirmButton.target = nil;
+    confirmButton.action = nil;
+    [confirmButton setContinuous:NO];
+
+    cancelButton.target = nil;
+    cancelButton.action = nil;
+    [cancelButton setContinuous:NO];
+
+    __block id mouseMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown handler:^NSEvent *(NSEvent *event) {
+        NSPoint location = [panel.contentView convertPoint:event.locationInWindow fromView:nil];
+        if (NSPointInRect(location, confirmButton.frame) && hasCaptured) {
+            confirmed = YES;
+            buttonPressed = YES;
+            [NSApp stopModal];
+            return nil;
+        }
+        if (NSPointInRect(location, cancelButton.frame)) {
+            confirmed = NO;
+            buttonPressed = YES;
+            [NSApp stopModal];
+            return nil;
+        }
+        return event;
     }];
 
     [panel makeKeyAndOrderFront:nil];
     [NSApp runModalForWindow:panel];
 
     [NSEvent removeMonitor:eventMonitor];
+    [NSEvent removeMonitor:mouseMonitor];
     [panel close];
 
-    if (capturedKey != 0) {
+    if (confirmed && hasCaptured) {
+        // Save new hotkey
         self.hotkeyCode = capturedKey;
+        self.hotkeyModifiers = capturedModifiers;
         [[NSUserDefaults standardUserDefaults] setInteger:self.hotkeyCode forKey:@"hotkeyCode"];
+        [[NSUserDefaults standardUserDefaults] setInteger:self.hotkeyModifiers forKey:@"hotkeyModifiers"];
         [[NSUserDefaults standardUserDefaults] synchronize];
 
-        NSString *hotkeyName = [self hotkeyNameForCode:self.hotkeyCode];
+        // Update menu
+        NSString *hotkeyName = [self hotkeyNameForCode:self.hotkeyCode withModifiers:self.hotkeyModifiers];
         self.hotkeyMenuItem.title = [NSString stringWithFormat:@"Hotkey: %@", hotkeyName];
 
+        // Show confirmation
         NSAlert *confirm = [[NSAlert alloc] init];
-        confirm.messageText = @"Hotkey Changed";
-        confirm.informativeText = [NSString stringWithFormat:@"Your new hotkey is: %@\n\nHold this key to record, release to transcribe.", hotkeyName];
+        confirm.messageText = @"Hotkey Updated";
+        confirm.informativeText = [NSString stringWithFormat:@"Your new hotkey is: %@\n\nHold this combination to record, release to transcribe.", hotkeyName];
         confirm.alertStyle = NSAlertStyleInformational;
         [confirm runModal];
     }
