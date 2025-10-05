@@ -272,8 +272,16 @@ static void audioInputCallback(void* userData,
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         @autoreleasepool {
             // Resolve model path (bundled preferred)
-            NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.en.bin", self.selectedModel]];
-            NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.en.bin", NSHomeDirectory(), self.selectedModel];
+            // Map model names (large → large-v3 which is multilingual)
+            NSString *modelFile = self.selectedModel;
+            NSString *extension = @"en.bin"; // Default: English-only
+            if ([self.selectedModel isEqualToString:@"large"]) {
+                modelFile = @"large-v3";
+                extension = @"bin"; // large-v3 is multilingual
+            }
+
+            NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.%@", modelFile, extension]];
+            NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.%@", NSHomeDirectory(), modelFile, extension];
             NSString *modelPath = nil;
             if ([[NSFileManager defaultManager] fileExistsAtPath:bundledModelPath]) {
                 modelPath = bundledModelPath;
@@ -1335,16 +1343,19 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     }
     item.state = NSControlStateValueOn;
 
-    // Map model names to actual filenames (large → large-v3)
+    // Map model names to actual filenames (large → large-v3 which is multilingual)
     NSString *modelFile = newModel;
+    NSString *extension = @"en.bin"; // Default: English-only models
+
     if ([newModel isEqualToString:@"large"]) {
         modelFile = @"large-v3";
+        extension = @"bin"; // large-v3 is multilingual, no .en version
     }
 
     // Check if model exists - bundled first, then external
-    NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.bin", modelFile]];
-    NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.bin",
-                          NSHomeDirectory(), modelFile];
+    NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.%@", modelFile, extension]];
+    NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.%@",
+                          NSHomeDirectory(), modelFile, extension];
 
     VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     VTTLog(@"🔄 MODEL SWITCH REQUESTED: %@", newModel);
@@ -1446,7 +1457,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
         // Download with curl showing progress
         NSString *downloadURL = [NSString stringWithFormat:
-            @"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-%@.bin", modelFile];
+            @"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-%@.%@", modelFile, extension];
 
         VTTLog(@"Download URL: %@", downloadURL);
 
@@ -1455,9 +1466,37 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         [[NSFileManager defaultManager] createDirectoryAtPath:modelsDir withIntermediateDirectories:YES attributes:nil error:nil];
         VTTLog(@"Models directory: %@", modelsDir);
 
+        // Check for partial download and enable resume
+        NSString *partialPath = [externalModelPath stringByAppendingString:@".part"];
+        BOOL resuming = NO;
+        unsigned long long existingSize = 0;
+
+        if ([[NSFileManager defaultManager] fileExistsAtPath:partialPath]) {
+            NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:partialPath error:nil];
+            if (attrs) {
+                existingSize = [attrs fileSize];
+                if (existingSize > 0) {
+                    resuming = YES;
+                    VTTLog(@"📦 Found partial download: %.1f MB - resuming", existingSize / 1024.0 / 1024.0);
+                }
+            }
+        }
+
         self.downloadTask = [[NSTask alloc] init];
         self.downloadTask.launchPath = @"/usr/bin/curl";
-        self.downloadTask.arguments = @[@"-L", @"--fail", @"-#", @"-o", externalModelPath, downloadURL];
+
+        NSMutableArray *args = [@[@"-L", @"--fail", @"-#"] mutableCopy];
+
+        // Add resume capability if partial file exists
+        if (resuming) {
+            [args addObjectsFromArray:@[@"-C", @"-"]]; // Continue from where we left off
+            [args addObjectsFromArray:@[@"-o", partialPath]];
+        } else {
+            [args addObjectsFromArray:@[@"-o", partialPath]];
+        }
+
+        [args addObject:downloadURL];
+        self.downloadTask.arguments = args;
 
         VTTLog(@"Executing: %@ %@", self.downloadTask.launchPath, [self.downloadTask.arguments componentsJoinedByString:@" "]);
 
@@ -1483,6 +1522,23 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
                     NSString *percent = [output substringWithRange:range];
                     dispatch_async(dispatch_get_main_queue(), ^{
                         self.statusMenuItem.title = [NSString stringWithFormat:@"Downloading %@: %@", newModel, percent];
+
+                        // Send notification at 25%, 50%, 75%, 100%
+                        float percentValue = [percent floatValue];
+                        static float lastNotified = 0;
+                        if ((percentValue >= 25.0 && lastNotified < 25.0) ||
+                            (percentValue >= 50.0 && lastNotified < 50.0) ||
+                            (percentValue >= 75.0 && lastNotified < 75.0) ||
+                            (percentValue >= 99.0 && lastNotified < 99.0)) {
+
+                            NSUserNotification *notification = [[NSUserNotification alloc] init];
+                            notification.title = @"VTT Model Download";
+                            notification.informativeText = [NSString stringWithFormat:@"%@ model: %@", newModel, percent];
+                            notification.soundName = nil;
+                            [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
+
+                            lastNotified = percentValue;
+                        }
                     });
                 }
 
@@ -1499,6 +1555,18 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
                 VTTLog(@"Download task terminated with status: %d", task.terminationStatus);
 
                 if (task.terminationStatus == 0) {
+                    // Move .part file to final location
+                    NSError *moveError = nil;
+                    [[NSFileManager defaultManager] removeItemAtPath:externalModelPath error:nil]; // Remove old file if exists
+                    [[NSFileManager defaultManager] moveItemAtPath:partialPath toPath:externalModelPath error:&moveError];
+
+                    if (moveError) {
+                        VTTLog(@"❌ Failed to move downloaded file: %@", moveError);
+                        strongSelf.statusMenuItem.title = @"Download failed: File move error";
+                        strongSelf.statusItem.button.title = @"VTT ❌";
+                        return;
+                    }
+
                     // Check if file exists and has reasonable size
                     NSError *error = nil;
                     NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:externalModelPath error:&error];
@@ -1521,17 +1589,28 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
                             if (!isValid) {
                                 VTTLog(@"❌ Downloaded file is not a valid GGML model (may be HTML error page)");
                                 VTTLog(@"First bytes: %02x %02x %02x %02x", bytes[0], bytes[1], bytes[2], bytes[3]);
-                                // Delete corrupted file
+                                // Delete corrupted files
                                 [[NSFileManager defaultManager] removeItemAtPath:externalModelPath error:nil];
+                                [[NSFileManager defaultManager] removeItemAtPath:partialPath error:nil];
 
                                 strongSelf.statusMenuItem.title = @"Download failed: Invalid file format";
                                 strongSelf.statusItem.button.title = @"VTT ❌";
                                 return;
                             }
                         }
+
+                        // Clean up .part file on success
+                        [[NSFileManager defaultManager] removeItemAtPath:partialPath error:nil];
                     } else {
                         VTTLog(@"❌ Downloaded file not found: %@", error);
                     }
+
+                    // Success notification
+                    NSUserNotification *notification = [[NSUserNotification alloc] init];
+                    notification.title = @"VTT Model Ready";
+                    notification.informativeText = [NSString stringWithFormat:@"%@ model downloaded successfully", newModel];
+                    notification.soundName = NSUserNotificationDefaultSoundName;
+                    [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
 
                     // Success
                     strongSelf.selectedModel = newModel;
@@ -1545,20 +1624,24 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
                     VTTLog(@"Downloaded and switched to model: %@", newModel);
                     VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
                 } else {
-                    // Failed - retry up to 3 times
+                    // Failed - partial file is kept for resume on retry
                     VTTLog(@"❌ Download failed with exit code %d (attempt %ld/3): %@", task.terminationStatus, (long)strongSelf.downloadRetryCount + 1, newModel);
+                    VTTLog(@"Partial download saved to: %@", partialPath);
 
                     if (strongSelf.downloadRetryCount < 3) {
                         strongSelf.downloadRetryCount++;
                         strongSelf.statusMenuItem.title = [NSString stringWithFormat:@"Retrying download (%ld/3)...", (long)strongSelf.downloadRetryCount];
 
-                        // Retry after 2 seconds
+                        // Retry after 2 seconds (will resume from .part file)
                         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                             [strongSelf selectModel:sender];
                         });
                     } else {
-                        // All retries failed
+                        // All retries failed - clean up partial file
                         strongSelf.downloadRetryCount = 0;
+                        [[NSFileManager defaultManager] removeItemAtPath:partialPath error:nil];
+                        VTTLog(@"All retries exhausted, cleaned up partial file");
+
                         strongSelf.statusMenuItem.title = @"Status: Download failed";
                         strongSelf.statusItem.button.title = @"VTT ⚠️";
 
