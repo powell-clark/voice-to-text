@@ -111,8 +111,29 @@ clean:
 	rm -rf $(APP_NAME).app
 	rm -rf /tmp/VTT.iconset
 	rm -f test_vtt_daemon
+	rm -f VTT.app.tar.gz
 
-.PHONY: all app bundle icon complete test clean vendor-whisper whisper-lib
+# Package app for brew cask installation
+package: bundle
+	@echo "📦 Creating tarball for brew cask..."
+	tar -czf VTT.app.tar.gz VTT.app
+	@echo "✅ Created VTT.app.tar.gz"
+
+# Install via brew cask (for testing brew installation)
+brew-install: package
+	@echo "🍺 Syncing cask to local tap..."
+	@cp Casks/voice-to-text.rb /Users/powell-clark/projects/homebrew-voice-to-text/Casks/
+	@echo "🍺 Installing via brew cask..."
+	brew install --cask --no-quarantine powell-clark/voice-to-text/voice-to-text
+	@echo "✅ Installed via brew"
+
+# Uninstall brew cask
+brew-uninstall:
+	@echo "🗑️  Uninstalling brew cask..."
+	brew uninstall --cask powell-clark/voice-to-text/voice-to-text || true
+	@echo "✅ Uninstalled"
+
+.PHONY: all app bundle icon complete test clean vendor-whisper whisper-lib package brew-install brew-uninstall
 
 # Helper to fetch vendor whisper.cpp source
 vendor-whisper:
