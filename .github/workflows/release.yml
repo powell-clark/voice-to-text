@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup dependencies
+        run: |
+          brew install cmake
+
+      - name: Build VTT.app
+        run: |
+          make clean
+          make package
+
+      - name: Calculate SHA256
+        id: sha256
+        run: |
+          SHA256=$(shasum -a 256 VTT.app.tar.gz | awk '{print $1}')
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "SHA256: $SHA256"
+
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: VTT.app.tar.gz
+          body: |
+            ## Installation
+
+            ```bash
+            brew install powell-clark/voice-to-text/voice-to-text
+            ```
+
+            ## What's Changed
+
+            See commit history for details.
+
+            **SHA256**: `${{ steps.sha256.outputs.sha256 }}`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: powell-clark/homebrew-voice-to-text
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update cask formula
+        run: |
+          cat > homebrew-tap/Casks/voice-to-text.rb << 'EOF'
+          cask "voice-to-text" do
+            version "${{ steps.version.outputs.version }}"
+            sha256 "${{ steps.sha256.outputs.sha256 }}"
+
+            url "https://github.com/powell-clark/voice-to-text/releases/download/v#{version}/VTT.app.tar.gz"
+            name "VTT"
+            desc "Voice to Text - macOS menu bar app for real-time voice transcription"
+            homepage "https://github.com/powell-clark/voice-to-text"
+
+            app "VTT.app"
+
+            zap trash: [
+              "~/Library/Preferences/com.local.vtt.plist",
+              "/tmp/VTT",
+            ]
+
+            caveats <<~EOS
+              On first run, grant these permissions in System Settings → Privacy & Security:
+                • Microphone - For audio capture
+                • Accessibility - For pasting text
+                • Input Monitoring - For global hotkey
+
+              VTT will automatically download Whisper models when you select a size.
+
+              Usage: Hold Right Option key and speak. Release to transcribe and paste.
+            EOS
+          end
+          EOF
+
+      - name: Commit and push cask update
+        working-directory: homebrew-tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/voice-to-text.rb
+          git commit -m "Update voice-to-text to v${{ steps.version.outputs.version }}"
+          git push
