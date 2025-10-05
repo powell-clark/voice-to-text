@@ -140,6 +140,18 @@ static void audioInputCallback(void* userData,
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
+    // Initialize logging first
+    NSString *logsDir = [NSTemporaryDirectory() stringByAppendingPathComponent:@"VTT"];
+    NSError *dirError = nil;
+    [[NSFileManager defaultManager] createDirectoryAtPath:logsDir withIntermediateDirectories:YES attributes:nil error:&dirError];
+    if (dirError) {
+        NSLog(@"Failed to create log directory: %@", dirError);
+    }
+
+    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    VTTLog(@"VTT STARTING");
+    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
     // Load preferences or set defaults
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     self.selectedModel = [defaults stringForKey:@"selectedModel"];
@@ -147,6 +159,8 @@ static void audioInputCallback(void* userData,
         self.selectedModel = @"small";  // Default to small model
         [defaults setObject:self.selectedModel forKey:@"selectedModel"];
     }
+
+    VTTLog(@"Default model: %@", self.selectedModel);
 
     // Load hotkey preference (default: Right Alt/Option = keycode 61)
     if ([defaults objectForKey:@"hotkeyCode"]) {
