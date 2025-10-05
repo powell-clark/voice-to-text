@@ -1354,11 +1354,8 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
                 self.statusItem.button.title = @"VTT ⏳";
             });
             struct whisper_context_params cparams = whisper_context_default_params();
-#if defined(__APPLE__)
-            cparams.use_gpu = true; // Try Metal first
-#else
+            // CPU-only mode - Metal only works on Apple Silicon, not Intel GPUs
             cparams.use_gpu = false;
-#endif
             const char *mp = [modelPath UTF8String];
             VTTLog(@"Loading model from: %s (GPU: %d)", mp, cparams.use_gpu);
 
@@ -1390,6 +1387,12 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 #endif
     } else {
         // Need to download model
+        VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        VTTLog(@"📥 MODEL DOWNLOAD START");
+        VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        VTTLog(@"Model: %@", newModel);
+        VTTLog(@"Target path: %@", externalModelPath);
+
         self.statusMenuItem.title = [NSString stringWithFormat:@"Downloading %@...", newModel];
         self.statusItem.button.title = @"VTT ⏬";
 
@@ -1397,9 +1400,18 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         NSString *downloadURL = [NSString stringWithFormat:
             @"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-%@.en.bin", newModel];
 
+        VTTLog(@"Download URL: %@", downloadURL);
+
+        // Ensure directory exists
+        NSString *modelsDir = [externalModelPath stringByDeletingLastPathComponent];
+        [[NSFileManager defaultManager] createDirectoryAtPath:modelsDir withIntermediateDirectories:YES attributes:nil error:nil];
+        VTTLog(@"Models directory: %@", modelsDir);
+
         self.downloadTask = [[NSTask alloc] init];
         self.downloadTask.launchPath = @"/usr/bin/curl";
-        self.downloadTask.arguments = @[@"-L", @"-#", @"-o", externalModelPath, downloadURL];
+        self.downloadTask.arguments = @[@"-L", @"--fail", @"-#", @"-o", externalModelPath, downloadURL];
+
+        VTTLog(@"Executing: %@ %@", self.downloadTask.launchPath, [self.downloadTask.arguments componentsJoinedByString:@" "]);
 
         // Capture progress output
         NSPipe *pipe = [NSPipe pipe];
@@ -1436,7 +1448,43 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         self.downloadTask.terminationHandler = ^(NSTask *task) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 __strong __typeof(weakSelf) strongSelf = weakSelf;
+                VTTLog(@"Download task terminated with status: %d", task.terminationStatus);
+
                 if (task.terminationStatus == 0) {
+                    // Check if file exists and has reasonable size
+                    NSError *error = nil;
+                    NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:externalModelPath error:&error];
+                    if (attrs) {
+                        unsigned long long fileSize = [attrs fileSize];
+                        VTTLog(@"✅ Download successful! File size: %.1f MB", fileSize / 1024.0 / 1024.0);
+
+                        if (fileSize < 1024 * 1024) {  // Less than 1MB is suspicious
+                            VTTLog(@"⚠️  Warning: Downloaded file seems too small (%.1f MB)", fileSize / 1024.0 / 1024.0);
+                        }
+
+                        // Verify it's a binary file, not HTML
+                        NSData *header = [NSData dataWithContentsOfFile:externalModelPath options:NSDataReadingMappedIfSafe error:nil];
+                        if (header.length > 5) {
+                            const unsigned char *bytes = (const unsigned char *)header.bytes;
+                            // Check if it starts with "GGUF" or "ggml" (whisper model magic bytes)
+                            BOOL isValid = (strncmp((const char *)bytes, "GGUF", 4) == 0 ||
+                                          strncmp((const char *)bytes, "ggml", 4) == 0);
+
+                            if (!isValid) {
+                                VTTLog(@"❌ Downloaded file is not a valid GGML model (may be HTML error page)");
+                                VTTLog(@"First bytes: %02x %02x %02x %02x", bytes[0], bytes[1], bytes[2], bytes[3]);
+                                // Delete corrupted file
+                                [[NSFileManager defaultManager] removeItemAtPath:externalModelPath error:nil];
+
+                                strongSelf.statusMenuItem.title = @"Download failed: Invalid file format";
+                                strongSelf.statusItem.button.title = @"VTT ❌";
+                                return;
+                            }
+                        }
+                    } else {
+                        VTTLog(@"❌ Downloaded file not found: %@", error);
+                    }
+
                     // Success
                     strongSelf.selectedModel = newModel;
                     strongSelf.modelMenuItem.title = [NSString stringWithFormat:@"Model: %@", newModel];
@@ -1447,9 +1495,10 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
                     [[NSUserDefaults standardUserDefaults] setObject:newModel forKey:@"selectedModel"];
 
                     VTTLog(@"Downloaded and switched to model: %@", newModel);
+                    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
                 } else {
                     // Failed - retry up to 3 times
-                    VTTLog(@"Download failed (attempt %ld/3): %@", (long)strongSelf.downloadRetryCount + 1, newModel);
+                    VTTLog(@"❌ Download failed with exit code %d (attempt %ld/3): %@", task.terminationStatus, (long)strongSelf.downloadRetryCount + 1, newModel);
 
                     if (strongSelf.downloadRetryCount < 3) {
                         strongSelf.downloadRetryCount++;
@@ -1485,7 +1534,15 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
             });
         };
 
-        [self.downloadTask launch];
+        @try {
+            VTTLog(@"Launching download task...");
+            [self.downloadTask launch];
+            VTTLog(@"Download task launched successfully (PID: %d)", self.downloadTask.processIdentifier);
+        } @catch (NSException *exception) {
+            VTTLog(@"❌ Failed to launch download task: %@", exception);
+            self.statusMenuItem.title = @"Status: Download failed to start";
+            self.statusItem.button.title = @"VTT ⚠️";
+        }
     }
 }
 
