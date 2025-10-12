@@ -341,17 +341,26 @@ static void audioInputCallback(void* userData,
     self.sessionCounter = 0;
 
 #ifdef USE_WHISPER_LIB
-    // Preload whisper context in background for zero-latency transcription
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        @autoreleasepool {
-            // Resolve model path (bundled preferred)
-            // Map model names (large → large-v3 which is multilingual)
-            NSString *modelFile = self.selectedModel;
-            NSString *extension = @"en.bin"; // Default: English-only
-            if ([self.selectedModel isEqualToString:@"large"]) {
-                modelFile = @"large-v3";
-                extension = @"bin"; // large-v3 is multilingual
-            }
+    // CT2 models don't need Whisper library preloading
+    if ([self.selectedModel hasPrefix:@"CT2 "]) {
+        VTTLog(@"Selected model is CT2 - skipping Whisper library preload");
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.statusMenuItem.title = [NSString stringWithFormat:@"Status: %@ ready", self.selectedModel];
+            self.statusItem.button.title = @"VTT ✅";
+            [self updateStatusIcon];
+        });
+    } else {
+        // Preload whisper context in background for zero-latency transcription
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            @autoreleasepool {
+                // Resolve model path (bundled preferred)
+                // Map model names (large → large-v3 which is multilingual)
+                NSString *modelFile = self.selectedModel;
+                NSString *extension = @"en.bin"; // Default: English-only
+                if ([self.selectedModel isEqualToString:@"large"]) {
+                    modelFile = @"large-v3";
+                    extension = @"bin"; // large-v3 is multilingual
+                }
 
             NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.%@", modelFile, extension]];
             NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.%@", NSHomeDirectory(), modelFile, extension];
@@ -441,7 +450,8 @@ static void audioInputCallback(void* userData,
                 }
             });
         }
-    });
+        });
+    }
 #endif
 
     // Update status based on permissions
@@ -451,14 +461,18 @@ static void audioInputCallback(void* userData,
 - (void)updateStatusIcon {
     BOOL hasAccessibility = AXIsProcessTrusted();
     BOOL hasMicrophone = [self checkMicrophonePermission];
+    BOOL isCT2Model = [self.selectedModel hasPrefix:@"CT2 "];
 
-    if (hasAccessibility && hasMicrophone && self.wctx) {
+    // CT2 models don't use self.wctx (they're CLI-based)
+    BOOL modelReady = isCT2Model || self.wctx != NULL;
+
+    if (hasAccessibility && hasMicrophone && modelReady) {
         self.statusItem.button.title = @"VTT ✅";
         self.statusMenuItem.title = @"Status: Ready";
     } else if (!hasAccessibility || !hasMicrophone) {
         self.statusItem.button.title = @"VTT ⚠️";
         self.statusMenuItem.title = @"Status: Missing permissions";
-    } else if (!self.wctx) {
+    } else if (!modelReady) {
         self.statusItem.button.title = @"VTT ⏳";
         self.statusMenuItem.title = @"Status: Loading model...";
     }
@@ -2644,73 +2658,39 @@ transcription_complete:
         }
     }];
 
+    __weak VTTDaemon *weakSelf = self;
+    __weak NSTextField *weakTextField = textField;
+    __weak NSTextField *weakPrefixField = prefixField;
+    __weak NSPanel *weakPanel = panel;
+
     // Reset button
-    NSButton *resetButton = [[NSButton alloc] initWithFrame:NSMakeRect(20, 20, 100, 32)];
+    NSButton *resetButton = [[NSButton alloc] initWithFrame:NSMakeRect(20, 20, 120, 32)];
     [resetButton setButtonType:NSButtonTypeMomentaryPushIn];
     [resetButton setBezelStyle:NSBezelStyleRounded];
     resetButton.title = @"Reset Default";
+    resetButton.target = weakSelf;
+    resetButton.action = @selector(resetPromptDefaults:);
     [panel.contentView addSubview:resetButton];
 
-    resetButton.target = nil;
-    resetButton.action = nil;
-    __weak NSTextField *weakTextField = textField;
-    __weak NSTextField *weakPrefixField2 = prefixField;
-    [resetButton setTarget:[^{
-        weakTextField.stringValue = @"Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
-        weakPrefixField2.stringValue = @"[voice] ";
-        [[NSNotificationCenter defaultCenter] postNotificationName:NSControlTextDidChangeNotification object:weakTextField];
-    } copy]];
-    [resetButton setAction:NSSelectorFromString(@"invoke")];
-
-    // Buttons
-    NSButton *cancelButton = [[NSButton alloc] initWithFrame:NSMakeRect(310, 20, 80, 32)];
+    // Cancel button
+    NSButton *cancelButton = [[NSButton alloc] initWithFrame:NSMakeRect(300, 20, 80, 32)];
     [cancelButton setButtonType:NSButtonTypeMomentaryPushIn];
     [cancelButton setBezelStyle:NSBezelStyleRounded];
     cancelButton.title = @"Cancel";
     cancelButton.keyEquivalent = @"\e"; // Escape key
+    cancelButton.target = weakPanel;
+    cancelButton.action = @selector(close);
     [panel.contentView addSubview:cancelButton];
 
-    NSButton *saveButton = [[NSButton alloc] initWithFrame:NSMakeRect(400, 20, 80, 32)];
+    // Save button
+    NSButton *saveButton = [[NSButton alloc] initWithFrame:NSMakeRect(390, 20, 80, 32)];
     [saveButton setButtonType:NSButtonTypeMomentaryPushIn];
     [saveButton setBezelStyle:NSBezelStyleRounded];
     saveButton.title = @"Save";
     saveButton.keyEquivalent = @"\r"; // Return key
+    saveButton.target = weakSelf;
+    saveButton.action = @selector(savePromptSettings:);
     [panel.contentView addSubview:saveButton];
-
-    cancelButton.target = nil;
-    cancelButton.action = nil;
-    [cancelButton setTarget:[^{ [panel close]; } copy]];
-    [cancelButton setAction:NSSelectorFromString(@"invoke")];
-
-    __weak VTTDaemon *weakSelf = self;
-    __weak NSTextField *weakPrefixField = prefixField;
-    saveButton.target = nil;
-    saveButton.action = nil;
-    [saveButton setTarget:[^{
-        // Save initial prompt
-        NSString *newPrompt = textField.stringValue;
-        if (newPrompt.length > 240) {
-            newPrompt = [newPrompt substringToIndex:240];
-        }
-        weakSelf.initialPrompt = newPrompt;
-        [[NSUserDefaults standardUserDefaults] setObject:newPrompt forKey:@"initialPrompt"];
-
-        // Save voice prefix
-        NSString *newPrefix = weakPrefixField.stringValue;
-        weakSelf.voicePrefix = newPrefix;
-        [[NSUserDefaults standardUserDefaults] setObject:newPrefix forKey:@"voicePrefix"];
-
-        [[NSUserDefaults standardUserDefaults] synchronize];
-
-        // Update menu item
-        NSString *promptPreview = newPrompt.length > 30 ? [[newPrompt substringToIndex:27] stringByAppendingString:@"..."] : newPrompt;
-        weakSelf.promptMenuItem.title = [NSString stringWithFormat:@"Prompt: %@", promptPreview];
-
-        VTTLog(@"Updated initial prompt: %@", newPrompt);
-        VTTLog(@"Updated voice prefix: %@", newPrefix);
-        [panel close];
-    } copy]];
-    [saveButton setAction:NSSelectorFromString(@"invoke")];
 
     // Store panel reference and clean up when closed
     self.promptPanel = panel;
@@ -2724,6 +2704,83 @@ transcription_complete:
     [panel makeKeyAndOrderFront:nil];
     [panel makeFirstResponder:textField];
     [NSApp activateIgnoringOtherApps:YES];
+}
+
+- (void)resetPromptDefaults:(id)sender {
+    if (!self.promptPanel) return;
+
+    // Find the text fields in the panel
+    NSTextField *promptField = nil;
+    NSTextField *prefixField = nil;
+
+    for (NSView *view in self.promptPanel.contentView.subviews) {
+        if ([view isKindOfClass:[NSTextField class]]) {
+            NSTextField *field = (NSTextField *)view;
+            if (field.editable) {
+                // Identify by frame position: prefix is higher (y=260), prompt is lower (y=145)
+                if (field.frame.origin.y > 200) {
+                    prefixField = field;
+                } else if (field.frame.origin.y > 100) {
+                    promptField = field;
+                }
+            }
+        }
+    }
+
+    if (promptField) {
+        promptField.stringValue = @"Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
+        [[NSNotificationCenter defaultCenter] postNotificationName:NSControlTextDidChangeNotification object:promptField];
+    }
+    if (prefixField) {
+        prefixField.stringValue = @"[voice] ";
+    }
+}
+
+- (void)savePromptSettings:(id)sender {
+    if (!self.promptPanel) return;
+
+    // Find the text fields in the panel
+    NSTextField *promptField = nil;
+    NSTextField *prefixField = nil;
+
+    for (NSView *view in self.promptPanel.contentView.subviews) {
+        if ([view isKindOfClass:[NSTextField class]]) {
+            NSTextField *field = (NSTextField *)view;
+            if (field.editable) {
+                // Identify by frame position: prefix is higher (y=260), prompt is lower (y=145)
+                if (field.frame.origin.y > 200) {
+                    prefixField = field;
+                } else if (field.frame.origin.y > 100) {
+                    promptField = field;
+                }
+            }
+        }
+    }
+
+    if (promptField) {
+        NSString *newPrompt = promptField.stringValue;
+        if (newPrompt.length > 240) {
+            newPrompt = [newPrompt substringToIndex:240];
+        }
+        self.initialPrompt = newPrompt;
+        [[NSUserDefaults standardUserDefaults] setObject:newPrompt forKey:@"initialPrompt"];
+
+        // Update menu item
+        NSString *promptPreview = newPrompt.length > 30 ? [[newPrompt substringToIndex:27] stringByAppendingString:@"..."] : newPrompt;
+        self.promptMenuItem.title = [NSString stringWithFormat:@"Prompt: %@", promptPreview];
+
+        VTTLog(@"Updated initial prompt: %@", newPrompt);
+    }
+
+    if (prefixField) {
+        NSString *newPrefix = prefixField.stringValue;
+        self.voicePrefix = newPrefix;
+        [[NSUserDefaults standardUserDefaults] setObject:newPrefix forKey:@"voicePrefix"];
+        VTTLog(@"Updated voice prefix: %@", newPrefix);
+    }
+
+    [[NSUserDefaults standardUserDefaults] synchronize];
+    [self.promptPanel close];
 }
 
 - (void)quit:(id)sender {
