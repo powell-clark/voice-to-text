@@ -23,6 +23,20 @@ static void VTTLogToFile(NSString *message) {
         [[NSFileManager defaultManager] createDirectoryAtPath:logsDir withIntermediateDirectories:YES attributes:nil error:nil];
         VTTLogFilePath = [logsDir stringByAppendingPathComponent:@"vtt.log"];
     }
+
+    // Rotate log if > 10MB
+    NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:VTTLogFilePath error:nil];
+    if (attrs && [attrs fileSize] > 10 * 1024 * 1024) {
+        // Keep last 3 rotated logs
+        NSString *log3 = [VTTLogFilePath stringByAppendingString:@".3"];
+        NSString *log2 = [VTTLogFilePath stringByAppendingString:@".2"];
+        NSString *log1 = [VTTLogFilePath stringByAppendingString:@".1"];
+        [[NSFileManager defaultManager] removeItemAtPath:log3 error:nil];
+        [[NSFileManager defaultManager] moveItemAtPath:log2 toPath:log3 error:nil];
+        [[NSFileManager defaultManager] moveItemAtPath:log1 toPath:log2 error:nil];
+        [[NSFileManager defaultManager] moveItemAtPath:VTTLogFilePath toPath:log1 error:nil];
+    }
+
     NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:VTTLogFilePath];
     if (!fh) {
         [@"" writeToFile:VTTLogFilePath atomically:YES encoding:NSUTF8StringEncoding error:nil];
@@ -191,14 +205,33 @@ static void audioInputCallback(void* userData,
                                               keyEquivalent:@""];
     NSMenu *modelMenu = [[NSMenu alloc] init];
 
-    NSArray *models = @[@"tiny", @"base", @"small", @"medium", @"large"];
-    for (NSString *model in models) {
-        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:model
+    // Whisper.cpp models
+    NSArray *baseModels = @[@"tiny", @"base", @"small", @"medium", @"large"];
+    for (NSString *model in baseModels) {
+        NSString *whisperModel = [NSString stringWithFormat:@"W %@", model];
+        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:whisperModel
                                                        action:@selector(selectModel:)
                                                 keyEquivalent:@""];
         item.target = self;
-        item.tag = [models indexOfObject:model];
-        if ([model isEqualToString:self.selectedModel]) {
+        item.representedObject = model; // Store base model name
+        if ([model isEqualToString:self.selectedModel] && ![self.selectedModel hasPrefix:@"CT2 "]) {
+            item.state = NSControlStateValueOn;
+        }
+        [modelMenu addItem:item];
+    }
+
+    // Separator
+    [modelMenu addItem:[NSMenuItem separatorItem]];
+
+    // CTranslate2 models
+    for (NSString *model in baseModels) {
+        NSString *ct2Model = [NSString stringWithFormat:@"CT2 %@", model];
+        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:ct2Model
+                                                       action:@selector(selectModel:)
+                                                keyEquivalent:@""];
+        item.target = self;
+        item.representedObject = [NSString stringWithFormat:@"CT2 %@", model]; // Store full name with CT2 prefix
+        if ([ct2Model isEqualToString:self.selectedModel]) {
             item.state = NSControlStateValueOn;
         }
         [modelMenu addItem:item];
@@ -856,6 +889,81 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     });
 }
 
+- (NSString *)transcribeWithCTranslate2:(NSString *)wavPath model:(NSString *)modelName {
+    // Call whisper-ctranslate2 CLI for fast transcription
+    NSTask *task = [[NSTask alloc] init];
+    task.launchPath = @"/usr/local/bin/whisper-ctranslate2";
+
+    // Extract base model name (e.g., "CT2 small" → "small")
+    NSString *baseModel = modelName;
+    if ([modelName hasPrefix:@"CT2 "]) {
+        baseModel = [modelName substringFromIndex:4];
+    }
+
+    // Map model names for CTranslate2
+    NSString *ct2Model = baseModel;
+    if ([baseModel isEqualToString:@"small"]) {
+        ct2Model = @"small.en";
+    } else if ([baseModel isEqualToString:@"medium"]) {
+        ct2Model = @"medium.en";
+    } else if ([baseModel isEqualToString:@"large"]) {
+        ct2Model = @"large-v3";
+    }
+
+    // whisper-ctranslate2 writes output to a file, not stdout
+    // Output file will be: /tmp/vtt_XXX.txt (same name as wav but .txt extension)
+    NSString *outputFile = [wavPath stringByReplacingOccurrencesOfString:@".wav" withString:@".txt"];
+
+    task.arguments = @[
+        wavPath,
+        @"--model", ct2Model,
+        @"--language", @"en",
+        @"--device", @"cpu",
+        @"--compute_type", @"int8",
+        @"--output_format", @"txt",
+        @"--output_dir", @"/tmp",
+        @"--verbose", @"False"
+    ];
+
+    VTTLog(@"Launching whisper-ctranslate2: %@ --model %@ (output: %@)", wavPath, ct2Model, outputFile);
+
+    @try {
+        [task launch];
+        [task waitUntilExit];
+
+        if (task.terminationStatus != 0) {
+            VTTLog(@"❌ whisper-ctranslate2 failed with status %d", task.terminationStatus);
+            return nil;
+        }
+
+        // Read transcription from output file
+        NSError *error = nil;
+        NSString *transcription = [NSString stringWithContentsOfFile:outputFile encoding:NSUTF8StringEncoding error:&error];
+
+        if (error || !transcription) {
+            VTTLog(@"❌ Failed to read transcription file %@: %@", outputFile, error);
+            return nil;
+        }
+
+        // Clean up output file
+        [[NSFileManager defaultManager] removeItemAtPath:outputFile error:nil];
+
+        transcription = [transcription stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        VTTLog(@"✅ CTranslate2 transcription: %@", transcription);
+
+        return transcription;
+
+    } @catch (NSException *exception) {
+        VTTLog(@"❌ Exception launching whisper-ctranslate2: %@", exception.reason);
+        return nil;
+    }
+}
+
+- (BOOL)shouldUseCTranslate2 {
+    // Check if user selected a CT2 model (starts with "CT2 ")
+    return [self.selectedModel hasPrefix:@"CT2 "];
+}
+
 - (void)processAudioFileAtPath:(NSString *)rawPath {
 
     char wavFile[256];
@@ -917,6 +1025,51 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     fwrite(&dataSize, 4, 1, wav);
     fwrite(out_pcm, sizeof(int16_t), n_out, wav);
     fclose(wav);
+
+    // Determine backend: CTranslate2 for CT2-prefixed models, whisper.cpp for others
+    if ([self shouldUseCTranslate2]) {
+        VTTLog(@"Using CTranslate2 backend for model: %@", self.selectedModel);
+        NSString *transcription = [self transcribeWithCTranslate2:@(wavFile) model:self.selectedModel];
+        if (transcription && transcription.length > 0) {
+            VTTLog(@"CTranslate2 transcription: %@", transcription);
+
+            // Copy to clipboard and paste
+            [[NSPasteboard generalPasteboard] clearContents];
+            [[NSPasteboard generalPasteboard] setString:transcription forType:NSPasteboardTypeString];
+
+            dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+                    CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+                    CGEventRef cmdDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, true);
+                    CGEventPost(kCGHIDEventTap, cmdDown);
+                    CFRelease(cmdDown);
+                    usleep(25000); // 25ms delay after Cmd down to prevent "v" character appearing
+                    CGEventRef vDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, true);
+                    CGEventPost(kCGHIDEventTap, vDown);
+                    CFRelease(vDown);
+                    usleep(50000);
+                    CGEventRef vUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, false);
+                    CGEventPost(kCGHIDEventTap, vUp);
+                    CFRelease(vUp);
+                    CGEventRef cmdUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, false);
+                    CGEventPost(kCGHIDEventTap, cmdUp);
+                    CFRelease(cmdUp);
+                    CFRelease(src);
+                    dispatch_semaphore_signal(sema);
+                });
+            });
+            dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+
+            // Clean up temp files
+            [[NSFileManager defaultManager] removeItemAtPath:@(wavFile) error:nil];
+
+            free(out_pcm);
+            return;
+        } else {
+            VTTLog(@"⚠️  CTranslate2 failed, falling back to whisper.cpp");
+        }
+    }
 
     // Run whisper with selected model - check bundled model first, then external
     // Map model names (large → large-v3 which is multilingual)
@@ -1328,6 +1481,7 @@ transcription_complete:
                 // Post Cmd+V to the system
                 CGEventRef cmdDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, true);  // left cmd
                 CGEventPost(kCGHIDEventTap, cmdDown);
+                usleep(25000); // 25ms delay after Cmd down to prevent "v" character appearing
 
                 CGEventRef vDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, true);
                 CGEventRef vUp   = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, false);
@@ -1452,19 +1606,27 @@ transcription_complete:
 
 - (void)selectModel:(id)sender {
     NSMenuItem *item = (NSMenuItem *)sender;
-    NSString *newModel = item.title;
+    NSString *newModel = item.representedObject; // Get the stored model name (e.g., "small" or "CT2 small")
 
     // Update UI checkmarks
     for (NSMenuItem *menuItem in item.menu.itemArray) {
-        menuItem.state = NSControlStateValueOff;
+        if (!menuItem.isSeparatorItem) {
+            menuItem.state = NSControlStateValueOff;
+        }
     }
     item.state = NSControlStateValueOn;
 
+    // Extract base model name (e.g., "CT2 small" → "small")
+    NSString *baseModel = newModel;
+    if ([newModel hasPrefix:@"CT2 "]) {
+        baseModel = [newModel substringFromIndex:4]; // Remove "CT2 " prefix
+    }
+
     // Map model names to actual filenames (large → large-v3 which is multilingual)
-    NSString *modelFile = newModel;
+    NSString *modelFile = baseModel;
     NSString *extension = @"en.bin"; // Default: English-only models
 
-    if ([newModel isEqualToString:@"large"]) {
+    if ([baseModel isEqualToString:@"large"]) {
         modelFile = @"large-v3";
         extension = @"bin"; // large-v3 is multilingual, no .en version
     }
