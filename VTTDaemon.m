@@ -96,6 +96,7 @@ typedef struct {
 @property (strong) NSWindow *logWindow;
 @property (strong) NSString *initialPrompt;
 @property (strong) NSMenuItem *promptMenuItem;
+@property (strong) NSPanel *promptPanel;
 #ifdef USE_WHISPER_LIB
 @property (nonatomic) struct whisper_context *wctx;
 #endif
@@ -2546,6 +2547,13 @@ transcription_complete:
 }
 
 - (void)changePrompt:(id)sender {
+    // If panel already exists, bring it to front
+    if (self.promptPanel && [self.promptPanel isVisible]) {
+        [self.promptPanel makeKeyAndOrderFront:nil];
+        [NSApp activateIgnoringOtherApps:YES];
+        return;
+    }
+
     // Create prompt customization window
     NSPanel *panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, 500, 240)
                                                 styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable)
@@ -2669,8 +2677,18 @@ transcription_complete:
     } copy]];
     [saveButton setAction:NSSelectorFromString(@"invoke")];
 
+    // Store panel reference and clean up when closed
+    self.promptPanel = panel;
+    [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowWillCloseNotification
+                                                      object:panel
+                                                       queue:[NSOperationQueue mainQueue]
+                                                  usingBlock:^(NSNotification *note) {
+        weakSelf.promptPanel = nil;
+    }];
+
     [panel makeKeyAndOrderFront:nil];
     [panel makeFirstResponder:textField];
+    [NSApp activateIgnoringOtherApps:YES];
 }
 
 - (void)quit:(id)sender {
