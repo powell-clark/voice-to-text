@@ -329,9 +329,11 @@ static void audioInputCallback(void* userData,
             }
 
             struct whisper_context_params cparams = whisper_context_default_params();
-            // CPU-only mode - Metal only works on Apple Silicon, not Intel GPUs
-            cparams.use_gpu = false;
-            VTTLog(@"Platform: macOS (CPU mode - Metal requires Apple Silicon)");
+            // Enable Metal acceleration for both Intel and Apple Silicon Macs
+            // Metal shader must be present in Resources folder (bundled by Makefile)
+            cparams.use_gpu = true;
+            cparams.flash_attn = true; // Enable Flash Attention for memory efficiency (reduces VRAM usage 2-4x)
+            VTTLog(@"Platform: macOS (attempting Metal GPU acceleration with Flash Attention)");
             const char *mp = [modelPath UTF8String];
             VTTLog(@"Attempting GPU load: %s", cparams.use_gpu ? "YES" : "NO");
             VTTLog(@"Calling whisper_init_from_file_with_params...");
@@ -383,9 +385,24 @@ static void audioInputCallback(void* userData,
     });
 #endif
 
-    // Update status
-    self.statusItem.button.title = @"VTT ✅";
-    self.statusMenuItem.title = @"Status: Ready";
+    // Update status based on permissions
+    [self updateStatusIcon];
+}
+
+- (void)updateStatusIcon {
+    BOOL hasAccessibility = AXIsProcessTrusted();
+    BOOL hasMicrophone = [self checkMicrophonePermission];
+
+    if (hasAccessibility && hasMicrophone && self.wctx) {
+        self.statusItem.button.title = @"VTT ✅";
+        self.statusMenuItem.title = @"Status: Ready";
+    } else if (!hasAccessibility || !hasMicrophone) {
+        self.statusItem.button.title = @"VTT ⚠️";
+        self.statusMenuItem.title = @"Status: Missing permissions";
+    } else if (!self.wctx) {
+        self.statusItem.button.title = @"VTT ⏳";
+        self.statusMenuItem.title = @"Status: Loading model...";
+    }
 }
 
 - (void)initializeAudio {
@@ -1084,8 +1101,9 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         params.no_context = true;
         params.single_segment = false;
         params.language = "en";
-        // threads: use physical cores only (8 cores, avoid hyper-threading overhead)
-        int nth = 8;
+        // threads: use fewer threads when GPU is active to reduce CPU/GPU contention
+        // GPU does most of the work, CPU threads only for pre/post processing
+        int nth = 4;
         params.n_threads = nth;
 
         VTTLog(@"Whisper params:");
@@ -1098,6 +1116,77 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         int rc = whisper_full(self.wctx, params, fsamples, (int)n_out);
 
         VTTLog(@"whisper_full returned: %d", rc);
+
+        // If Metal GPU encoder fails (error -6), reload model with CPU and retry
+        if (rc == -6) {
+            VTTLog(@"⚠️  Metal GPU encoder failed (error -6), retrying with CPU...");
+            free(fsamples);
+
+            // Reload model with CPU-only
+            const char *modelPathC = [modelPath UTF8String];
+            struct whisper_context_params cparams = whisper_context_default_params();
+            cparams.use_gpu = false; // Force CPU mode
+
+            VTTLog(@"Reloading model with CPU-only mode...");
+            struct whisper_context *cpu_ctx = whisper_init_from_file_with_params(modelPathC, cparams);
+
+            if (cpu_ctx) {
+                VTTLog(@"✅ Reloaded model in CPU mode, retrying transcription...");
+
+                // Re-read and process audio (need to redo since we freed fsamples)
+                FILE *f = fopen(wavFile, "rb");
+                if (!f) {
+                    VTTLog(@"❌ Failed to re-open audio file for CPU retry");
+                    whisper_free(cpu_ctx);
+                    return;
+                }
+
+                fseek(f, 0, SEEK_END);
+                long fsize = ftell(f);
+                fseek(f, 44, SEEK_SET); // skip WAV header
+                long nsamples = (fsize - 44) / 2;
+
+                int16_t *pcm16 = (int16_t *)malloc(nsamples * sizeof(int16_t));
+                fread(pcm16, sizeof(int16_t), nsamples, f);
+                fclose(f);
+
+                // Convert to float
+                float *fsamples_retry = (float *)malloc(nsamples * sizeof(float));
+                for (long i = 0; i < nsamples; i++) {
+                    fsamples_retry[i] = (float)pcm16[i] / 32768.0f;
+                }
+                free(pcm16);
+
+                // Retry transcription with CPU context
+                rc = whisper_full(cpu_ctx, params, fsamples_retry, (int)nsamples);
+                VTTLog(@"CPU retry whisper_full returned: %d", rc);
+
+                if (rc == 0) {
+                    VTTLog(@"✅ CPU fallback succeeded!");
+                    int nseg = whisper_full_n_segments(cpu_ctx);
+                    for (int i = 0; i < nseg; i++) {
+                        const char *txt = whisper_full_get_segment_text(cpu_ctx, i);
+                        if (txt && txt[0]) {
+                            [transcription appendFormat:@"%s\n", txt];
+                        }
+                    }
+                } else {
+                    VTTLog(@"❌ CPU fallback also failed with error: %d", rc);
+                }
+
+                free(fsamples_retry);
+                whisper_free(cpu_ctx);
+
+                if (rc == 0) {
+                    // Success with CPU, return transcription
+                    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    goto transcription_complete;
+                }
+            } else {
+                VTTLog(@"❌ Failed to reload model in CPU mode");
+            }
+        }
+
         free(fsamples);
 
         if (rc != 0) {
@@ -1136,6 +1225,9 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
             }
             VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         }
+
+transcription_complete:
+        ; // Label for CPU fallback goto
     }
 #else
     VTTLog(@"Using external whisper binary");
@@ -1345,6 +1437,9 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
             }
         }
     }
+
+    // Update status icon based on permission state
+    [self updateStatusIcon];
 }
 
 - (void)showAbout:(id)sender {
@@ -1402,7 +1497,15 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
 #ifdef USE_WHISPER_LIB
         // Reload whisper context for new model in background
-        if (self.wctx) { whisper_free(self.wctx); self.wctx = NULL; }
+        // Use transcribeQueue to ensure no transcription is using the old context
+        dispatch_async(self.transcribeQueue, ^{
+            if (self.wctx) {
+                VTTLog(@"Freeing old whisper context before model switch...");
+                whisper_free(self.wctx);
+                self.wctx = NULL;
+            }
+        });
+
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.%@", modelFile, extension]];
             NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.%@", NSHomeDirectory(), modelFile, extension];
@@ -1412,8 +1515,9 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
                 self.statusItem.button.title = @"VTT ⏳";
             });
             struct whisper_context_params cparams = whisper_context_default_params();
-            // CPU-only mode - Metal only works on Apple Silicon, not Intel GPUs
-            cparams.use_gpu = false;
+            // Enable Metal acceleration (with automatic CPU fallback if Metal fails)
+            cparams.use_gpu = true;
+            cparams.flash_attn = true; // Enable Flash Attention for memory efficiency
             const char *mp = [modelPath UTF8String];
 
             VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
