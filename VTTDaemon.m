@@ -2557,7 +2557,7 @@ transcription_complete:
 
     // Instruction label
     NSTextField *instructionLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 190, 460, 40)];
-    instructionLabel.stringValue = @"Enter a prompt to help Whisper recognize your voice and context\n(Max 120 characters)";
+    instructionLabel.stringValue = @"Enter a prompt to help Whisper recognize your voice and context\n(Max 240 characters)";
     instructionLabel.bordered = NO;
     instructionLabel.editable = NO;
     instructionLabel.backgroundColor = [NSColor clearColor];
@@ -2577,7 +2577,7 @@ transcription_complete:
 
     // Character counter
     NSTextField *charCounter = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 80, 460, 20)];
-    charCounter.stringValue = [NSString stringWithFormat:@"%lu / 120 characters", (unsigned long)textField.stringValue.length];
+    charCounter.stringValue = [NSString stringWithFormat:@"%lu / 240 characters", (unsigned long)textField.stringValue.length];
     charCounter.bordered = NO;
     charCounter.editable = NO;
     charCounter.backgroundColor = [NSColor clearColor];
@@ -2593,18 +2593,18 @@ transcription_complete:
                                                   usingBlock:^(NSNotification *note) {
         NSTextField *field = note.object;
         NSUInteger len = field.stringValue.length;
-        charCounter.stringValue = [NSString stringWithFormat:@"%lu / 120 characters", (unsigned long)len];
+        charCounter.stringValue = [NSString stringWithFormat:@"%lu / 240 characters", (unsigned long)len];
 
-        // Limit to 120 characters
-        if (len > 120) {
-            field.stringValue = [field.stringValue substringToIndex:120];
+        // Limit to 240 characters
+        if (len > 240) {
+            field.stringValue = [field.stringValue substringToIndex:240];
             NSBeep();
         }
 
-        // Color code: yellow at 100, red at 115+
-        if (len >= 115) {
+        // Color code: yellow at 200, red at 230+
+        if (len >= 230) {
             charCounter.textColor = [NSColor systemRedColor];
-        } else if (len >= 100) {
+        } else if (len >= 200) {
             charCounter.textColor = [NSColor systemOrangeColor];
         } else {
             charCounter.textColor = [NSColor secondaryLabelColor];
@@ -2652,8 +2652,8 @@ transcription_complete:
     saveButton.action = nil;
     [saveButton setTarget:[^{
         NSString *newPrompt = textField.stringValue;
-        if (newPrompt.length > 120) {
-            newPrompt = [newPrompt substringToIndex:120];
+        if (newPrompt.length > 240) {
+            newPrompt = [newPrompt substringToIndex:240];
         }
 
         weakSelf.initialPrompt = newPrompt;
