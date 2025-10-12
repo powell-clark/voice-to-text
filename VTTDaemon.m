@@ -94,6 +94,8 @@ typedef struct {
 @property (nonatomic) CGEventFlags hotkeyModifiers;
 @property (strong) NSMenuItem *hotkeyMenuItem;
 @property (strong) NSWindow *logWindow;
+@property (strong) NSString *initialPrompt;
+@property (strong) NSMenuItem *promptMenuItem;
 #ifdef USE_WHISPER_LIB
 @property (nonatomic) struct whisper_context *wctx;
 #endif
@@ -187,6 +189,13 @@ static void audioInputCallback(void* userData,
         [defaults setInteger:self.hotkeyModifiers forKey:@"hotkeyModifiers"];
     }
 
+    // Load initial prompt preference (default: British English, programming)
+    self.initialPrompt = [defaults stringForKey:@"initialPrompt"];
+    if (!self.initialPrompt) {
+        self.initialPrompt = @"Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
+        [defaults setObject:self.initialPrompt forKey:@"initialPrompt"];
+    }
+
     // Set up menu bar
     self.statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
     self.statusItem.button.title = @"VTT ⏸";
@@ -256,6 +265,14 @@ static void audioInputCallback(void* userData,
                                                keyEquivalent:@""];
     self.hotkeyMenuItem.target = self;
     [self.menu addItem:self.hotkeyMenuItem];
+
+    // Initial prompt customization menu item
+    NSString *promptPreview = self.initialPrompt.length > 30 ? [[self.initialPrompt substringToIndex:27] stringByAppendingString:@"..."] : self.initialPrompt;
+    self.promptMenuItem = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"Prompt: %@", promptPreview]
+                                                     action:@selector(changePrompt:)
+                                              keyEquivalent:@""];
+    self.promptMenuItem.target = self;
+    [self.menu addItem:self.promptMenuItem];
 
     [self.menu addItem:[NSMenuItem separatorItem]];
 
@@ -923,7 +940,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         @"--output_format", @"txt",
         @"--output_dir", @"/tmp",
         @"--verbose", @"False",
-        @"--initial_prompt", @"Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters."
+        @"--initial_prompt", self.initialPrompt
     ];
 
     VTTLog(@"Launching whisper-ctranslate2: %@ --model %@ (output: %@)", wavPath, ct2Model, outputFile);
@@ -1257,7 +1274,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         params.no_context = true;
         params.single_segment = false;
         params.language = "en";
-        params.initial_prompt = "Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
+        params.initial_prompt = [self.initialPrompt UTF8String];
 
         // Dynamic thread count based on CPU architecture
         int nth;
@@ -2526,6 +2543,134 @@ transcription_complete:
         confirm.alertStyle = NSAlertStyleInformational;
         [confirm runModal];
     }
+}
+
+- (void)changePrompt:(id)sender {
+    // Create prompt customization window
+    NSPanel *panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, 500, 240)
+                                                styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable)
+                                                  backing:NSBackingStoreBuffered
+                                                    defer:NO];
+    panel.title = @"Customize Initial Prompt";
+    panel.level = NSFloatingWindowLevel;
+    [panel center];
+
+    // Instruction label
+    NSTextField *instructionLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 190, 460, 40)];
+    instructionLabel.stringValue = @"Enter a prompt to help Whisper recognize your voice and context\n(Max 120 characters)";
+    instructionLabel.bordered = NO;
+    instructionLabel.editable = NO;
+    instructionLabel.backgroundColor = [NSColor clearColor];
+    instructionLabel.alignment = NSTextAlignmentLeft;
+    instructionLabel.font = [NSFont systemFontOfSize:12];
+    [panel.contentView addSubview:instructionLabel];
+
+    // Text field
+    NSTextField *textField = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 110, 460, 70)];
+    textField.stringValue = self.initialPrompt ?: @"";
+    textField.placeholderString = @"e.g., Male American English speaker. Business terminology.";
+    textField.font = [NSFont systemFontOfSize:13];
+    textField.maximumNumberOfLines = 3;
+    [[textField cell] setWraps:YES];
+    [[textField cell] setScrollable:NO];
+    [panel.contentView addSubview:textField];
+
+    // Character counter
+    NSTextField *charCounter = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 80, 460, 20)];
+    charCounter.stringValue = [NSString stringWithFormat:@"%lu / 120 characters", (unsigned long)textField.stringValue.length];
+    charCounter.bordered = NO;
+    charCounter.editable = NO;
+    charCounter.backgroundColor = [NSColor clearColor];
+    charCounter.alignment = NSTextAlignmentRight;
+    charCounter.font = [NSFont systemFontOfSize:11];
+    charCounter.textColor = [NSColor secondaryLabelColor];
+    [panel.contentView addSubview:charCounter];
+
+    // Update counter on text change
+    [[NSNotificationCenter defaultCenter] addObserverForName:NSControlTextDidChangeNotification
+                                                      object:textField
+                                                       queue:[NSOperationQueue mainQueue]
+                                                  usingBlock:^(NSNotification *note) {
+        NSTextField *field = note.object;
+        NSUInteger len = field.stringValue.length;
+        charCounter.stringValue = [NSString stringWithFormat:@"%lu / 120 characters", (unsigned long)len];
+
+        // Limit to 120 characters
+        if (len > 120) {
+            field.stringValue = [field.stringValue substringToIndex:120];
+            NSBeep();
+        }
+
+        // Color code: yellow at 100, red at 115+
+        if (len >= 115) {
+            charCounter.textColor = [NSColor systemRedColor];
+        } else if (len >= 100) {
+            charCounter.textColor = [NSColor systemOrangeColor];
+        } else {
+            charCounter.textColor = [NSColor secondaryLabelColor];
+        }
+    }];
+
+    // Reset button
+    NSButton *resetButton = [[NSButton alloc] initWithFrame:NSMakeRect(20, 20, 100, 32)];
+    [resetButton setButtonType:NSButtonTypeMomentaryPushIn];
+    [resetButton setBezelStyle:NSBezelStyleRounded];
+    resetButton.title = @"Reset Default";
+    [panel.contentView addSubview:resetButton];
+
+    resetButton.target = nil;
+    resetButton.action = nil;
+    __weak NSTextField *weakTextField = textField;
+    [resetButton setTarget:[^{
+        weakTextField.stringValue = @"Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
+        [[NSNotificationCenter defaultCenter] postNotificationName:NSControlTextDidChangeNotification object:weakTextField];
+    } copy]];
+    [resetButton setAction:NSSelectorFromString(@"invoke")];
+
+    // Buttons
+    NSButton *cancelButton = [[NSButton alloc] initWithFrame:NSMakeRect(310, 20, 80, 32)];
+    [cancelButton setButtonType:NSButtonTypeMomentaryPushIn];
+    [cancelButton setBezelStyle:NSBezelStyleRounded];
+    cancelButton.title = @"Cancel";
+    cancelButton.keyEquivalent = @"\e"; // Escape key
+    [panel.contentView addSubview:cancelButton];
+
+    NSButton *saveButton = [[NSButton alloc] initWithFrame:NSMakeRect(400, 20, 80, 32)];
+    [saveButton setButtonType:NSButtonTypeMomentaryPushIn];
+    [saveButton setBezelStyle:NSBezelStyleRounded];
+    saveButton.title = @"Save";
+    saveButton.keyEquivalent = @"\r"; // Return key
+    [panel.contentView addSubview:saveButton];
+
+    cancelButton.target = nil;
+    cancelButton.action = nil;
+    [cancelButton setTarget:[^{ [panel close]; } copy]];
+    [cancelButton setAction:NSSelectorFromString(@"invoke")];
+
+    __weak VTTDaemon *weakSelf = self;
+    saveButton.target = nil;
+    saveButton.action = nil;
+    [saveButton setTarget:[^{
+        NSString *newPrompt = textField.stringValue;
+        if (newPrompt.length > 120) {
+            newPrompt = [newPrompt substringToIndex:120];
+        }
+
+        weakSelf.initialPrompt = newPrompt;
+        [[NSUserDefaults standardUserDefaults] setObject:newPrompt forKey:@"initialPrompt"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+
+        // Update menu item
+        NSString *promptPreview = newPrompt.length > 30 ? [[newPrompt substringToIndex:27] stringByAppendingString:@"..."] : newPrompt;
+        weakSelf.promptMenuItem.title = [NSString stringWithFormat:@"Prompt: %@", promptPreview];
+
+        VTTLog(@"Updated initial prompt: %@", newPrompt);
+        [panel close];
+    } copy]];
+    [saveButton setAction:NSSelectorFromString(@"invoke")];
+
+    [panel makeKeyAndOrderFront:nil];
+    [panel makeFirstResponder:textField];
 }
 
 - (void)quit:(id)sender {
