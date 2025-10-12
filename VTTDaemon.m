@@ -922,7 +922,8 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         @"--compute_type", @"int8",
         @"--output_format", @"txt",
         @"--output_dir", @"/tmp",
-        @"--verbose", @"False"
+        @"--verbose", @"False",
+        @"--initial_prompt", @"Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters."
     ];
 
     VTTLog(@"Launching whisper-ctranslate2: %@ --model %@ (output: %@)", wavPath, ct2Model, outputFile);
@@ -966,8 +967,10 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
 - (void)processAudioFileAtPath:(NSString *)rawPath {
 
+    // Create unique WAV file based on the raw file name (preserves session uniqueness)
     char wavFile[256];
-    snprintf(wavFile, sizeof(wavFile), "/tmp/vtt_%d.wav", getpid());
+    NSString *rawFileName = [[rawPath lastPathComponent] stringByDeletingPathExtension];
+    snprintf(wavFile, sizeof(wavFile), "/tmp/%s.wav", [rawFileName UTF8String]);
 
     // Read raw PCM (recorded at device sample rate) into memory
     const char *raw_c = [rawPath UTF8String];
@@ -1254,6 +1257,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         params.no_context = true;
         params.single_segment = false;
         params.language = "en";
+        params.initial_prompt = "Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
         // threads: use fewer threads when GPU is active to reduce CPU/GPU contention
         // GPU does most of the work, CPU threads only for pre/post processing
         int nth = 4;
@@ -1616,13 +1620,27 @@ transcription_complete:
     }
     item.state = NSControlStateValueOn;
 
-    // Extract base model name (e.g., "CT2 small" → "small")
-    NSString *baseModel = newModel;
+    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    VTTLog(@"🔄 MODEL SWITCH REQUESTED: %@", newModel);
+    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    // CT2 models don't need file checks or preloading - they download on-demand
     if ([newModel hasPrefix:@"CT2 "]) {
-        baseModel = [newModel substringFromIndex:4]; // Remove "CT2 " prefix
+        VTTLog(@"✅ CT2 model selected (no preload needed)");
+        self.selectedModel = newModel;
+        self.modelMenuItem.title = [NSString stringWithFormat:@"Model: %@", newModel];
+
+        // Save preference
+        [[NSUserDefaults standardUserDefaults] setObject:newModel forKey:@"selectedModel"];
+
+        self.statusMenuItem.title = [NSString stringWithFormat:@"Status: Ready (CT2 %@)", [newModel substringFromIndex:4]];
+        self.statusItem.button.title = @"VTT ✅";
+        VTTLog(@"Switched to CT2 model: %@", newModel);
+        return; // Don't load whisper.cpp model for CT2
     }
 
-    // Map model names to actual filenames (large → large-v3 which is multilingual)
+    // Whisper.cpp models - need file check and preload
+    NSString *baseModel = newModel;
     NSString *modelFile = baseModel;
     NSString *extension = @"en.bin"; // Default: English-only models
 
@@ -1636,9 +1654,6 @@ transcription_complete:
     NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.%@",
                           NSHomeDirectory(), modelFile, extension];
 
-    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    VTTLog(@"🔄 MODEL SWITCH REQUESTED: %@", newModel);
-    VTTLog(@"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     VTTLog(@"Checking bundled path: %@", bundledModelPath);
     VTTLog(@"Bundled exists: %d", [[NSFileManager defaultManager] fileExistsAtPath:bundledModelPath]);
     VTTLog(@"Checking external path: %@", externalModelPath);
