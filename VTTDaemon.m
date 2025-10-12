@@ -95,6 +95,7 @@ typedef struct {
 @property (strong) NSMenuItem *hotkeyMenuItem;
 @property (strong) NSWindow *logWindow;
 @property (strong) NSString *initialPrompt;
+@property (strong) NSString *voicePrefix;
 @property (strong) NSMenuItem *promptMenuItem;
 @property (strong) NSPanel *promptPanel;
 #ifdef USE_WHISPER_LIB
@@ -195,6 +196,13 @@ static void audioInputCallback(void* userData,
     if (!self.initialPrompt) {
         self.initialPrompt = @"Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
         [defaults setObject:self.initialPrompt forKey:@"initialPrompt"];
+    }
+
+    // Load voice prefix preference (default: "[voice] ")
+    self.voicePrefix = [defaults stringForKey:@"voicePrefix"];
+    if (!self.voicePrefix) {
+        self.voicePrefix = @"[voice] ";
+        [defaults setObject:self.voicePrefix forKey:@"voicePrefix"];
     }
 
     // Set up menu bar
@@ -1054,9 +1062,10 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         if (transcription && transcription.length > 0) {
             VTTLog(@"CTranslate2 transcription: %@", transcription);
 
-            // Copy to clipboard and paste
+            // Copy to clipboard and paste (with voice prefix)
+            NSString *textToPaste = [NSString stringWithFormat:@"%@%@", self.voicePrefix ?: @"", transcription];
             [[NSPasteboard generalPasteboard] clearContents];
-            [[NSPasteboard generalPasteboard] setString:transcription forType:NSPasteboardTypeString];
+            [[NSPasteboard generalPasteboard] setString:textToPaste forType:NSPasteboardTypeString];
 
             dispatch_semaphore_t sema = dispatch_semaphore_create(0);
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -1497,10 +1506,11 @@ transcription_complete:
         return;
     }
 
-    // Copy to clipboard and paste
+    // Copy to clipboard and paste (with voice prefix)
     if (transcription.length > 0) {
+        NSString *textToPaste = [NSString stringWithFormat:@"%@%@", self.voicePrefix ?: @"", transcription];
         [[NSPasteboard generalPasteboard] clearContents];
-        [[NSPasteboard generalPasteboard] setString:transcription forType:NSPasteboardTypeString];
+        [[NSPasteboard generalPasteboard] setString:textToPaste forType:NSPasteboardTypeString];
 
         // Simulate Cmd+V with proper modifier sequence
         // Small delay to ensure the previously active app has focus (not VTT menu)
@@ -2554,27 +2564,42 @@ transcription_complete:
         return;
     }
 
-    // Create prompt customization window
-    NSPanel *panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, 500, 240)
+    // Create prompt customization window (taller for two fields)
+    NSPanel *panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, 500, 340)
                                                 styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable)
                                                   backing:NSBackingStoreBuffered
                                                     defer:NO];
-    panel.title = @"Customize Initial Prompt";
+    panel.title = @"Customize Transcription Settings";
     panel.level = NSFloatingWindowLevel;
     [panel center];
 
-    // Instruction label
-    NSTextField *instructionLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 190, 460, 40)];
-    instructionLabel.stringValue = @"Enter a prompt to help Whisper recognize your voice and context\n(Max 240 characters)";
-    instructionLabel.bordered = NO;
-    instructionLabel.editable = NO;
-    instructionLabel.backgroundColor = [NSColor clearColor];
-    instructionLabel.alignment = NSTextAlignmentLeft;
-    instructionLabel.font = [NSFont systemFontOfSize:12];
-    [panel.contentView addSubview:instructionLabel];
+    // === VOICE PREFIX SECTION ===
+    NSTextField *prefixLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 290, 460, 20)];
+    prefixLabel.stringValue = @"Voice Prefix (prepended to every transcription):";
+    prefixLabel.bordered = NO;
+    prefixLabel.editable = NO;
+    prefixLabel.backgroundColor = [NSColor clearColor];
+    prefixLabel.alignment = NSTextAlignmentLeft;
+    prefixLabel.font = [NSFont boldSystemFontOfSize:12];
+    [panel.contentView addSubview:prefixLabel];
 
-    // Text field
-    NSTextField *textField = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 110, 460, 70)];
+    NSTextField *prefixField = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 260, 460, 24)];
+    prefixField.stringValue = self.voicePrefix ?: @"";
+    prefixField.placeholderString = @"e.g., [voice] ";
+    prefixField.font = [NSFont systemFontOfSize:13];
+    [panel.contentView addSubview:prefixField];
+
+    // === INITIAL PROMPT SECTION ===
+    NSTextField *promptLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 225, 460, 20)];
+    promptLabel.stringValue = @"Initial Prompt (helps Whisper recognize your voice, max 240 chars):";
+    promptLabel.bordered = NO;
+    promptLabel.editable = NO;
+    promptLabel.backgroundColor = [NSColor clearColor];
+    promptLabel.alignment = NSTextAlignmentLeft;
+    promptLabel.font = [NSFont boldSystemFontOfSize:12];
+    [panel.contentView addSubview:promptLabel];
+
+    NSTextField *textField = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 145, 460, 70)];
     textField.stringValue = self.initialPrompt ?: @"";
     textField.placeholderString = @"e.g., Male American English speaker. Business terminology.";
     textField.font = [NSFont systemFontOfSize:13];
@@ -2584,7 +2609,7 @@ transcription_complete:
     [panel.contentView addSubview:textField];
 
     // Character counter
-    NSTextField *charCounter = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 80, 460, 20)];
+    NSTextField *charCounter = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 115, 460, 20)];
     charCounter.stringValue = [NSString stringWithFormat:@"%lu / 240 characters", (unsigned long)textField.stringValue.length];
     charCounter.bordered = NO;
     charCounter.editable = NO;
@@ -2629,8 +2654,10 @@ transcription_complete:
     resetButton.target = nil;
     resetButton.action = nil;
     __weak NSTextField *weakTextField = textField;
+    __weak NSTextField *weakPrefixField2 = prefixField;
     [resetButton setTarget:[^{
         weakTextField.stringValue = @"Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
+        weakPrefixField2.stringValue = @"[voice] ";
         [[NSNotificationCenter defaultCenter] postNotificationName:NSControlTextDidChangeNotification object:weakTextField];
     } copy]];
     [resetButton setAction:NSSelectorFromString(@"invoke")];
@@ -2656,16 +2683,23 @@ transcription_complete:
     [cancelButton setAction:NSSelectorFromString(@"invoke")];
 
     __weak VTTDaemon *weakSelf = self;
+    __weak NSTextField *weakPrefixField = prefixField;
     saveButton.target = nil;
     saveButton.action = nil;
     [saveButton setTarget:[^{
+        // Save initial prompt
         NSString *newPrompt = textField.stringValue;
         if (newPrompt.length > 240) {
             newPrompt = [newPrompt substringToIndex:240];
         }
-
         weakSelf.initialPrompt = newPrompt;
         [[NSUserDefaults standardUserDefaults] setObject:newPrompt forKey:@"initialPrompt"];
+
+        // Save voice prefix
+        NSString *newPrefix = weakPrefixField.stringValue;
+        weakSelf.voicePrefix = newPrefix;
+        [[NSUserDefaults standardUserDefaults] setObject:newPrefix forKey:@"voicePrefix"];
+
         [[NSUserDefaults standardUserDefaults] synchronize];
 
         // Update menu item
@@ -2673,6 +2707,7 @@ transcription_complete:
         weakSelf.promptMenuItem.title = [NSString stringWithFormat:@"Prompt: %@", promptPreview];
 
         VTTLog(@"Updated initial prompt: %@", newPrompt);
+        VTTLog(@"Updated voice prefix: %@", newPrefix);
         [panel close];
     } copy]];
     [saveButton setAction:NSSelectorFromString(@"invoke")];
