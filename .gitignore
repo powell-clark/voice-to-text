@@ -4,3 +4,16 @@ VTT.app/
 .DS_Store
 *.zip
 vtt.rb
+
+# Archives and packages
+*.tar.gz
+*.tar
+*.gz
+
+# Backup files
+*.new
+*.bak
+*.backup
+*.old
+*.orig
+*~
