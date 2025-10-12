@@ -74,6 +74,16 @@ bundle: app
 	@echo '    <key>LSUIElement</key><true/>' >> $(APP_NAME).app/Contents/Info.plist
 	@echo '    <key>NSMicrophoneUsageDescription</key><string>VTT needs microphone access.</string>' >> $(APP_NAME).app/Contents/Info.plist
 	@echo '</dict></plist>' >> $(APP_NAME).app/Contents/Info.plist
+	# Bundle Metal shader for GPU acceleration
+	@if [ -f $(WHISPER_BUILD_DIR)/bin/ggml-metal.metal ]; then \
+		cp $(WHISPER_BUILD_DIR)/bin/ggml-metal.metal $(APP_NAME).app/Contents/Resources/; \
+		echo "✅ Bundled Metal shader for GPU acceleration"; \
+	elif [ -f $(WHISPER_DIR)/ggml/src/ggml-metal/ggml-metal.metal ]; then \
+		cp $(WHISPER_DIR)/ggml/src/ggml-metal/ggml-metal.metal $(APP_NAME).app/Contents/Resources/; \
+		echo "✅ Bundled Metal shader (source)"; \
+	else \
+		echo "⚠️  Metal shader not found - GPU acceleration will not work"; \
+	fi
 	# Bundle small model if it exists
 	@if [ -f $(APP_NAME).app/Contents/Resources/ggml-small.en.bin ]; then \
 		echo "✅ Small model already bundled"; \
