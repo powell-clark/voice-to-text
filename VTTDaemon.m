@@ -1258,9 +1258,19 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         params.single_segment = false;
         params.language = "en";
         params.initial_prompt = "Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
-        // threads: use fewer threads when GPU is active to reduce CPU/GPU contention
-        // GPU does most of the work, CPU threads only for pre/post processing
-        int nth = 4;
+
+        // Dynamic thread count based on CPU architecture
+        int nth;
+#if defined(__arm64__) || defined(__aarch64__)
+        // Apple Silicon - GPU (Metal) does heavy lifting, fewer threads for pre/post processing
+        nth = 4;
+        VTTLog(@"Apple Silicon detected - using %d threads (GPU accelerated)", nth);
+#else
+        // Intel - No Metal GPU, use more CPU threads (physical cores)
+        NSInteger physicalCores = [[NSProcessInfo processInfo] activeProcessorCount] / 2;
+        nth = (int)MAX(4, physicalCores);
+        VTTLog(@"Intel CPU detected - using %d threads (CPU only)", nth);
+#endif
         params.n_threads = nth;
 
         VTTLog(@"Whisper params:");
