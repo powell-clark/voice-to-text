@@ -49,6 +49,9 @@ bundle: app
 	mkdir -p $(APP_NAME).app/Contents/MacOS
 	mkdir -p $(APP_NAME).app/Contents/Resources
 	cp $(APP_NAME) $(APP_NAME).app/Contents/MacOS/$(APP_NAME)
+	# Create app icon
+	python3 create_icon.py
+	iconutil -c icns /tmp/VTT.iconset -o $(APP_NAME).app/Contents/Resources/AppIcon.icns
 	# Optionally bundle whisper-cli if present (set WHISPER_CLI or use common locations)
 	@if [ -n "$(WHISPER_CLI)" ] && [ -x "$(WHISPER_CLI)" ]; then \
 		cp "$(WHISPER_CLI)" $(APP_NAME).app/Contents/MacOS/whisper-cli && chmod +x $(APP_NAME).app/Contents/MacOS/whisper-cli && echo "✅ Bundled whisper-cli (from $(WHISPER_CLI))"; \
