@@ -97,6 +97,7 @@ def detect_device() -> tuple[str, str]:
 def transcribe_audio(
     audio_path: str,
     model_size: str = "small.en",
+    language: str = "en",
     device: Optional[str] = None,
     compute_type: Optional[str] = None
 ) -> str:
@@ -106,6 +107,7 @@ def transcribe_audio(
     Args:
         audio_path: Path to audio file (WAV, 16kHz mono)
         model_size: Model size (tiny, base, small, medium, large)
+        language: Language code ("en" for English, "auto" for auto-detect)
         device: Device to use (cpu, cuda) - auto-detected if None
         compute_type: Compute type (int8, float16, float32) - auto-detected if None
 
@@ -121,11 +123,16 @@ def transcribe_audio(
         logger.error(f"Audio file not found: {audio_path}")
         return ""
 
-    # Add .en suffix for English-only models if not present
-    if not model_size.endswith(".en") and model_size in ["tiny", "base", "small"]:
-        model_size = f"{model_size}.en"
+    # Detect if model is English-only (.en suffix) or multilingual
+    is_english_only = model_size.endswith(".en")
 
-    logger.info(f"Loading model: {model_size} ({device}, {compute_type})")
+    # Determine language setting for transcription
+    # If language="en", use "en" for faster transcription
+    # If language="auto", use None for auto-detection (multilingual models only)
+    lang_setting = "en" if language == "en" else None
+
+    logger.info(f"Loading model: {model_size} ({'English-only' if is_english_only else 'Multilingual'}) ({device}, {compute_type})")
+    logger.info(f"Language: {'English (faster)' if language == 'en' else 'Auto-detect (99 languages)'}")
 
     try:
         # Initialize model (cached after first load)
@@ -135,7 +142,7 @@ def transcribe_audio(
         # Transcribe with faster-whisper
         segments, info = model.transcribe(
             audio_path,
-            language="en",  # Explicit language for faster transcription (skips detection)
+            language=lang_setting,
             beam_size=5,
             vad_filter=False,  # Disable VAD - too aggressive
             word_timestamps=True,  # Enable word-level timestamps
@@ -166,7 +173,7 @@ def transcribe_audio(
 
                 segments, info = model.transcribe(
                     audio_path,
-                    language="en",  # Explicit language for faster transcription (skips detection)
+                    language=lang_setting,
                     beam_size=5,
                     vad_filter=False,
                     word_timestamps=True,
@@ -192,14 +199,15 @@ def transcribe_audio(
 def main():
     """CLI interface for VTT app"""
     if len(sys.argv) < 2:
-        print("Usage: faster_whisper_wrapper.py <audio_file> [model_size]", file=sys.stderr)
+        print("Usage: faster_whisper_wrapper.py <audio_file> [model_size] [language]", file=sys.stderr)
         sys.exit(1)
 
     audio_path = sys.argv[1]
     model_size = sys.argv[2] if len(sys.argv) > 2 else "small.en"
+    language = sys.argv[3] if len(sys.argv) > 3 else "en"
 
     # Transcribe
-    text = transcribe_audio(audio_path, model_size)
+    text = transcribe_audio(audio_path, model_size, language)
 
     # Output text to stdout (VTT app reads this)
     if text:

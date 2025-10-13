@@ -86,8 +86,8 @@ static void *transcription_worker(void *arg) {
         vtt_gui_set_status(&app->gui, "Transcribing...");
         vtt_gui_set_icon(&app->gui, "processing");
 
-        // Transcribe with selected model
-        char *text = vtt_transcribe_audio(actual_filename, app->gui.selected_model);
+        // Transcribe with selected model and language
+        char *text = vtt_transcribe_audio(actual_filename, app->gui.selected_model, app->gui.selected_language);
 
         if (text && strlen(text) > 0) {
             // Check if text contains at least some alphanumeric content (not just punctuation/brackets)

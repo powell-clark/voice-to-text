@@ -3,19 +3,154 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define MAX_OUTPUT 8192
 
-char *vtt_transcribe_audio(const char *audio_path) {
+// Detect if model is whisper.cpp (W models) or CTranslate2
+// W models: tiny, base, small, medium, large (not prefixed with CT2)
+// CT2 models: start with "CT2 " prefix
+static int is_whisper_cpp_model(const char *model) {
+    if (!model) return 0;
+    // If it starts with "CT2 ", it's a CTranslate2 model
+    if (strncmp(model, "CT2 ", 4) == 0) return 0;
+    // Otherwise it's a whisper.cpp model
+    return 1;
+}
+
+char *vtt_transcribe_audio(const char *audio_path, const char *model, const char *language) {
     if (!audio_path) {
         return NULL;
     }
 
-    // Build command - use shared transcribe.py from src/common/
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "python3.12 src/common/transcribe.py '%s' large-v3 2>&1", audio_path);
+    // Use provided model or default to CT2 small
+    const char *model_to_use = model ? model : "CT2 small";
 
-    vtt_log("Transcribing: %s", audio_path);
+    // Use provided language or default to "en" (English)
+    const char *language_to_use = language ? language : "en";
+
+    // Auto-append .en suffix for English when .en model exists
+    // Menu shows "W tiny", but backend uses "W tiny.en" for English
+    char adjusted_model[128];
+    strncpy(adjusted_model, model_to_use, sizeof(adjusted_model) - 1);
+    adjusted_model[sizeof(adjusted_model) - 1] = '\0';
+
+    if (strcmp(language_to_use, "en") == 0 && strstr(adjusted_model, ".en") == NULL) {
+        // Check if this model has an .en version (tiny, base, small, medium do, large doesn't)
+        int has_en_version = 0;
+        if (strstr(adjusted_model, "tiny") || strstr(adjusted_model, "base") ||
+            strstr(adjusted_model, "small") || strstr(adjusted_model, "medium")) {
+            has_en_version = 1;
+        }
+
+        if (has_en_version) {
+            // Append .en to model name
+            size_t len = strlen(adjusted_model);
+            if (len + 3 < sizeof(adjusted_model)) {
+                strcat(adjusted_model, ".en");
+                model_to_use = adjusted_model;
+                vtt_log("Auto-selected .en model: %s (English mode)", model_to_use);
+            }
+        }
+    }
+
+    char cmd[1024];
+
+    // Detect backend based on model name
+    if (is_whisper_cpp_model(model_to_use)) {
+        // ═══════════════════════════════════════════════════════════════
+        // WHISPER.CPP BACKEND (W models: tiny, base, small, medium, large)
+        // ═══════════════════════════════════════════════════════════════
+        const char *whisper_cli = "/home/powell-clark/projects/voice-to-text/third_party/whisper.cpp/build/bin/whisper-cli";
+
+        if (access(whisper_cli, X_OK) != 0) {
+            vtt_log("ERROR: whisper-cli not found at %s", whisper_cli);
+            return NULL;
+        }
+
+        // Extract base model name (strip "W " prefix if present)
+        const char *base_model = model_to_use;
+        if (strncmp(model_to_use, "W ", 2) == 0) {
+            base_model = model_to_use + 2; // Skip "W "
+        }
+
+        // Determine if model is English-only (.en suffix) or multilingual
+        int is_english_only = (strstr(base_model, ".en") != NULL);
+
+        // Map model names and determine file extension
+        const char *model_file_name = base_model;
+        const char *extension = is_english_only ? ".en.bin" : ".bin";
+
+        // Remove .en suffix from model name for file lookup
+        char clean_model_name[64];
+        if (is_english_only) {
+            // Copy model name without .en suffix
+            size_t len = strlen(base_model) - 3; // Remove ".en"
+            if (len < sizeof(clean_model_name)) {
+                strncpy(clean_model_name, base_model, len);
+                clean_model_name[len] = '\0';
+                model_file_name = clean_model_name;
+            }
+        }
+
+        // Special case: large → large-v3
+        if (strcmp(model_file_name, "large") == 0) {
+            model_file_name = "large-v3";
+        }
+
+        // Model file path: ~/.cache/whisper/ggml-{model}{extension}
+        char model_file[512];
+        const char *home = getenv("HOME");
+        snprintf(model_file, sizeof(model_file), "%s/.cache/whisper/ggml-%s%s",
+                 home, model_file_name, extension);
+
+        if (access(model_file, R_OK) != 0) {
+            vtt_log("ERROR: Model file not found: %s", model_file);
+            vtt_log("Download with: bash third_party/whisper.cpp/models/download-ggml-model.sh %s", model_file_name);
+            return NULL;
+        }
+
+        // Run whisper-cli with user-selected language
+        // If user selected "en", use --language en (faster)
+        // If user selected "auto", use --language auto (auto-detect, multilingual only)
+        snprintf(cmd, sizeof(cmd),
+                 "%s -m '%s' -f '%s' --no-timestamps --language %s --threads 4 2>/dev/null",
+                 whisper_cli, model_file, audio_path, language_to_use);
+
+    } else {
+        // ═══════════════════════════════════════════════════════════════
+        // CTRANSLATE2 BACKEND (CT2 models: tiny, base, small, medium, large-v3)
+        // ═══════════════════════════════════════════════════════════════
+        const char *script_path = "/home/powell-clark/projects/voice-to-text/src/common/transcribe.py";
+        const char *python_path = "python3.12";
+
+        if (access(script_path, R_OK) != 0) {
+            vtt_log("ERROR: transcribe.py not found at %s", script_path);
+            return NULL;
+        }
+
+        // Extract base model name (strip "CT2 " prefix if present)
+        const char *base_model = model_to_use;
+        if (strncmp(model_to_use, "CT2 ", 4) == 0) {
+            base_model = model_to_use + 4; // Skip "CT2 " prefix
+        }
+
+        // Map model names for CT2 (large → large-v3)
+        // Preserve .en suffix if present (e.g., "small.en" → "small.en")
+        char ct2_model[64];
+        strncpy(ct2_model, base_model, sizeof(ct2_model) - 1);
+        ct2_model[sizeof(ct2_model) - 1] = '\0';
+
+        // Replace "large" with "large-v3" (unless it's "large.en")
+        if (strcmp(base_model, "large") == 0) {
+            strncpy(ct2_model, "large-v3", sizeof(ct2_model));
+        }
+
+        // Run Python faster-whisper script with model and language
+        // Pass language as additional parameter: "en" or "auto"
+        snprintf(cmd, sizeof(cmd), "%s '%s' '%s' %s %s 2>/dev/null",
+                 python_path, script_path, audio_path, ct2_model, language_to_use);
+    }
 
     FILE *fp = popen(cmd, "r");
     if (!fp) {
@@ -38,7 +173,6 @@ char *vtt_transcribe_audio(const char *audio_path) {
 
     if (status != 0) {
         vtt_log("Transcription failed with status %d", status);
-        vtt_log("Output: %s", buffer);
         return NULL;
     }
 
@@ -58,8 +192,6 @@ char *vtt_transcribe_audio(const char *audio_path) {
         *end = '\0';
         end--;
     }
-
-    vtt_log("Transcribed: %s", start);
 
     return strdup(start);
 }
