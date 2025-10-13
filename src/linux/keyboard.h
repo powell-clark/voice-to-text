@@ -12,8 +12,6 @@ typedef void (*vtt_keyboard_callback_t)(vtt_key_event_t event);
 
 typedef struct {
     void *display;
-    void *data_display;
-    void *context;
     bool running;
     vtt_keyboard_callback_t callback;
     int scroll_lock_keycode;

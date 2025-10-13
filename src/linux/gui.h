@@ -14,14 +14,20 @@ typedef struct {
     void *hotkey_item;
     void *prompt_item;
     void *logging_item;
+    void *language_item;
+    void *prompt_dialog;
     vtt_model_callback_t model_callback;
     void *user_data;
     char *selected_model;
+    char *selected_language;
+    char *voice_prefix;
+    char *initial_prompt;
+    char *config_dir;
     bool logging_enabled;
 } vtt_gui_t;
 
 // Initialize GUI
-int vtt_gui_init(vtt_gui_t *gui, void *app);
+int vtt_gui_init(vtt_gui_t *gui, void *app, const char *config_dir);
 
 // Run GUI main loop
 void vtt_gui_run(vtt_gui_t *gui);
