@@ -13,6 +13,8 @@ Voice-to-text using OpenAI Whisper. Hold a hotkey to speak, release when finishe
 
 **No internet required** - all transcription happens locally on your device.
 
+**Multi-language support** - automatically detects and transcribes 99 languages including Spanish, French, German, Chinese, Japanese, and more.
+
 ## Recording Limits & Notifications
 
 To prevent accidental long recordings, Voice to Text has maximum recording durations:
@@ -399,7 +401,6 @@ We follow conventional commits:
 ### Ideas for Contributions
 
 **Features:**
-- Multi-language support (currently English-only)
 - Custom hotkey combinations
 - Transcription history/clipboard manager
 - Alternative Whisper backends (Faster Whisper, MLX)
