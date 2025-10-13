@@ -1,17 +1,17 @@
-# Voice to Text
+# Voice to Text - Push-to-Talk Voice Transcription for macOS & Linux
 
-Voice-to-text using OpenAI Whisper with **automatic multi-language support** (99+ languages). Hold a hotkey to speak, release when finished. Your text appears in any focused input box.
+**Offline voice-to-text transcription app** using OpenAI Whisper AI. Push-to-talk hotkey interface supporting **99+ languages** including English, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Hindi, Portuguese, Russian, Italian, Dutch, Polish, Turkish, Vietnamese, Thai, Indonesian, Hebrew, and many more.
 
-**Available for macOS and Linux** • **Supports 99+ Languages** • **100% Offline**
+**Available for macOS and Linux (Ubuntu, Debian)** • **99+ Languages** • **100% Offline** • **Push-to-Talk** • **GPU Accelerated**
 
-## How It Works
+## How It Works (Push-to-Talk Voice Transcription)
 
-1. Hold the hotkey (**Scroll Lock** on Linux, **Right Alt** on macOS)
-2. Speak in **any of 99+ languages** - automatic language detection
-3. Release when finished
-4. Text appears in your focused input box
+1. **Press and hold** the hotkey (**Scroll Lock** on Linux/Ubuntu/Debian, **Right Alt** on macOS)
+2. **Speak** in any of 99+ languages - English, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Hindi, and more
+3. **Release** when finished speaking
+4. **Text appears instantly** in your focused application (email, document, chat, terminal, etc.)
 
-**No internet required** - all transcription happens locally on your device.
+**No internet required** - all voice transcription and speech recognition happens locally on your device using OpenAI Whisper AI models. Works completely offline.
 
 ## Multi-Language Support
 
