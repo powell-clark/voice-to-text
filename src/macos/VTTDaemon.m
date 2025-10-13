@@ -2304,9 +2304,14 @@ transcription_complete:
         if (!representedModel) continue;
 
         // CT2 models don't need file checks (downloaded on-demand by faster-whisper)
+        // But tiny/base don't support multilingual mode
         if ([representedModel hasPrefix:@"CT2"]) {
-            [item setEnabled:YES];
-            VTTLog(@"  %@ - enabled: YES (CT2 auto-download)", item.title);
+            BOOL isCT2TinyOrBase = [representedModel isEqualToString:@"CT2 tiny"] ||
+                                    [representedModel isEqualToString:@"CT2 base"];
+            BOOL shouldEnable = isEnglish || !isCT2TinyOrBase;
+            [item setEnabled:shouldEnable];
+            VTTLog(@"  %@ - enabled: %d (CT2 auto-download, isEnglish=%d, isTinyOrBase=%d)",
+                   item.title, shouldEnable, isEnglish, isCT2TinyOrBase);
             continue;
         }
 
@@ -2352,19 +2357,21 @@ transcription_complete:
         }
     }
 
-    if (!currentStillEnabled && ![currentModel hasPrefix:@"CT2"]) {
+    if (!currentStillEnabled) {
         VTTLog(@"⚠️  Current model (%@) no longer valid, finding first enabled model", currentModel);
 
-        // Find first enabled model (prefer small if available)
+        // Find first enabled model (prefer CT2 small, then small, then any)
         NSMenuItem *fallbackItem = nil;
         NSMenuItem *preferredItem = nil;
 
         for (NSMenuItem *item in modelMenu.itemArray) {
             if (item.enabled && item.representedObject) {
                 if (!fallbackItem) fallbackItem = item;
-                if ([item.representedObject isEqualToString:@"small"]) {
+                if ([item.representedObject isEqualToString:@"CT2 small"]) {
                     preferredItem = item;
                     break;
+                } else if (!preferredItem && [item.representedObject isEqualToString:@"small"]) {
+                    preferredItem = item;
                 }
             }
         }
