@@ -1,0 +1,58 @@
+Source: voice-to-text
+Section: sound
+Priority: optional
+Maintainer: Emmanuel Powell-Clark <emmanuel@powell-clark.com>
+Build-Depends: debhelper-compat (= 13),
+               build-essential,
+               pkg-config,
+               portaudio19-dev,
+               libx11-dev,
+               libxtst-dev,
+               libxext-dev,
+               libgtk-3-dev,
+               libayatana-appindicator3-dev,
+               libnotify-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/powell-clark/voice-to-text
+Vcs-Git: https://github.com/powell-clark/voice-to-text.git
+Vcs-Browser: https://github.com/powell-clark/voice-to-text
+Rules-Requires-Root: no
+
+Package: voice-to-text
+Architecture: amd64
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         portaudio19-dev,
+         libx11-6,
+         libxtst6,
+         libxext6,
+         libgtk-3-0,
+         libayatana-appindicator3-1,
+         libnotify4,
+         python3 (>= 3.10),
+         python3-pip
+Recommends: cuda-toolkit-12-6,
+            libcudnn9-cuda-12
+Suggests: nvidia-driver-550
+Description: Offline voice-to-text transcription with 99+ language support
+ Voice to Text is a push-to-talk voice transcription application using
+ OpenAI Whisper AI. It supports 99+ languages including English, Spanish,
+ French, German, Chinese, Japanese, Korean, Arabic, Hindi, and more.
+ .
+ Features:
+  - Push-to-talk recording (Right Alt key by default)
+  - 99+ language support with automatic detection
+  - Multiple Whisper model sizes (tiny to large-v3)
+  - Two backends: whisper.cpp (C++) and CTranslate2 (Python, 5-10x faster)
+  - GPU acceleration with NVIDIA CUDA (optional)
+  - System tray integration with GTK3
+  - Settings persistence
+  - 100% offline operation (no internet required)
+ .
+ The application runs as a system tray icon and transcribes your voice
+ directly into any focused application. Press and hold Right Alt to record,
+ release to transcribe.
+ .
+ To enable GPU acceleration, install cuda-toolkit-12-6 and libcudnn9-cuda-12.
+ To install Python transcription backend, run:
+   pip3 install --break-system-packages faster-whisper ctranslate2
