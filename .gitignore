@@ -17,3 +17,6 @@ vtt.rb
 *.old
 *.orig
 *~
+
+# Claude Code session files
+.claude.md
