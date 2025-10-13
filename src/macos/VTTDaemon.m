@@ -243,7 +243,7 @@ static void audioInputCallback(void* userData,
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     self.selectedModel = [defaults stringForKey:@"selectedModel"];
     if (!self.selectedModel) {
-        self.selectedModel = @"small";  // Default to small model
+        self.selectedModel = @"CT2 small";  // Default to CT2 small (best for machines without GPU)
         [defaults setObject:self.selectedModel forKey:@"selectedModel"];
     }
 
@@ -293,7 +293,33 @@ static void audioInputCallback(void* userData,
     [self.menu addItem:self.statusMenuItem];
     [self.menu addItem:[NSMenuItem separatorItem]];
 
-    // Model selection submenu
+    // Language selection submenu (FIRST - affects model filtering)
+    NSString *languageDisplay = [self.selectedLanguage isEqualToString:@"en"] ? @"English only" : @"Multilingual";
+    self.languageMenuItem = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"Language: %@", languageDisplay]
+                                                        action:nil
+                                                 keyEquivalent:@""];
+    NSMenu *languageMenu = [[NSMenu alloc] init];
+
+    NSMenuItem *englishItem = [[NSMenuItem alloc] initWithTitle:@"English only (fastest)"
+                                                         action:@selector(selectLanguage:)
+                                                  keyEquivalent:@""];
+    englishItem.target = self;
+    englishItem.representedObject = @"en";
+    englishItem.state = [self.selectedLanguage isEqualToString:@"en"] ? NSControlStateValueOn : NSControlStateValueOff;
+    [languageMenu addItem:englishItem];
+
+    NSMenuItem *multilingualItem = [[NSMenuItem alloc] initWithTitle:@"Multilingual (99 languages)"
+                                                              action:@selector(selectLanguage:)
+                                                       keyEquivalent:@""];
+    multilingualItem.target = self;
+    multilingualItem.representedObject = @"auto";
+    multilingualItem.state = [self.selectedLanguage isEqualToString:@"auto"] ? NSControlStateValueOn : NSControlStateValueOff;
+    [languageMenu addItem:multilingualItem];
+
+    self.languageMenuItem.submenu = languageMenu;
+    [self.menu addItem:self.languageMenuItem];
+
+    // Model selection submenu (SECOND - filtered by language choice)
     self.modelMenuItem = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"Model: %@", self.selectedModel]
                                                      action:nil
                                               keyEquivalent:@""];
@@ -333,32 +359,6 @@ static void audioInputCallback(void* userData,
 
     self.modelMenuItem.submenu = modelMenu;
     [self.menu addItem:self.modelMenuItem];
-
-    // Language selection submenu
-    NSString *languageDisplay = [self.selectedLanguage isEqualToString:@"en"] ? @"English only" : @"Multilingual";
-    self.languageMenuItem = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"Language: %@", languageDisplay]
-                                                        action:nil
-                                                 keyEquivalent:@""];
-    NSMenu *languageMenu = [[NSMenu alloc] init];
-
-    NSMenuItem *englishItem = [[NSMenuItem alloc] initWithTitle:@"English only (fastest)"
-                                                         action:@selector(selectLanguage:)
-                                                  keyEquivalent:@""];
-    englishItem.target = self;
-    englishItem.representedObject = @"en";
-    englishItem.state = [self.selectedLanguage isEqualToString:@"en"] ? NSControlStateValueOn : NSControlStateValueOff;
-    [languageMenu addItem:englishItem];
-
-    NSMenuItem *multilingualItem = [[NSMenuItem alloc] initWithTitle:@"Multilingual (99 languages)"
-                                                              action:@selector(selectLanguage:)
-                                                       keyEquivalent:@""];
-    multilingualItem.target = self;
-    multilingualItem.representedObject = @"auto";
-    multilingualItem.state = [self.selectedLanguage isEqualToString:@"auto"] ? NSControlStateValueOn : NSControlStateValueOff;
-    [languageMenu addItem:multilingualItem];
-
-    self.languageMenuItem.submenu = languageMenu;
-    [self.menu addItem:self.languageMenuItem];
 
     // Check which models exist and disable unavailable ones
     [self rebuildModelMenu];
