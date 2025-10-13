@@ -7,19 +7,21 @@ CFLAGS += $(shell pkg-config --cflags portaudio-2.0)
 CFLAGS += $(shell pkg-config --cflags x11 xtst xext)
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
 CFLAGS += $(shell pkg-config --cflags ayatana-appindicator3-0.1)
+CFLAGS += $(shell pkg-config --cflags libnotify)
 
 LDFLAGS = -pthread -lm
 LDFLAGS += $(shell pkg-config --libs portaudio-2.0)
 LDFLAGS += $(shell pkg-config --libs x11 xtst xext)
 LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
 LDFLAGS += $(shell pkg-config --libs ayatana-appindicator3-0.1)
+LDFLAGS += $(shell pkg-config --libs libnotify)
 
 TARGET = vtt-linux
 SRC_DIR = src
 BUILD_DIR = build
 
 # Source files
-COMMON_SRCS = $(SRC_DIR)/common/logging.c $(SRC_DIR)/common/queue.c
+COMMON_SRCS = $(SRC_DIR)/common/logging.c $(SRC_DIR)/common/queue.c $(SRC_DIR)/common/settings.c
 LINUX_SRCS = $(SRC_DIR)/linux/audio.c \
              $(SRC_DIR)/linux/keyboard.c \
              $(SRC_DIR)/linux/typing.c \

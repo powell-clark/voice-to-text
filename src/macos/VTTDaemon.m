@@ -61,6 +61,7 @@ static void VTTLogToFile(NSString *message) {
 #define CHANNELS 1
 // Smaller buffer = lower callback latency (at 48 kHz, 4096 bytes ~ 42 ms)
 #define BUFFER_SIZE 4096
+#define MAX_RECORDING_SECONDS 10  // Maximum recording duration (set to 10 for testing)
 
 // C struct for audio state (for performance)
 typedef struct {
@@ -71,6 +72,9 @@ typedef struct {
     BOOL isRecording;
     char tempFileName[256];
     size_t bytesCaptured;
+    size_t maxBytesAllowed;      // Maximum bytes before stopping (SAMPLE_RATE * CHANNELS * 2 * MAX_RECORDING_SECONDS)
+    BOOL bufferFull;              // Set when max recording length is reached
+    void* daemonRef;              // Weak reference to VTTDaemon for notifications
 } AudioState;
 
 @interface VTTDaemon : NSObject <NSApplicationDelegate>
@@ -139,6 +143,47 @@ static void resample_linear_i16_mono(const int16_t *in, size_t in_len,
     *out_len = n_out;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Hot-plug Detection for Microphones (ADDED: 2025-10-13 02:10 UTC)
+// ═══════════════════════════════════════════════════════════════════════════════
+// macOS Implementation: Core Audio property listener callback
+//
+// This C callback function is registered with AudioObjectAddPropertyListener() to
+// receive instant notifications when audio devices are added/removed from the system.
+//
+// How it works:
+// 1. Core Audio calls this function when kAudioHardwarePropertyDevices changes
+// 2. Function is called on an arbitrary thread (hence @autoreleasepool)
+// 3. We dispatch to main queue to safely update the UI (menu items)
+// 4. refreshMicrophoneMenu clears and repopulates the microphone submenu
+//
+// Registration happens in applicationDidFinishLaunching: after menu creation.
+// See line ~291 where AudioObjectAddPropertyListener is called.
+//
+// Benefits over polling:
+// - Instant notification (no delay)
+// - No CPU overhead when devices don't change
+// - Native macOS Core Audio API
+//
+// Note for debugging:
+// - If build fails, check that refreshMicrophoneMenu method exists (~line 2179)
+// - Verify AudioToolbox framework is linked
+// - Check that self is properly __bridged when passing to callback
+// ═══════════════════════════════════════════════════════════════════════════════
+static OSStatus audioDeviceChangeCallback(AudioObjectID inObjectID,
+                                         UInt32 inNumberAddresses,
+                                         const AudioObjectPropertyAddress* inAddresses,
+                                         void* inClientData) {
+    @autoreleasepool {
+        VTTDaemon* daemon = (__bridge VTTDaemon*)inClientData;
+        VTTLog(@"Audio devices changed, refreshing microphone menu");
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [daemon refreshMicrophoneMenu];
+        });
+    }
+    return noErr;
+}
+
 // Pure C audio callback (for speed)
 static void audioInputCallback(void* userData,
                               AudioQueueRef queue,
@@ -149,9 +194,31 @@ static void audioInputCallback(void* userData,
     AudioState* state = (AudioState*)userData;
 
     if (state->isRecording && state->audioFile) {
-        size_t written = fwrite(buffer->mAudioData, 1, buffer->mAudioDataByteSize, state->audioFile);
-        state->bytesCaptured += written;
-        fflush(state->audioFile); // Force write to disk
+        size_t bytesToWrite = buffer->mAudioDataByteSize;
+        size_t spaceLeft = state->maxBytesAllowed - state->bytesCaptured;
+
+        if (bytesToWrite > spaceLeft) {
+            bytesToWrite = spaceLeft;
+            // Mark that we've hit the buffer limit
+            if (spaceLeft > 0 && !state->bufferFull) {
+                state->bufferFull = YES;
+                VTTLog(@"Recording buffer full - max length reached (%d seconds)", MAX_RECORDING_SECONDS);
+
+                // Notify daemon to auto-stop recording
+                if (state->daemonRef) {
+                    VTTDaemon* daemon = (__bridge VTTDaemon*)state->daemonRef;
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [daemon handleMaxLengthReached];
+                    });
+                }
+            }
+        }
+
+        if (bytesToWrite > 0) {
+            size_t written = fwrite(buffer->mAudioData, 1, bytesToWrite, state->audioFile);
+            state->bytesCaptured += written;
+            fflush(state->audioFile); // Force write to disk
+        }
     }
 
     AudioQueueEnqueueBuffer(queue, buffer, 0, NULL);
@@ -266,6 +333,27 @@ static void audioInputCallback(void* userData,
     [self populateMicrophoneMenu:micMenu];
     self.micMenuItem.submenu = micMenu;
     [self.menu addItem:self.micMenuItem];
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADDED 2025-10-13 02:10 UTC: Register for audio device changes
+    // ═══════════════════════════════════════════════════════════════════════
+    // Register for hot-plug detection of audio devices (USB mics, Bluetooth, etc.)
+    // This registers the audioDeviceChangeCallback (see line ~169) to be called
+    // whenever kAudioHardwarePropertyDevices changes.
+    //
+    // Listener is active for the lifetime of the application. No need to unregister
+    // unless we need to stop monitoring device changes.
+    // ═══════════════════════════════════════════════════════════════════════
+    AudioObjectPropertyAddress devicesAddr = {
+        kAudioHardwarePropertyDevices,
+        kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMain
+    };
+    AudioObjectAddPropertyListener(kAudioObjectSystemObject,
+                                   &devicesAddr,
+                                   audioDeviceChangeCallback,
+                                   (__bridge void*)self);
+    VTTLog(@"Registered for audio device change notifications");
 
     // Hotkey customization menu item
     NSString *hotkeyName = [self hotkeyNameForCode:self.hotkeyCode];
@@ -861,6 +949,9 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
     // Arm recording and start the queue so callbacks deliver audio
     self.audioState->bytesCaptured = 0;
+    self.audioState->maxBytesAllowed = SAMPLE_RATE * CHANNELS * 2 * MAX_RECORDING_SECONDS;  // 16-bit samples = 2 bytes
+    self.audioState->bufferFull = NO;
+    self.audioState->daemonRef = (__bridge void*)self;
     self.audioState->isRecording = YES;
     // Re-prime the input queue after a previous stop: return any buffers
     // to the queue and enqueue them again so the device can fill them.
@@ -927,6 +1018,21 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
             }
         });
     });
+}
+
+- (void)handleMaxLengthReached {
+    VTTLog(@"Max recording length reached - auto-stopping and notifying user");
+
+    // Show desktop notification instead of typing
+    NSUserNotification *notification = [[NSUserNotification alloc] init];
+    notification.title = @"Voice to Text";
+    notification.informativeText = [NSString stringWithFormat:@"Recording limit reached (%ds) - release key to transcribe", MAX_RECORDING_SECONDS];
+    notification.soundName = NSUserNotificationDefaultSoundName;
+
+    [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
+
+    // Now stop recording and queue for transcription
+    [self stopRecording];
 }
 
 - (NSString *)transcribeWithCTranslate2:(NSString *)wavPath model:(NSString *)modelName {
@@ -1049,6 +1155,53 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
     if (max_val == 0) {
         VTTLog(@"⚠️  WARNING: Audio appears to be silent (all zeros)");
+    }
+
+    // Check duration and amplitude thresholds
+    float duration = (float)n_out / 16000.0f;
+    NSString *rejectionMessage = nil;
+
+    if (duration < 0.5f) {
+        VTTLog(@"⚠️  Recording too short (%.2f seconds) - rejecting", duration);
+        rejectionMessage = @"[Transcription activated: audio too short]";
+    } else if (max_val < 500) {
+        VTTLog(@"⚠️  Audio too quiet (amplitude %d) - rejecting", max_val);
+        rejectionMessage = @"[Transcription activated: no audio detected]";
+    }
+
+    // If rejected, type rejection message and return
+    if (rejectionMessage) {
+        [[NSPasteboard generalPasteboard] clearContents];
+        [[NSPasteboard generalPasteboard] setString:rejectionMessage forType:NSPasteboardTypeString];
+
+        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+                CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+                CGEventRef cmdDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, true);
+                CGEventPost(kCGHIDEventTap, cmdDown);
+                CFRelease(cmdDown);
+                usleep(25000);
+                CGEventRef vDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, true);
+                CGEventPost(kCGHIDEventTap, vDown);
+                CFRelease(vDown);
+                usleep(50000);
+                CGEventRef vUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, false);
+                CGEventPost(kCGHIDEventTap, vUp);
+                CFRelease(vUp);
+                CGEventRef cmdUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, false);
+                CGEventPost(kCGHIDEventTap, cmdUp);
+                CFRelease(cmdUp);
+                CFRelease(src);
+                dispatch_semaphore_signal(sema);
+            });
+        });
+        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+
+        // Clean up and return
+        [[NSFileManager defaultManager] removeItemAtPath:rawPath error:nil];
+        free(out_pcm);
+        return;
     }
 
     // Write WAV @ 16 kHz
@@ -2147,6 +2300,24 @@ transcription_complete:
 
     VTTLog(@"Switched to microphone: %@ (ID: %u)", item.title, deviceID);
     self.statusMenuItem.title = [NSString stringWithFormat:@"Status: Using %@", item.title];
+}
+
+- (void)refreshMicrophoneMenu {
+    if (!self.micMenuItem) return;
+
+    NSMenu *micMenu = self.micMenuItem.submenu;
+    if (!micMenu) {
+        micMenu = [[NSMenu alloc] init];
+        self.micMenuItem.submenu = micMenu;
+    }
+
+    // Clear existing menu items
+    [micMenu removeAllItems];
+
+    // Repopulate the menu
+    [self populateMicrophoneMenu:micMenu];
+
+    VTTLog(@"Microphone menu refreshed");
 }
 
 - (void)toggleLogging:(id)sender {
