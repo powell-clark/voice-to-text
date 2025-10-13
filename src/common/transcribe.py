@@ -135,7 +135,7 @@ def transcribe_audio(
         # Transcribe with faster-whisper
         segments, info = model.transcribe(
             audio_path,
-            language=None,  # Auto-detect language (supports 99 languages)
+            language="en",  # Explicit language for faster transcription (skips detection)
             beam_size=5,
             vad_filter=False,  # Disable VAD - too aggressive
             word_timestamps=True,  # Enable word-level timestamps
@@ -166,7 +166,7 @@ def transcribe_audio(
 
                 segments, info = model.transcribe(
                     audio_path,
-                    language=None,  # Auto-detect language (supports 99 languages)
+                    language="en",  # Explicit language for faster transcription (skips detection)
                     beam_size=5,
                     vad_filter=False,
                     word_timestamps=True,
