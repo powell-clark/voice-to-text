@@ -1,19 +1,29 @@
 # Voice to Text
 
-Voice-to-text using OpenAI Whisper. Hold a hotkey to speak, release when finished. Your text appears in any focused input box.
+Voice-to-text using OpenAI Whisper with **automatic multi-language support** (99+ languages). Hold a hotkey to speak, release when finished. Your text appears in any focused input box.
 
-**Available for macOS and Linux**
+**Available for macOS and Linux** • **Supports 99+ Languages** • **100% Offline**
 
 ## How It Works
 
 1. Hold the hotkey (**Scroll Lock** on Linux, **Right Alt** on macOS)
-2. Speak
+2. Speak in **any of 99+ languages** - automatic language detection
 3. Release when finished
 4. Text appears in your focused input box
 
 **No internet required** - all transcription happens locally on your device.
 
-**Multi-language support** - automatically detects and transcribes 99 languages including Spanish, French, German, Chinese, Japanese, and more.
+## Multi-Language Support
+
+Voice to Text automatically detects and transcribes **99+ languages** including:
+
+- **European:** English, Spanish, French, German, Italian, Portuguese, Dutch, Polish, Russian, Turkish, Greek, Swedish, Danish, Norwegian, Finnish, Czech, Romanian, Hungarian, Bulgarian, Croatian, and more
+- **Asian:** Chinese (Mandarin), Japanese, Korean, Hindi, Bengali, Vietnamese, Thai, Indonesian, Malay, Tagalog, Tamil, Telugu, Urdu, and more
+- **Middle Eastern:** Arabic, Hebrew, Persian (Farsi), and more
+- **African:** Swahili, Afrikaans, Zulu, and more
+- **Other:** Ukrainian, Welsh, Icelandic, Estonian, Latvian, Lithuanian, Slovenian, Slovak, Serbian, Macedonian, Bosnian, Albanian, Maltese, and more
+
+**No configuration needed** - just speak in your language and it works automatically. The AI model detects the language and transcribes accordingly.
 
 ## Recording Limits & Notifications
 
