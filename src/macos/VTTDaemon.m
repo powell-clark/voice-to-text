@@ -1060,10 +1060,10 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     // Output file will be: /tmp/vtt_XXX.txt (same name as wav but .txt extension)
     NSString *outputFile = [wavPath stringByReplacingOccurrencesOfString:@".wav" withString:@".txt"];
 
+    // Auto-detect language by not specifying --language (supports 99 languages)
     task.arguments = @[
         wavPath,
         @"--model", ct2Model,
-        @"--language", @"en",
         @"--device", @"cpu",
         @"--compute_type", @"int8",
         @"--output_format", @"txt",
@@ -1450,7 +1450,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         params.translate = false;
         params.no_context = true;
         params.single_segment = false;
-        params.language = "en";
+        params.language = "auto";  // Auto-detect language (supports 99 languages)
         params.initial_prompt = [self.initialPrompt UTF8String];
 
         // Dynamic thread count based on CPU architecture
