@@ -1,0 +1,58 @@
+# Voice to Text - Linux Makefile
+# Builds the Linux C implementation with GTK3 + AppIndicator
+
+CC = gcc
+CFLAGS = -Wall -Wextra -O2 -pthread
+CFLAGS += $(shell pkg-config --cflags portaudio-2.0)
+CFLAGS += $(shell pkg-config --cflags x11 xtst xext)
+CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
+CFLAGS += $(shell pkg-config --cflags ayatana-appindicator3-0.1)
+
+LDFLAGS = -pthread -lm
+LDFLAGS += $(shell pkg-config --libs portaudio-2.0)
+LDFLAGS += $(shell pkg-config --libs x11 xtst xext)
+LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
+LDFLAGS += $(shell pkg-config --libs ayatana-appindicator3-0.1)
+
+TARGET = vtt-linux
+SRC_DIR = src
+BUILD_DIR = build
+
+# Source files
+COMMON_SRCS = $(SRC_DIR)/common/logging.c $(SRC_DIR)/common/queue.c
+LINUX_SRCS = $(SRC_DIR)/linux/audio.c \
+             $(SRC_DIR)/linux/keyboard.c \
+             $(SRC_DIR)/linux/typing.c \
+             $(SRC_DIR)/linux/transcribe.c \
+             $(SRC_DIR)/linux/gui.c \
+             $(SRC_DIR)/linux/main.c
+
+SRCS = $(COMMON_SRCS) $(LINUX_SRCS)
+OBJS = $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+
+.PHONY: all clean install
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	@echo "Linking $(TARGET)..."
+	$(CC) $(OBJS) $(LDFLAGS) -o $(TARGET)
+	@echo "Build complete: $(TARGET)"
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	@mkdir -p $(dir $@)
+	@echo "Compiling $<..."
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	@echo "Cleaning build artifacts..."
+	rm -rf $(BUILD_DIR) $(TARGET)
+
+install: $(TARGET)
+	@echo "Installing $(TARGET) to /usr/local/bin..."
+	sudo install -m 755 $(TARGET) /usr/local/bin/
+	sudo install -m 755 src/common/transcribe.py /usr/local/bin/
+	@echo "Installation complete"
+
+run: $(TARGET)
+	./$(TARGET)
