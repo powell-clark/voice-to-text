@@ -61,7 +61,7 @@ static void VTTLogToFile(NSString *message) {
 #define CHANNELS 1
 // Smaller buffer = lower callback latency (at 48 kHz, 4096 bytes ~ 42 ms)
 #define BUFFER_SIZE 4096
-#define MAX_RECORDING_SECONDS 10  // Maximum recording duration (set to 10 for testing)
+#define MAX_RECORDING_SECONDS 30  // Maximum recording duration (30 seconds)
 
 // C struct for audio state (for performance)
 typedef struct {
@@ -72,9 +72,10 @@ typedef struct {
     BOOL isRecording;
     char tempFileName[256];
     size_t bytesCaptured;
-    size_t maxBytesAllowed;      // Maximum bytes before stopping (SAMPLE_RATE * CHANNELS * 2 * MAX_RECORDING_SECONDS)
+    size_t maxBytesAllowed;      // Maximum bytes before stopping (actualSampleRate * CHANNELS * 2 * MAX_RECORDING_SECONDS)
     BOOL bufferFull;              // Set when max recording length is reached
     void* daemonRef;              // Weak reference to VTTDaemon for notifications
+    Float64 actualSampleRate;     // Actual recording sample rate (48000 Hz, 24000 Hz, etc.)
 } AudioState;
 
 @interface VTTDaemon : NSObject <NSApplicationDelegate>
@@ -92,6 +93,8 @@ typedef struct {
 @property (strong) dispatch_queue_t transcribeQueue;
 @property (atomic) NSInteger pendingJobs;
 @property (atomic) NSUInteger sessionCounter;
+@property (atomic) BOOL isTranscribing;
+@property (atomic) BOOL waitingForKeyRelease;  // Set when max length reached, cleared when PTT released
 @property (nonatomic) BOOL loggingEnabled;
 @property (strong) NSMenuItem *loggingToggleItem;
 @property (nonatomic) AudioDeviceID selectedMicrophoneID;
@@ -674,29 +677,34 @@ static void audioInputCallback(void* userData,
         free(devices);
     }
 
-    // Determine which device to use based on user preference
+    // Get the system default input device
+    // Note: We cannot programmatically select a specific device with AudioQueue on macOS.
+    // AudioQueueSetProperty fails with error -66683. Users must set their preferred
+    // microphone in System Settings > Sound > Input.
     AudioDeviceID deviceID = 0;
+    UInt32 size = sizeof(deviceID);
+    AudioObjectPropertyAddress addr = {
+        kAudioHardwarePropertyDefaultInputDevice,
+        kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMain
+    };
+    AudioObjectGetPropertyData(kAudioObjectSystemObject, &addr, 0, NULL, &size, &deviceID);
 
-    if (self.selectedMicrophoneID != 0) {
-        // User has explicitly selected a microphone
-        deviceID = self.selectedMicrophoneID;
-        VTTLog(@"Using user-selected microphone (ID: %u)", deviceID);
-    } else {
-        // Use built-in mic if found, otherwise fall back to default
-        deviceID = (builtInMicID != 0) ? builtInMicID : 0;
+    // Log which device will be used
+    if (deviceID != 0) {
+        VTTLog(@"System default input device ID: %u", deviceID);
 
-        if (deviceID == 0) {
-            // Fallback to default if built-in mic not found
-            VTTLog(@"Built-in microphone not found, using default input device");
-            UInt32 size = sizeof(deviceID);
-            AudioObjectPropertyAddress addr = {
-                kAudioHardwarePropertyDefaultInputDevice,
-                kAudioObjectPropertyScopeGlobal,
-                kAudioObjectPropertyElementMain
-            };
-            AudioObjectGetPropertyData(kAudioObjectSystemObject, &addr, 0, NULL, &size, &deviceID);
-        } else {
-            VTTLog(@"Auto-selected built-in microphone (ID: %u)", deviceID);
+        // Get device name for logging
+        AudioObjectPropertyAddress nameAddr = {
+            kAudioDevicePropertyDeviceNameCFString,
+            kAudioObjectPropertyScopeGlobal,
+            kAudioObjectPropertyElementMain
+        };
+        CFStringRef deviceName = NULL;
+        UInt32 nameSize = sizeof(deviceName);
+        if (AudioObjectGetPropertyData(deviceID, &nameAddr, 0, NULL, &nameSize, &deviceName) == noErr && deviceName != NULL) {
+            VTTLog(@"Will use: %@", (__bridge NSString *)deviceName);
+            CFRelease(deviceName);
         }
     }
 
@@ -712,6 +720,7 @@ static void audioInputCallback(void* userData,
         OSStatus q2 = AudioObjectGetPropertyData(deviceID, &addr2, 0, NULL, &size, &rate);
         if (q2 == noErr && rate > 0) detectedRate = rate;
     }
+
     self.audioState->format.mSampleRate = detectedRate;
     self.audioState->format.mFormatID = kAudioFormatLinearPCM;
     self.audioState->format.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked;
@@ -721,7 +730,7 @@ static void audioInputCallback(void* userData,
     self.audioState->format.mBytesPerPacket = 2;
     self.audioState->format.mBytesPerFrame = 2;
 
-    // Create audio queue
+    // Create audio queue first with the device's native format
     OSStatus qstatus = AudioQueueNewInput(&self.audioState->format,
                                          audioInputCallback,
                                          self.audioState,
@@ -735,17 +744,20 @@ static void audioInputCallback(void* userData,
         return;
     }
 
-    // Set the audio queue to use the specific device we selected
-    if (deviceID != 0) {
-        UInt32 size = sizeof(deviceID);
-        OSStatus setStatus = AudioQueueSetProperty(self.audioState->queue,
-                                                   kAudioQueueProperty_CurrentDevice,
-                                                   &deviceID,
-                                                   size);
-        if (setStatus == noErr) {
-        } else {
-        }
-    }
+    // NOTE: We DO NOT call AudioQueueSetProperty to set the device!
+    // AudioQueue will automatically use the system default input device.
+    // Calling AudioQueueSetProperty fails with error -66683 (kAudioQueueErr_InvalidDevice)
+    // on macOS when trying to switch devices after creation.
+    //
+    // To use a specific microphone, the user must set it as their system default
+    // in System Settings > Sound > Input.
+
+    VTTLog(@"✅ Audio queue created at %.0f Hz", detectedRate);
+    VTTLog(@"   Will use system default input device");
+    VTTLog(@"   To select a specific microphone, set it in System Settings > Sound > Input");
+
+    // Store actual sample rate for buffer size calculation
+    self.audioState->actualSampleRate = detectedRate;
 
     // Allocate buffers
     for (int i = 0; i < 3; i++) {
@@ -869,8 +881,18 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
                                    void* refcon) {
     VTTDaemon *self = (__bridge VTTDaemon *)refcon;
 
-    // Prefer exact key down/up for Right Option (keycode 61 on ANSI)
     CGKeyCode keyCode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+
+    // Debug: log Option key events with their type
+    if (keyCode == 58 || keyCode == 61) {
+        const char *typeName = "UNKNOWN";
+        if (type == kCGEventKeyDown) typeName = "KeyDown";
+        else if (type == kCGEventKeyUp) typeName = "KeyUp";
+        else if (type == kCGEventFlagsChanged) typeName = "FlagsChanged";
+        VTTLog(@"Option key event: code=%d, type=%s", keyCode, typeName);
+    }
+
+    // Prefer exact key down/up for Right Option (keycode 61 on ANSI)
     if ((type == kCGEventKeyDown || type == kCGEventKeyUp) && keyCode == (CGKeyCode)61) {
         if (type == kCGEventKeyDown) {
             VTTLog(@"PTT key DOWN (Right Option, code=61)");
@@ -898,6 +920,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         // Standalone modifier key (e.g., Right Alt)
         if (type == kCGEventFlagsChanged) {
             CGKeyCode kc = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+            VTTLog(@"FlagsChanged event: keycode=%d, hotkeyCode=%d", kc, self.hotkeyCode);
             if (kc == self.hotkeyCode) {
                 // Check if the corresponding modifier flag is set
                 BOOL modifierDown = NO;
@@ -910,11 +933,19 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
                     VTTLog(@"PTT (standalone modifier) DOWN - starting recording");
                     [self startRecording];
                     return NULL;
-                } else if (!modifierDown && self.audioState->isRecording) {
-                    VTTLog(@"PTT (standalone modifier) UP - stopping recording");
-                    [self stopRecording];
+                } else if (!modifierDown) {
+                    // Key released - handle both cases: during recording and during transcription
+                    if (self.waitingForKeyRelease) {
+                        VTTLog(@"PTT (standalone modifier) UP - key released while waiting for transcription");
+                        self.waitingForKeyRelease = NO;
+                    } else if (self.audioState->isRecording) {
+                        VTTLog(@"PTT (standalone modifier) UP - stopping recording");
+                        [self stopRecording];
+                    }
                     return NULL;
                 }
+                // Always swallow the PTT key to prevent it affecting other apps
+                return NULL;
             }
         }
     } else {
@@ -929,17 +960,22 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
             }
         } else if (type == kCGEventKeyUp) {
             if (keyCode == self.hotkeyCode && self.audioState->isRecording) {
-                VTTLog(@"PTT (combination) UP - stopping recording");
+                if (self.waitingForKeyRelease) {
+                    VTTLog(@"PTT (combination) UP - key released after max length, now transcribing");
+                    self.waitingForKeyRelease = NO;
+                } else {
+                    VTTLog(@"PTT (combination) UP - stopping recording");
+                }
                 [self stopRecording];
                 return NULL;
             }
         }
     }
 
-    // Debug: log other keys when logging is enabled
-    if (type == kCGEventKeyDown || type == kCGEventKeyUp) {
-        VTTLog(@"Key event: code=%d, type=%s", keyCode, type == kCGEventKeyDown ? "DOWN" : "UP");
-    }
+    // Debug: log other keys when logging is enabled (commented out - too verbose)
+    // if (type == kCGEventKeyDown || type == kCGEventKeyUp) {
+    //     VTTLog(@"Key event: code=%d, type=%s", keyCode, type == kCGEventKeyDown ? "DOWN" : "UP");
+    // }
 
     return event;
 }
@@ -976,6 +1012,9 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         return;
     }
 
+    // Allow new recordings even during transcription - serial dispatch queue will handle queuing
+    // (Removed isTranscribing check to enable rapid-fire messages)
+
     // Create unique temp file for this session
     unsigned long long session = ++self.sessionCounter;
     snprintf(self.audioState->tempFileName, sizeof(self.audioState->tempFileName), "/tmp/vtt_%d_%llu.raw", getpid(), session);
@@ -987,7 +1026,9 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
     // Arm recording and start the queue so callbacks deliver audio
     self.audioState->bytesCaptured = 0;
-    self.audioState->maxBytesAllowed = SAMPLE_RATE * CHANNELS * 2 * MAX_RECORDING_SECONDS;  // 16-bit samples = 2 bytes
+    // Use actual recording sample rate (not resampling target rate) for buffer calculation
+    // actualSampleRate could be 48000 Hz (MacBook Pro), 24000 Hz (AirPods), etc.
+    self.audioState->maxBytesAllowed = (size_t)(self.audioState->actualSampleRate * CHANNELS * 2 * MAX_RECORDING_SECONDS);
     self.audioState->bufferFull = NO;
     self.audioState->daemonRef = (__bridge void*)self;
     self.audioState->isRecording = YES;
@@ -1002,6 +1043,201 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     // Update UI
     self.statusItem.button.title = @"VTT 🎤";
     self.statusMenuItem.title = @"Status: Recording...";
+}
+
+// Direct character typing function (like Linux XTest approach)
+// Maps characters to CGKeyCodes and simulates keypresses without using clipboard
+- (void)typeCharacter:(unichar)c {
+    // Create event source and set keyboard type to isolate from current state
+    CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStatePrivate);
+    CGEventSourceSetKeyboardType(src, 40); // ANSI keyboard type
+    CGKeyCode keyCode = 0;
+    BOOL needsShift = NO;
+
+    // Character to keycode mapping
+    switch (c) {
+        // Letters (lowercase)
+        case 'a': keyCode = 0; break;
+        case 'b': keyCode = 11; break;
+        case 'c': keyCode = 8; break;
+        case 'd': keyCode = 2; break;
+        case 'e': keyCode = 14; break;
+        case 'f': keyCode = 3; break;
+        case 'g': keyCode = 5; break;
+        case 'h': keyCode = 4; break;
+        case 'i': keyCode = 34; break;
+        case 'j': keyCode = 38; break;
+        case 'k': keyCode = 40; break;
+        case 'l': keyCode = 37; break;
+        case 'm': keyCode = 46; break;
+        case 'n': keyCode = 45; break;
+        case 'o': keyCode = 31; break;
+        case 'p': keyCode = 35; break;
+        case 'q': keyCode = 12; break;
+        case 'r': keyCode = 15; break;
+        case 's': keyCode = 1; break;
+        case 't': keyCode = 17; break;
+        case 'u': keyCode = 32; break;
+        case 'v': keyCode = 9; break;
+        case 'w': keyCode = 13; break;
+        case 'x': keyCode = 7; break;
+        case 'y': keyCode = 16; break;
+        case 'z': keyCode = 6; break;
+
+        // Uppercase letters (same keycodes, need shift)
+        case 'A': keyCode = 0; needsShift = YES; break;
+        case 'B': keyCode = 11; needsShift = YES; break;
+        case 'C': keyCode = 8; needsShift = YES; break;
+        case 'D': keyCode = 2; needsShift = YES; break;
+        case 'E': keyCode = 14; needsShift = YES; break;
+        case 'F': keyCode = 3; needsShift = YES; break;
+        case 'G': keyCode = 5; needsShift = YES; break;
+        case 'H': keyCode = 4; needsShift = YES; break;
+        case 'I': keyCode = 34; needsShift = YES; break;
+        case 'J': keyCode = 38; needsShift = YES; break;
+        case 'K': keyCode = 40; needsShift = YES; break;
+        case 'L': keyCode = 37; needsShift = YES; break;
+        case 'M': keyCode = 46; needsShift = YES; break;
+        case 'N': keyCode = 45; needsShift = YES; break;
+        case 'O': keyCode = 31; needsShift = YES; break;
+        case 'P': keyCode = 35; needsShift = YES; break;
+        case 'Q': keyCode = 12; needsShift = YES; break;
+        case 'R': keyCode = 15; needsShift = YES; break;
+        case 'S': keyCode = 1; needsShift = YES; break;
+        case 'T': keyCode = 17; needsShift = YES; break;
+        case 'U': keyCode = 32; needsShift = YES; break;
+        case 'V': keyCode = 9; needsShift = YES; break;
+        case 'W': keyCode = 13; needsShift = YES; break;
+        case 'X': keyCode = 7; needsShift = YES; break;
+        case 'Y': keyCode = 16; needsShift = YES; break;
+        case 'Z': keyCode = 6; needsShift = YES; break;
+
+        // Numbers
+        case '0': keyCode = 29; break;
+        case '1': keyCode = 18; break;
+        case '2': keyCode = 19; break;
+        case '3': keyCode = 20; break;
+        case '4': keyCode = 21; break;
+        case '5': keyCode = 23; break;
+        case '6': keyCode = 22; break;
+        case '7': keyCode = 26; break;
+        case '8': keyCode = 28; break;
+        case '9': keyCode = 25; break;
+
+        // Special characters (no shift)
+        case ' ': keyCode = 49; break;
+        case '\n': keyCode = 36; break; // Return
+        case '\t': keyCode = 48; break; // Tab
+        case '-': keyCode = 27; break;
+        case '=': keyCode = 24; break;
+        case '[': keyCode = 33; break;
+        case ']': keyCode = 30; break;
+        case '\\': keyCode = 42; break;
+        case ';': keyCode = 41; break;
+        case '\'': keyCode = 39; break;
+        case ',': keyCode = 43; break;
+        case '.': keyCode = 47; break;
+        case '/': keyCode = 44; break;
+        case '`': keyCode = 50; break;
+
+        // Special characters (with shift)
+        case '!': keyCode = 18; needsShift = YES; break; // Shift+1
+        case '@': keyCode = 19; needsShift = YES; break; // Shift+2
+        case '#': keyCode = 20; needsShift = YES; break; // Shift+3
+        case '$': keyCode = 21; needsShift = YES; break; // Shift+4
+        case '%': keyCode = 23; needsShift = YES; break; // Shift+5
+        case '^': keyCode = 22; needsShift = YES; break; // Shift+6
+        case '&': keyCode = 26; needsShift = YES; break; // Shift+7
+        case '*': keyCode = 28; needsShift = YES; break; // Shift+8
+        case '(': keyCode = 25; needsShift = YES; break; // Shift+9
+        case ')': keyCode = 29; needsShift = YES; break; // Shift+0
+        case '_': keyCode = 27; needsShift = YES; break; // Shift+-
+        case '+': keyCode = 24; needsShift = YES; break; // Shift+=
+        case '{': keyCode = 33; needsShift = YES; break; // Shift+[
+        case '}': keyCode = 30; needsShift = YES; break; // Shift+]
+        case '|': keyCode = 42; needsShift = YES; break; // Shift+\
+        case ':': keyCode = 41; needsShift = YES; break; // Shift+;
+        case '"': keyCode = 39; needsShift = YES; break; // Shift+'
+        case '<': keyCode = 43; needsShift = YES; break; // Shift+,
+        case '>': keyCode = 47; needsShift = YES; break; // Shift+.
+        case '?': keyCode = 44; needsShift = YES; break; // Shift+/
+        case '~': keyCode = 50; needsShift = YES; break; // Shift+`
+
+        default:
+            // Unknown character - skip
+            CFRelease(src);
+            return;
+    }
+
+    // Press shift if needed
+    if (needsShift) {
+        CGEventRef shiftDown = CGEventCreateKeyboardEvent(src, 56, true); // Left Shift = 56
+        CGEventPost(kCGHIDEventTap, shiftDown);
+        CFRelease(shiftDown);
+        usleep(1000); // 1ms
+    }
+
+    // Press key - explicitly clear modifier flags to prevent Option key interference
+    CGEventRef keyDown = CGEventCreateKeyboardEvent(src, keyCode, true);
+    CGEventSetFlags(keyDown, needsShift ? kCGEventFlagMaskShift : 0);  // Only set shift if needed, clear all other modifiers
+    CGEventPost(kCGHIDEventTap, keyDown);
+    CFRelease(keyDown);
+    usleep(1000); // 1ms between press and release
+
+    // Release key - also clear modifiers
+    CGEventRef keyUp = CGEventCreateKeyboardEvent(src, keyCode, false);
+    CGEventSetFlags(keyUp, needsShift ? kCGEventFlagMaskShift : 0);  // Only set shift if needed, clear all other modifiers
+    CGEventPost(kCGHIDEventTap, keyUp);
+    CFRelease(keyUp);
+
+    // Release shift if needed
+    if (needsShift) {
+        CGEventRef shiftUp = CGEventCreateKeyboardEvent(src, 56, false);
+        CGEventPost(kCGHIDEventTap, shiftUp);
+        CFRelease(shiftUp);
+    }
+
+    usleep(1000); // 1ms delay between characters
+    CFRelease(src);
+}
+
+- (void)typeText:(NSString *)text {
+    if (!text || text.length == 0) {
+        return;
+    }
+
+    VTTLog(@"⌨️  Typing %lu characters directly (waiting for modifier keys to clear)", (unsigned long)text.length);
+
+    // Wait for all modifier keys to be released before typing
+    // This prevents Option key from interfering with character generation
+    CGEventFlags currentFlags;
+    int maxWaitTime = 100; // Maximum 100 * 10ms = 1 second wait
+    int waitCount = 0;
+
+    do {
+        currentFlags = CGEventSourceFlagsState(kCGEventSourceStateHIDSystemState);
+        if (currentFlags & (kCGEventFlagMaskAlternate | kCGEventFlagMaskControl | kCGEventFlagMaskCommand)) {
+            VTTLog(@"🔄 Waiting for modifier keys to release (flags: 0x%lx)...", (unsigned long)currentFlags);
+            usleep(10000); // Wait 10ms
+            waitCount++;
+        } else {
+            break;
+        }
+    } while (waitCount < maxWaitTime);
+
+    if (waitCount >= maxWaitTime) {
+        VTTLog(@"⚠️  Timeout waiting for modifier keys, typing anyway");
+    } else if (waitCount > 0) {
+        VTTLog(@"✅ Modifier keys cleared after %d attempts", waitCount);
+    }
+
+    // Character-by-character approach with isolated event source
+    for (NSUInteger i = 0; i < text.length; i++) {
+        unichar c = [text characterAtIndex:i];
+        [self typeCharacter:c];
+    }
+
+    VTTLog(@"✅ Typing completed");
 }
 
 - (void)stopRecording {
@@ -1045,7 +1281,9 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
     dispatch_async(dispatch_get_main_queue(), ^{ self.pendingJobs++; });
     dispatch_async(self.transcribeQueue, ^{
+        self.isTranscribing = YES;
         [self processAudioFileAtPath:rawPath wasBufferFull:wasBufferFull];
+        self.isTranscribing = NO;
         dispatch_async(dispatch_get_main_queue(), ^{
             self.pendingJobs--;
             if (!self.audioState->isRecording && self.pendingJobs == 0) {
@@ -1060,17 +1298,20 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 }
 
 - (void)handleMaxLengthReached {
-    VTTLog(@"Max recording length reached - auto-stopping and notifying user");
+    VTTLog(@"Max recording length reached - stopping recording, will transcribe immediately");
 
-    // Show desktop notification instead of typing
+    // Show desktop notification telling user to release key (for paste)
     NSUserNotification *notification = [[NSUserNotification alloc] init];
     notification.title = @"Voice to Text";
-    notification.informativeText = [NSString stringWithFormat:@"Recording limit reached (%ds) - release key to transcribe", MAX_RECORDING_SECONDS];
+    notification.informativeText = [NSString stringWithFormat:@"Recording limit reached (%ds) - transcribing... release key when ready", MAX_RECORDING_SECONDS];
     notification.soundName = NSUserNotificationDefaultSoundName;
 
     [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
 
-    // Now stop recording and queue for transcription
+    // Set flag to indicate paste should wait for key release
+    self.waitingForKeyRelease = YES;
+
+    // Stop recording and start transcription immediately
     [self stopRecording];
 }
 
@@ -1173,6 +1414,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 }
 
 - (void)processAudioFileAtPath:(NSString *)rawPath wasBufferFull:(BOOL)wasBufferFull {
+    VTTLog(@"Processing audio file, wasBufferFull=%d", wasBufferFull);
 
     // Create unique WAV file based on the raw file name (preserves session uniqueness)
     char wavFile[256];
@@ -1225,40 +1467,20 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     if (duration < 0.5f) {
         VTTLog(@"⚠️  Recording too short (%.2f seconds) - rejecting", duration);
         rejectionMessage = @"[Transcription activated: audio too short]";
-    } else if (max_val < 500 && !wasBufferFull) {
-        // Skip amplitude check if recording hit max length (may have timing issues)
+    } else if (max_val < 100 && !wasBufferFull) {
+        // Lower threshold (100) for quieter internal microphones
         VTTLog(@"⚠️  Audio too quiet (amplitude %d) - rejecting", max_val);
         rejectionMessage = @"[Transcription activated: no audio detected]";
-    } else if (wasBufferFull && max_val < 500) {
+    } else if (wasBufferFull && max_val < 100) {
         VTTLog(@"⚠️  Audio appears silent but max length was reached - attempting transcription anyway");
     }
 
     // If rejected, type rejection message and return
     if (rejectionMessage) {
-        [[NSPasteboard generalPasteboard] clearContents];
-        [[NSPasteboard generalPasteboard] setString:rejectionMessage forType:NSPasteboardTypeString];
-
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
         dispatch_async(dispatch_get_main_queue(), ^{
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
-                CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
-                CGEventRef cmdDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, true);
-                CGEventPost(kCGHIDEventTap, cmdDown);
-                CFRelease(cmdDown);
-                usleep(25000);
-                CGEventRef vDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, true);
-                CGEventPost(kCGHIDEventTap, vDown);
-                CFRelease(vDown);
-                usleep(50000);
-                CGEventRef vUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, false);
-                CGEventPost(kCGHIDEventTap, vUp);
-                CFRelease(vUp);
-                CGEventRef cmdUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, false);
-                CGEventPost(kCGHIDEventTap, cmdUp);
-                CFRelease(cmdUp);
-                CFRelease(src);
-                dispatch_semaphore_signal(sema);
-            });
+            [self typeText:rejectionMessage];
+            dispatch_semaphore_signal(sema);
         });
         dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
 
@@ -1293,32 +1515,33 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         if (transcription && transcription.length > 0) {
             VTTLog(@"CTranslate2 transcription: %@", transcription);
 
-            // Copy to clipboard and paste (with voice prefix)
-            NSString *textToPaste = [NSString stringWithFormat:@"%@%@", self.voicePrefix ?: @"", transcription];
-            [[NSPasteboard generalPasteboard] clearContents];
-            [[NSPasteboard generalPasteboard] setString:textToPaste forType:NSPasteboardTypeString];
+            // Type text directly (with truncation indicator and voice prefix)
+            NSString *textToType;
+            if (wasBufferFull) {
+                // Add truncation indicator before voice prefix (matches Linux behavior)
+                textToType = [NSString stringWithFormat:@"[Truncated - %ds limit] %@%@",
+                              MAX_RECORDING_SECONDS, self.voicePrefix ?: @"", transcription];
+                VTTLog(@"📋 Truncation: YES - Full text: %@", textToType);
+            } else {
+                textToType = [NSString stringWithFormat:@"%@%@", self.voicePrefix ?: @"", transcription];
+                VTTLog(@"📋 Truncation: NO - Full text: %@", textToType);
+            }
 
+            // If waiting for key release (max length reached), poll until key is released
+            if (self.waitingForKeyRelease) {
+                VTTLog(@"⏳ Transcription complete - waiting for PTT key release before typing");
+                // Poll every 100ms until key is released
+                while (self.waitingForKeyRelease) {
+                    usleep(100000); // 100ms
+                }
+                VTTLog(@"✅ PTT key released - now typing");
+            }
+
+            // Type text directly on main queue (no clipboard, no delays needed)
             dispatch_semaphore_t sema = dispatch_semaphore_create(0);
             dispatch_async(dispatch_get_main_queue(), ^{
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
-                    CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
-                    CGEventRef cmdDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, true);
-                    CGEventPost(kCGHIDEventTap, cmdDown);
-                    CFRelease(cmdDown);
-                    usleep(25000); // 25ms delay after Cmd down to prevent "v" character appearing
-                    CGEventRef vDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, true);
-                    CGEventPost(kCGHIDEventTap, vDown);
-                    CFRelease(vDown);
-                    usleep(50000);
-                    CGEventRef vUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, false);
-                    CGEventPost(kCGHIDEventTap, vUp);
-                    CFRelease(vUp);
-                    CGEventRef cmdUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, false);
-                    CGEventPost(kCGHIDEventTap, cmdUp);
-                    CFRelease(cmdUp);
-                    CFRelease(src);
-                    dispatch_semaphore_signal(sema);
-                });
+                [self typeText:textToType];
+                dispatch_semaphore_signal(sema);
             });
             dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
 
@@ -1747,51 +1970,25 @@ transcription_complete:
         return;
     }
 
-    // Copy to clipboard and paste (with voice prefix)
+    // Type text directly (with truncation indicator and voice prefix)
     if (transcription.length > 0) {
-        NSString *textToPaste = [NSString stringWithFormat:@"%@%@", self.voicePrefix ?: @"", transcription];
-        [[NSPasteboard generalPasteboard] clearContents];
-        [[NSPasteboard generalPasteboard] setString:textToPaste forType:NSPasteboardTypeString];
+        NSString *textToType;
+        if (wasBufferFull) {
+            // Add truncation indicator before voice prefix (matches Linux behavior)
+            textToType = [NSString stringWithFormat:@"[Truncated - %ds limit] %@%@",
+                          MAX_RECORDING_SECONDS, self.voicePrefix ?: @"", transcription];
+            VTTLog(@"📋 Adding truncation prefix (whisper.cpp), textToType length: %lu", (unsigned long)textToType.length);
+        } else {
+            textToType = [NSString stringWithFormat:@"%@%@", self.voicePrefix ?: @"", transcription];
+        }
 
-        // Simulate Cmd+V with proper modifier sequence
-        // Small delay to ensure the previously active app has focus (not VTT menu)
+        // Type text directly on main queue (no clipboard, no delays needed)
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
         dispatch_async(dispatch_get_main_queue(), ^{
-            // Wait 50ms to ensure focus is on the target app, not VTT
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
-                CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
-
-                // Post Cmd+V to the system
-                CGEventRef cmdDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, true);  // left cmd
-                CGEventPost(kCGHIDEventTap, cmdDown);
-                usleep(25000); // 25ms delay after Cmd down to prevent "v" character appearing
-
-                CGEventRef vDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, true);
-                CGEventRef vUp   = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, false);
-                CGEventSetFlags(vDown, kCGEventFlagMaskCommand);
-                CGEventSetFlags(vUp,   kCGEventFlagMaskCommand);
-                CGEventPost(kCGHIDEventTap, vDown);
-                CGEventPost(kCGHIDEventTap, vUp);
-
-                CGEventRef cmdUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)0x37, false);
-                CGEventPost(kCGHIDEventTap, cmdUp);
-
-                if (src) CFRelease(src);
-                CFRelease(cmdDown);
-                CFRelease(vDown);
-                CFRelease(vUp);
-                CFRelease(cmdUp);
-
-                // Signal completion
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(100 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
-                    dispatch_semaphore_signal(sema);
-                });
-            });
+            [self typeText:textToType];
+            dispatch_semaphore_signal(sema);
         });
-        // Block the serial transcribe queue briefly so the next job
-        // does not overwrite the clipboard before this paste executes.
-        dispatch_time_t tmo = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(400 * NSEC_PER_MSEC));
-        (void)dispatch_semaphore_wait(sema, tmo);
+        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
     } else {
         VTTLog(@"No transcription text found");
         self.statusItem.button.title = @"VTT ❌";
