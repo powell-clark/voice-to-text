@@ -1,0 +1,15 @@
+voice-to-text (1.0.0-1) noble; urgency=medium
+
+  * Initial release
+  * Multilingual support (99+ languages)
+  * Language selector: English only vs Multilingual
+  * Simplified model menu with smart backend selection
+  * Auto-.en model selection for English mode
+  * Two backends: whisper.cpp and CTranslate2/faster-whisper
+  * GPU acceleration support (CUDA)
+  * Settings persistence
+  * System tray integration
+  * Push-to-talk recording with Right Alt
+  * Recording limit (300 seconds) with notifications
+
+ -- Emmanuel Powell-Clark <emmanuel@powell-clark.com>  Sun, 13 Oct 2025 14:30:00 +0000
