@@ -1,64 +1,180 @@
-# Voice to Text - Push-to-Talk Voice Transcription for macOS & Linux
+# Voice to Text - Offline Voice Transcription
 
-**Offline voice-to-text transcription app** using OpenAI Whisper AI. Push-to-talk hotkey interface supporting **99+ languages** including English, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Hindi, Portuguese, Russian, Italian, Dutch, Polish, Turkish, Vietnamese, Thai, Indonesian, Hebrew, and many more.
+**Push-to-talk voice transcription** using OpenAI Whisper AI. Supports **99+ languages** with automatic detection. **100% offline** - no internet required.
 
-**Available for macOS and Linux (Ubuntu, Debian)** • **99+ Languages** • **100% Offline** • **Push-to-Talk** • **GPU Accelerated**
+**Available for macOS and Linux** • **99+ Languages** • **GPU Accelerated** • **Push-to-Talk Interface**
 
-## How It Works (Push-to-Talk Voice Transcription)
+---
 
-1. **Press and hold** the hotkey (**Scroll Lock** on Linux/Ubuntu/Debian, **Right Alt** on macOS)
-2. **Speak** in any of 99+ languages - English, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Hindi, and more
-3. **Release** when finished speaking
-4. **Text appears instantly** in your focused application (email, document, chat, terminal, etc.)
+## 🚀 Installation
 
-**No internet required** - all voice transcription and speech recognition happens locally on your device using OpenAI Whisper AI models. Works completely offline.
-
-## Multi-Language Support
-
-Voice to Text supports **99+ languages** with automatic detection - no configuration needed!
-
-**Multilingual models** (tiny, base, small, medium, large, large-v3):
-- **European:** English, Spanish, French, German, Italian, Portuguese, Dutch, Polish, Russian, Turkish, Greek, Swedish, Danish, Norwegian, Finnish, Czech, Romanian, Hungarian, Bulgarian, Croatian, and more
-- **Asian:** Chinese (Mandarin), Japanese, Korean, Hindi, Bengali, Vietnamese, Thai, Indonesian, Malay, Tagalog, Tamil, Telugu, Urdu, and more
-- **Middle Eastern:** Arabic, Hebrew, Persian (Farsi), and more
-- **African:** Swahili, Afrikaans, Zulu, and more
-- **Other:** Ukrainian, Welsh, Icelandic, Estonian, Latvian, Lithuanian, Slovenian, Slovak, Serbian, Macedonian, Bosnian, Albanian, Maltese, and more
-
-**English-only models** (small.en, medium.en):
-- Faster transcription, but **only support English**
-- Best choice if you only need English transcription
-
-**Note:** Automatic language detection works with multilingual models. For English-only models, only English input will be transcribed correctly.
-
-## Recording Limits & Notifications
-
-To prevent accidental long recordings, Voice to Text has maximum recording durations:
-- **Linux:** 300 seconds (5 minutes)
-- **macOS:** 10 seconds (for testing)
-
-When you reach the recording limit:
-- **Desktop notification** appears immediately alerting you
-- Recording automatically stops when you release the key
-- Transcription includes **[Truncated - 300s limit]** prefix so you know it was cut off
-- You can continue holding the key, but no additional audio is captured
-
-This ensures you don't accidentally leave the microphone open and provides clear feedback when transcriptions are incomplete.
-
-## Installation
-
-### macOS
+### macOS (Homebrew)
 
 ```bash
 brew tap powell-clark/voice-to-text
 brew install --cask voice-to-text
 ```
 
-Voice to Text automatically installs to /Applications.
+The app installs to `/Applications/Voice to Text.app` and runs in your menu bar.
 
-### Linux (Ubuntu/Debian)
+**First Run:** Grant permissions for Microphone, Accessibility, and Input Monitoring when prompted.
+
+### Linux (Ubuntu/Debian) - Coming Soon via PPA
 
 ```bash
-# Install dependencies
+# PPA installation (coming soon!)
+sudo add-apt-repository ppa:powell-clark/voice-to-text
+sudo apt update
+sudo apt install voice-to-text
+```
+
+**For now, see [Build from Source](#-build-from-source-and-contributing) below.**
+
+---
+
+## 💡 How It Works
+
+1. **Press and hold** the hotkey:
+   - **macOS:** Right Alt/Option key
+   - **Linux:** Scroll Lock key
+
+2. **Speak** in any of 99+ languages (English, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Hindi, Portuguese, Russian, Italian, and more)
+
+3. **Release** when finished speaking
+
+4. **Text appears instantly** in your focused application (email, document, chat, terminal, browser, etc.)
+
+**Everything runs locally** - no internet connection required. Your voice never leaves your device.
+
+---
+
+## ✨ Features
+
+### 99+ Language Support
+
+**Two modes available:**
+
+- **English only (fastest)** - Optimized for English transcription using .en models
+- **Multilingual (99 languages)** - Automatically detects language from 99+ supported languages
+
+**Supported Languages:**
+- **European:** English, Spanish, French, German, Italian, Portuguese, Dutch, Polish, Russian, Turkish, Greek, Swedish, Danish, Norwegian, Finnish, Czech, Romanian, Hungarian, Bulgarian, Croatian, Ukrainian, and more
+- **Asian:** Chinese (Mandarin), Japanese, Korean, Hindi, Bengali, Vietnamese, Thai, Indonesian, Malay, Tagalog, Tamil, Telugu, Urdu, and more
+- **Middle Eastern:** Arabic, Hebrew, Persian (Farsi), and more
+- **African:** Swahili, Afrikaans, Zulu, and more
+- **Other:** Welsh, Icelandic, Estonian, Latvian, Lithuanian, Slovenian, Slovak, Serbian, Macedonian, Bosnian, Albanian, Maltese, and more
+
+### Multiple AI Models
+
+Choose from different model sizes - the app automatically downloads them on first use:
+
+- **tiny** - Fastest, less accurate (~39MB)
+- **base** - Fast, good for simple dictation (~74MB)
+- **small** - **Recommended** - Best balance of speed and accuracy (~244MB)
+- **medium** - Slower, more accurate (~769MB)
+- **large/large-v3** - Best accuracy, slowest (~1550MB)
+
+**Two backends available:**
+- **W models** - whisper.cpp (C++, no Python required)
+- **CT2 models** - CTranslate2/faster-whisper (Python, 5-10x faster with GPU)
+
+**Recommended:** Start with **CT2 small in English-only mode** for best speed and accuracy.
+
+### GPU Acceleration
+
+**With NVIDIA GPU (Linux):** 5-10x faster transcription using CUDA
+**Without GPU:** Automatic fallback to CPU with INT8 quantization
+
+### Recording Limits & Notifications
+
+To prevent accidental long recordings:
+- **Linux:** 300 seconds (5 minutes) maximum
+- **macOS:** 10 seconds (for testing)
+
+Desktop notification appears when you reach the limit. Transcription includes **[Truncated - Xs limit]** prefix so you know it was cut off.
+
+---
+
+## 🔧 Managing Voice to Text
+
+### macOS
+
+Access from the menu bar icon:
+- Click icon → Select microphone
+- Click icon → Choose language mode
+- Click icon → Select AI model
+- Click icon → Enable/disable logging
+- Click icon → Quit
+
+View logs: `log stream --predicate 'process == "VTT"'`
+
+### Linux (systemd service)
+
+```bash
+# Start/stop/restart
+systemctl --user start vtt
+systemctl --user stop vtt
+systemctl --user restart vtt
+
+# Check status and logs
+systemctl --user status vtt
+journalctl --user -u vtt -f
+
+# Enable/disable auto-start on login
+systemctl --user enable vtt
+systemctl --user disable vtt
+```
+
+**Convenient aliases** - Add to your `~/.bashrc`:
+```bash
+alias vtt-start='systemctl --user start vtt'
+alias vtt-stop='systemctl --user stop vtt'
+alias vtt-restart='systemctl --user restart vtt'
+alias vtt-status='systemctl --user status vtt'
+alias vtt-log='tail -f ~/.local/share/voice-to-text/vtt.log'
+```
+
+---
+
+## 🛠️ Build from Source and Contributing
+
+Want to build from source, contribute code, or port to other platforms? Here's how to get started.
+
+### macOS Development Build
+
+```bash
+# Clone repository
+git clone https://github.com/powell-clark/voice-to-text.git
+cd voice-to-text
+
+# Install dependencies (if needed)
+brew install cmake portaudio
+
+# Build whisper.cpp dependencies
+make vendor-whisper  # Download whisper.cpp
+make whisper-lib     # Build whisper library
+
+# Build and run
+make complete        # Build VTT.app
+open VTT.app         # Launch for testing
+
+# Install system-wide
+cp -R VTT.app /Applications/
+```
+
+**Requirements:**
+- macOS 11.0+
+- Xcode Command Line Tools
+- CMake (for whisper.cpp)
+
+### Linux Development Build
+
+```bash
+# Clone repository
+git clone https://github.com/powell-clark/voice-to-text.git
+cd voice-to-text
+
+# Install build dependencies
 sudo apt install build-essential pkg-config \
     portaudio19-dev libx11-dev libxtst-dev libxext-dev \
     libgtk-3-dev libayatana-appindicator3-dev libnotify-dev \
@@ -67,10 +183,12 @@ sudo apt install build-essential pkg-config \
 # Install faster-whisper for transcription
 python3.12 -m pip install --break-system-packages faster-whisper ctranslate2
 
-# Clone and build
-git clone https://github.com/powell-clark/voice-to-text.git
-cd voice-to-text
+# Build and run
 make -f Makefile.linux
+./vtt-linux
+
+# Install system-wide (optional)
+sudo make -f Makefile.linux install
 
 # Set up systemd service (optional, for auto-start)
 mkdir -p ~/.config/systemd/user
@@ -80,7 +198,13 @@ systemctl --user enable vtt
 systemctl --user start vtt
 ```
 
-#### GPU Acceleration (Optional, Recommended for NVIDIA GPUs)
+**Requirements:**
+- Ubuntu 24.04+ or Debian-based distro
+- GCC 11+ with C11 support
+- Development libraries: PortAudio, X11, XTest, GTK3, AppIndicator3
+- Python 3.12+ with faster-whisper
+
+#### GPU Acceleration Setup (Linux, Optional but Recommended)
 
 For 5-10x faster transcription with NVIDIA GPUs:
 
@@ -113,245 +237,15 @@ systemctl --user restart vtt
 - Ubuntu 24.04 or compatible
 - ~2GB GPU memory for small model, ~4GB for large models
 
-**Without GPU:** The app will automatically use CPU with INT8 quantization (slower but still works).
+### Repository Structure
 
-### Build from Source
-
-#### macOS
-```bash
-# Clone repository
-git clone https://github.com/powell-clark/voice-to-text.git
-cd voice-to-text
-
-# Build with embedded whisper
-make vendor-whisper  # Download whisper.cpp
-make whisper-lib     # Build whisper library
-make complete        # Build VTT.app
-
-# Install
-cp -R VTT.app /Applications/
-open /Applications/VTT.app
-```
-
-#### Linux
-```bash
-# See Installation section above for dependencies
-
-# Clone and build
-git clone https://github.com/powell-clark/voice-to-text.git
-cd voice-to-text
-make -f Makefile.linux
-
-# Install (optional)
-sudo make -f Makefile.linux install
-```
-
-## Managing VTT (Linux)
-
-After installation, VTT runs as a systemd user service. Use these commands:
-
-```bash
-# Start VTT
-systemctl --user start vtt
-
-# Stop VTT
-systemctl --user stop vtt
-
-# Restart VTT
-systemctl --user restart vtt
-
-# Check status
-systemctl --user status vtt
-
-# View logs
-journalctl --user -u vtt -f
-
-# Enable auto-start on login
-systemctl --user enable vtt
-
-# Disable auto-start
-systemctl --user disable vtt
-```
-
-You can also add these convenient aliases to your `~/.bashrc`:
-
-```bash
-alias vtt-start='systemctl --user start vtt'
-alias vtt-stop='systemctl --user stop vtt'
-alias vtt-restart='systemctl --user restart vtt'
-alias vtt-status='systemctl --user status vtt'
-alias vtt-log='less +G ~/.local/share/voice-to-text/vtt.log'
-alias vtt-log-tail='tail -f ~/.local/share/voice-to-text/vtt.log'
-```
-
-## First Run Setup
-
-### macOS
-
-**IMPORTANT:** Grant these three permissions in System Settings → Privacy & Security or the app won't work:
-- **Microphone** - To record your voice
-- **Accessibility** - To paste text
-- **Input Monitoring** - To detect Right Alt key
-
-The app will prompt you on first launch.
-
-### Linux
-
-No special permissions required. The app uses X11 for keyboard monitoring and XTest for text input. If running under Wayland, you may need to use XWayland compatibility mode.
-
-## Choose Language and Model
-
-Voice to Text has a simple two-step configuration:
-
-### 1. Select Language Mode
-- **English only (fastest)** - Optimized for English transcription, uses .en models automatically
-- **Multilingual (99 languages)** - Auto-detects language from 99+ supported languages
-
-The backend automatically selects the optimal model variant (.en for English) - you don't need to worry about it!
-
-### 2. Select Model Size
-
-The menu shows simple model names. The backend automatically selects English-only (.en) variants when "English only" is selected:
-
-#### Two Backends Available:
-- **W models** - whisper.cpp (C++, no Python required, good for offline systems)
-- **CT2 models** - CTranslate2/faster-whisper (Python, 5-10x faster with GPU acceleration)
-
-#### Available Models:
-- **tiny** - Fastest, less accurate (~39MB)
-- **base** - Fast, good for simple dictation (~74MB)
-- **small** - **Recommended** - Good balance of speed and accuracy (~244MB)
-- **medium** - Slower, more accurate (~769MB)
-- **large** / **large-v3** - Best accuracy, slowest (~1550MB)
-
-**Note:** Tiny and base are disabled in Multilingual mode (poor accuracy for 99 languages). All models are available in English-only mode.
-
-**Behind the scenes:**
-- English mode: "W small" → backend uses "W small.en" (faster English-only model)
-- Multilingual mode: "W small" → backend uses "W small" (supports 99 languages)
-- Large has no .en variant, always uses multilingual model with language="en" for English
-
-**Choosing the right model:**
-- **Start with CT2 small in English-only mode** - Best balance of speed and accuracy
-- **Need other languages? Switch to Multilingual mode** - Auto-detects 99+ languages
-- **Larger models are more accurate but slower.** Models download automatically on first use.
-
-**With GPU:** Models run 5-10x faster with CUDA acceleration. Small model transcribes ~3 seconds in <1 second.
-
-**Without GPU:** Models use CPU with INT8 quantization (slower but still works).
-
-## Microphone Selection
-
-Choose your microphone from the menu bar. **Use your system default microphone** (usually "Built-in Microphone") for best results.
-
-## Technical Details
-
-### macOS
-- Pure Objective-C implementation for minimal overhead
-- CoreAudio for low-latency audio capture (16kHz mono)
-- CGEventTap for global hotkey monitoring
-- Two backends: whisper.cpp (C++) or faster-whisper (Python/CTranslate2)
-- Linear resampling for device compatibility
-- 4KB audio buffers (~43ms latency)
-- NSUserNotification for buffer limit alerts
-
-### Linux
-- C implementation with GTK3 system tray
-- PortAudio for cross-platform audio capture (16kHz mono)
-- X11 XRecord for global keyboard hook (Scroll Lock)
-- XTest for text input simulation
-- CTranslate2/faster-whisper backend for transcription
-- pthread worker for background processing
-- libnotify for desktop notifications (buffer limit alerts)
-
-## Troubleshooting
-
-### macOS
-
-#### Microphone not activating
-1. Check Input Monitoring permission for Voice to Text in System Settings → Privacy & Security
-2. Toggle permission OFF then ON
-3. Restart Voice to Text
-
-#### No transcription output
-1. Enable logging: Voice to Text menu → Logging: On
-2. Check logs: `log stream --predicate 'process == "VTT"'`
-3. Verify whisper model is downloaded
-
-#### Key not detected
-1. Check System Settings → Keyboard → Modifier Keys
-2. Ensure Right Option isn't remapped
-3. Try with logging enabled to see key events
-
-### Linux
-
-#### Scroll Lock not detected
-1. Check if XRecord extension is available: `xdpyinfo | grep RECORD`
-2. Ensure you have X11 permissions (not running in Wayland)
-3. Check logs: `tail -f ~/.local/share/voice-to-text/vtt.log`
-4. Verify Scroll Lock is not remapped: `xmodmap -pm`
-
-#### No system tray icon
-1. Ensure AppIndicator is installed: `apt list --installed | grep libayatana-appindicator3`
-2. Check if system tray is enabled in your desktop environment
-3. Try alternative: `vtt-status` to verify process is running
-
-#### Python transcription errors
-1. Verify faster-whisper is installed: `python3.12 -m pip list | grep faster-whisper`
-2. Check model download location: `ls ~/.cache/huggingface/hub/`
-3. Test manually: `python3.12 -c "from faster_whisper import WhisperModel; WhisperModel('base')"`
-
-#### Audio device issues
-1. List devices: `pactl list sources short`
-2. Check permissions: ensure user is in `audio` group
-3. Test recording: `arecord -d 3 test.wav && aplay test.wav`
-
-## Building
-
-### macOS Build Requirements
-- macOS 11.0+
-- Xcode Command Line Tools
-- CMake (for whisper.cpp)
-
-The Makefile handles:
-- Building embedded whisper.cpp library
-- Compiling VTT daemon
-- Creating app bundle with icon
-- Bundling whisper model
-
-### Linux Build Requirements
-- Ubuntu 24.04+ or Debian-based distro
-- GCC 11+ with C11 support
-- Development libraries: PortAudio, X11, XTest, GTK3, AppIndicator3
-- Python 3.12+ with faster-whisper
-
-The Makefile.linux handles:
-- Compiling all C sources (audio, keyboard, typing, GUI, transcription)
-- Linking against system libraries
-- Creating standalone executable
-
-## Architecture
-
-### macOS App Bundle
-```
-VTT.app/
-├── Contents/
-│   ├── MacOS/
-│   │   ├── VTT              # Main executable
-│   │   └── whisper-cli       # Fallback CLI (optional)
-│   ├── Resources/
-│   │   ├── AppIcon.icns      # App icon
-│   │   └── ggml-small.en.bin # Bundled model
-│   └── Info.plist
-```
-
-### Cross-Platform Repository Structure
 ```
 voice-to-text/
 ├── src/
 │   ├── common/              # Shared cross-platform code
 │   │   ├── logging.c/h      # Logging system
 │   │   ├── queue.c/h        # Thread-safe queue
+│   │   ├── settings.c/h     # Configuration persistence
 │   │   └── transcribe.py    # Python transcription backend
 │   ├── macos/               # macOS-specific code
 │   │   ├── VTTDaemon.m      # Main app
@@ -364,63 +258,23 @@ voice-to-text/
 │       ├── transcribe.c/h   # Python wrapper caller
 │       ├── gui.c/h          # GTK3 AppIndicator
 │       └── main.c           # Entry point
-├── Makefile                 # macOS build
-└── Makefile.linux           # Linux build
+├── debian/                  # Debian packaging (for PPA)
+├── homebrew-cask/          # Homebrew formula (for macOS)
+├── Makefile                # macOS build
+└── Makefile.linux          # Linux build
 ```
-
-## Contributing
-
-We welcome contributions! Voice to Text is an open-source project and we'd love your help making it better.
 
 ### How to Contribute
 
+We welcome contributions! Here's how:
+
 1. **Fork the repository** on GitHub
-2. **Clone your fork** locally
+2. **Clone your fork** locally: `git clone https://github.com/YOUR-USERNAME/voice-to-text.git`
 3. **Create a feature branch**: `git checkout -b feature/your-feature-name`
-4. **Make your changes** and test thoroughly
+4. **Make your changes** and test thoroughly on your platform
 5. **Commit with clear messages**: `git commit -m "feat: add feature description"`
 6. **Push to your fork**: `git push origin feature/your-feature-name`
 7. **Open a Pull Request** on the main repository
-
-### Development Setup
-
-#### macOS Development
-```bash
-# Clone your fork
-git clone https://github.com/YOUR-USERNAME/voice-to-text.git
-cd voice-to-text
-
-# Install dependencies (if needed)
-brew install cmake portaudio
-
-# Build whisper.cpp dependencies
-make vendor-whisper
-make whisper-lib
-
-# Build and test
-make complete
-open VTT.app
-```
-
-#### Linux Development
-```bash
-# Clone your fork
-git clone https://github.com/YOUR-USERNAME/voice-to-text.git
-cd voice-to-text
-
-# Install build dependencies
-sudo apt install build-essential pkg-config \
-    portaudio19-dev libx11-dev libxtst-dev libxext-dev \
-    libgtk-3-dev libayatana-appindicator3-dev libnotify-dev \
-    python3.12 python3-pip
-
-# Install Python transcription backend
-python3.12 -m pip install --break-system-packages faster-whisper
-
-# Build and test
-make -f Makefile.linux
-./vtt-linux
-```
 
 ### Commit Message Guidelines
 
@@ -438,22 +292,22 @@ We follow conventional commits:
 **Features:**
 - Custom hotkey combinations
 - Transcription history/clipboard manager
-- Alternative Whisper backends (Faster Whisper, MLX)
 - Streaming transcription (real-time as you speak)
 - Punctuation restoration
 - Speaker diarization (multiple speakers)
+- Windows/Android/iOS ports
 
 **Improvements:**
 - Better VAD (Voice Activity Detection)
 - Reduce model download sizes
-- Support for other audio input devices
 - macOS Shortcuts integration
 - AppleScript support
 - Better error messaging
+- Wayland support (Linux)
 
 **Documentation:**
 - Usage tutorials and videos
-- Performance benchmarks across different Macs
+- Performance benchmarks
 - Accuracy comparisons between models
 - Integration guides (Vim, VS Code, etc.)
 
@@ -465,11 +319,11 @@ We follow conventional commits:
 
 ### Code Style
 
-- Use Objective-C ARC (Automatic Reference Counting)
-- Keep methods focused and well-documented
-- Follow existing naming conventions
-- Add VTTLog statements for debugging
-- Test on both Intel and Apple Silicon Macs
+- **macOS:** Use Objective-C ARC (Automatic Reference Counting), follow Apple conventions
+- **Linux:** Use C11, follow Linux kernel style guidelines
+- Keep functions focused and well-documented
+- Add logging statements for debugging
+- Test on target platforms before submitting PR
 
 ### Reporting Issues
 
@@ -480,7 +334,7 @@ Found a bug? Have a feature request?
    - Clear title and description
    - Steps to reproduce (for bugs)
    - Expected vs actual behavior
-   - macOS version and Mac model
+   - OS version and hardware details
    - Relevant logs (enable logging in menu)
 
 ### Questions?
@@ -488,31 +342,100 @@ Found a bug? Have a feature request?
 - Open a [GitHub Discussion](https://github.com/powell-clark/voice-to-text/discussions)
 - Check existing issues and discussions first
 
-### Testing Pull Requests
+---
 
-Want to test someone's PR before it's merged?
+## 🔍 Technical Details
 
-```bash
-# Add their fork as a remote
-git remote add contributor https://github.com/THEIR-USERNAME/voice-to-text.git
+### macOS Architecture
+- Pure Objective-C implementation for minimal overhead
+- CoreAudio for low-latency audio capture (16kHz mono)
+- CGEventTap for global hotkey monitoring
+- Two backends: whisper.cpp (C++) or faster-whisper (Python/CTranslate2)
+- NSUserNotification for buffer limit alerts
+- App Bundle structure with embedded models
 
-# Fetch and checkout their branch
-git fetch contributor
-git checkout contributor/their-branch-name
+### Linux Architecture
+- C implementation with GTK3 system tray
+- PortAudio for cross-platform audio capture (16kHz mono)
+- X11 XRecord for global keyboard hook (Scroll Lock)
+- XTest for text input simulation
+- CTranslate2/faster-whisper backend for transcription
+- pthread worker for background processing
+- libnotify for desktop notifications
+- systemd user service integration
 
-# Build and test
-make clean && make complete
-open VTT.app
-```
+---
 
-## License
+## 🐛 Troubleshooting
+
+### macOS
+
+#### Microphone not activating
+1. Check **Input Monitoring** permission: System Settings → Privacy & Security → Input Monitoring
+2. Ensure "Voice to Text" is checked
+3. Toggle permission OFF then ON
+4. Restart Voice to Text
+
+#### No transcription output
+1. Enable logging: Voice to Text menu → Logging: On
+2. Check logs: `log stream --predicate 'process == "VTT"'`
+3. Verify model downloaded: Check `~/Library/Application Support/voice-to-text/models/`
+4. Try a different model (e.g., switch to CT2 small)
+
+#### Right Alt key not detected
+1. Check System Settings → Keyboard → Modifier Keys
+2. Ensure Right Option isn't remapped
+3. Try with logging enabled to see key events in Console
+
+### Linux
+
+#### Scroll Lock not detected
+1. Check if XRecord extension is available: `xdpyinfo | grep RECORD`
+2. Ensure running under X11 (not pure Wayland)
+3. Check logs: `tail -f ~/.local/share/voice-to-text/vtt.log`
+4. Verify Scroll Lock is not remapped: `xmodmap -pm`
+
+#### No system tray icon
+1. Ensure AppIndicator is installed: `apt list --installed | grep libayatana-appindicator3`
+2. Check if system tray extension is enabled in your desktop environment (GNOME, KDE, etc.)
+3. Verify process is running: `systemctl --user status vtt`
+
+#### Python transcription errors
+1. Verify faster-whisper is installed: `python3.12 -m pip list | grep faster-whisper`
+2. Check model download location: `ls ~/.cache/huggingface/hub/`
+3. Test manually: `python3.12 -c "from faster_whisper import WhisperModel; WhisperModel('base')"`
+4. Check Python version: `python3.12 --version` (must be 3.12+)
+
+#### Audio device issues
+1. List available devices: `pactl list sources short`
+2. Check permissions: ensure user is in `audio` group: `groups | grep audio`
+3. Test recording: `arecord -d 3 test.wav && aplay test.wav`
+4. Try different microphone from the menu
+
+#### GPU not being used (Linux)
+1. Check CUDA installation: `nvcc --version`
+2. Verify GPU is detected: `python3.12 -c "import ctranslate2; print(ctranslate2.get_cuda_device_count())"`
+3. Check CUDA paths in `~/.bashrc`: `echo $LD_LIBRARY_PATH`
+4. Restart VTT service: `systemctl --user restart vtt`
+
+---
+
+## 📄 License
 
 Copyright © 2025 Powell-Clark Limited
 
 Licensed under the Apache License, Version 2.0
 
-## Credits
+See [LICENSE](LICENSE) file for details.
 
-- Built with [whisper.cpp](https://github.com/ggerganov/whisper.cpp)
-- Uses OpenAI's Whisper models
-- Icon generated programmatically with CoreGraphics
+---
+
+## 🙏 Credits
+
+- Built with [whisper.cpp](https://github.com/ggerganov/whisper.cpp) by Georgi Gerganov
+- Uses [faster-whisper](https://github.com/guillaumekln/faster-whisper) and [CTranslate2](https://github.com/OpenNMT/CTranslate2)
+- Powered by OpenAI's [Whisper](https://github.com/openai/whisper) models
+
+---
+
+**Questions? Issues? Contributions?** → [GitHub Issues](https://github.com/powell-clark/voice-to-text/issues) • [Discussions](https://github.com/powell-clark/voice-to-text/discussions)
