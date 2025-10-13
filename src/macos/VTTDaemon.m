@@ -84,6 +84,8 @@ typedef struct {
 @property (strong) NSMenuItem *statusMenuItem;
 @property (strong) NSString *selectedModel;
 @property (strong) NSMenuItem *modelMenuItem;
+@property (strong) NSString *selectedLanguage; // "en" or "auto"
+@property (strong) NSMenuItem *languageMenuItem;
 @property (strong) NSTask *downloadTask;
 @property (nonatomic) NSInteger downloadRetryCount;
 @property (strong) NSString *downloadingModel;
@@ -245,7 +247,14 @@ static void audioInputCallback(void* userData,
         [defaults setObject:self.selectedModel forKey:@"selectedModel"];
     }
 
+    self.selectedLanguage = [defaults stringForKey:@"selectedLanguage"];
+    if (!self.selectedLanguage) {
+        self.selectedLanguage = @"en";  // Default to English-only (fastest)
+        [defaults setObject:self.selectedLanguage forKey:@"selectedLanguage"];
+    }
+
     VTTLog(@"Default model: %@", self.selectedModel);
+    VTTLog(@"Default language: %@", self.selectedLanguage);
 
     // Load hotkey preference (default: Right Alt/Option = keycode 61)
     if ([defaults objectForKey:@"hotkeyCode"]) {
@@ -324,6 +333,32 @@ static void audioInputCallback(void* userData,
 
     self.modelMenuItem.submenu = modelMenu;
     [self.menu addItem:self.modelMenuItem];
+
+    // Language selection submenu
+    NSString *languageDisplay = [self.selectedLanguage isEqualToString:@"en"] ? @"English only" : @"Multilingual";
+    self.languageMenuItem = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"Language: %@", languageDisplay]
+                                                        action:nil
+                                                 keyEquivalent:@""];
+    NSMenu *languageMenu = [[NSMenu alloc] init];
+
+    NSMenuItem *englishItem = [[NSMenuItem alloc] initWithTitle:@"English only (fastest)"
+                                                         action:@selector(selectLanguage:)
+                                                  keyEquivalent:@""];
+    englishItem.target = self;
+    englishItem.representedObject = @"en";
+    englishItem.state = [self.selectedLanguage isEqualToString:@"en"] ? NSControlStateValueOn : NSControlStateValueOff;
+    [languageMenu addItem:englishItem];
+
+    NSMenuItem *multilingualItem = [[NSMenuItem alloc] initWithTitle:@"Multilingual (99 languages)"
+                                                              action:@selector(selectLanguage:)
+                                                       keyEquivalent:@""];
+    multilingualItem.target = self;
+    multilingualItem.representedObject = @"auto";
+    multilingualItem.state = [self.selectedLanguage isEqualToString:@"auto"] ? NSControlStateValueOn : NSControlStateValueOff;
+    [languageMenu addItem:multilingualItem];
+
+    self.languageMenuItem.submenu = languageMenu;
+    [self.menu addItem:self.languageMenuItem];
 
     // Microphone selection submenu
     self.micMenuItem = [[NSMenuItem alloc] initWithTitle:@"Microphone: Default"
@@ -1046,22 +1081,34 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         baseModel = [modelName substringFromIndex:4];
     }
 
-    // Map model names for CTranslate2
+    // Map model names for CTranslate2 with language-aware .en suffix
     NSString *ct2Model = baseModel;
-    if ([baseModel isEqualToString:@"small"]) {
-        ct2Model = @"small.en";
-    } else if ([baseModel isEqualToString:@"medium"]) {
-        ct2Model = @"medium.en";
-    } else if ([baseModel isEqualToString:@"large"]) {
-        ct2Model = @"large-v3";
+    BOOL isEnglish = [self.selectedLanguage isEqualToString:@"en"];
+
+    // Auto-append .en suffix for English-only mode when .en model exists
+    if (isEnglish) {
+        if ([baseModel isEqualToString:@"tiny"] || [baseModel isEqualToString:@"base"] ||
+            [baseModel isEqualToString:@"small"] || [baseModel isEqualToString:@"medium"]) {
+            ct2Model = [NSString stringWithFormat:@"%@.en", baseModel];
+            VTTLog(@"Auto-selected .en model: %@ (English mode)", ct2Model);
+        } else if ([baseModel isEqualToString:@"large"]) {
+            ct2Model = @"large-v3"; // large-v3 is multilingual, no .en version
+        }
+    } else {
+        // Multilingual mode - use base models without .en suffix
+        if ([baseModel isEqualToString:@"large"]) {
+            ct2Model = @"large-v3";
+        } else {
+            ct2Model = baseModel; // tiny, base, small, medium (multilingual versions)
+        }
     }
 
     // whisper-ctranslate2 writes output to a file, not stdout
     // Output file will be: /tmp/vtt_XXX.txt (same name as wav but .txt extension)
     NSString *outputFile = [wavPath stringByReplacingOccurrencesOfString:@".wav" withString:@".txt"];
 
-    // Auto-detect language by not specifying --language (supports 99 languages)
-    task.arguments = @[
+    // Build arguments with language parameter
+    NSMutableArray *arguments = [NSMutableArray arrayWithArray:@[
         wavPath,
         @"--model", ct2Model,
         @"--device", @"cpu",
@@ -1070,7 +1117,17 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         @"--output_dir", @"/tmp",
         @"--verbose", @"False",
         @"--initial_prompt", self.initialPrompt
-    ];
+    ]];
+
+    // Add language parameter: "en" for English-only, omit for multilingual auto-detect
+    if (isEnglish) {
+        [arguments addObjectsFromArray:@[@"--language", @"en"]];
+        VTTLog(@"Using English-only transcription");
+    } else {
+        VTTLog(@"Using multilingual auto-detection (99 languages)");
+    }
+
+    task.arguments = arguments;
 
     VTTLog(@"Launching whisper-ctranslate2: %@ --model %@ (output: %@)", wavPath, ct2Model, outputFile);
 
@@ -1269,12 +1326,22 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     }
 
     // Run whisper with selected model - check bundled model first, then external
-    // Map model names (large → large-v3 which is multilingual)
+    // Language-aware model selection: use .en models for English, base models for multilingual
     NSString *modelFile = self.selectedModel;
-    NSString *extension = @"en.bin"; // Default: English-only
+    NSString *extension;
+    BOOL isEnglish = [self.selectedLanguage isEqualToString:@"en"];
+
     if ([self.selectedModel isEqualToString:@"large"]) {
         modelFile = @"large-v3";
-        extension = @"bin"; // large-v3 is multilingual
+        extension = @"bin"; // large-v3 is multilingual only
+    } else if (isEnglish) {
+        // English mode: use .en models (faster, better quality for English)
+        extension = @"en.bin";
+        VTTLog(@"Using English-only model: %@.%@", modelFile, extension);
+    } else {
+        // Multilingual mode: use base models without .en suffix
+        extension = @"bin";
+        VTTLog(@"Using multilingual model: %@.%@", modelFile, extension);
     }
 
     NSString *homeDir = NSHomeDirectory();
@@ -1847,11 +1914,16 @@ transcription_complete:
     // Whisper.cpp models - need file check and preload
     NSString *baseModel = newModel;
     NSString *modelFile = baseModel;
-    NSString *extension = @"en.bin"; // Default: English-only models
+    NSString *extension;
+    BOOL isEnglish = [self.selectedLanguage isEqualToString:@"en"];
 
     if ([baseModel isEqualToString:@"large"]) {
         modelFile = @"large-v3";
-        extension = @"bin"; // large-v3 is multilingual, no .en version
+        extension = @"bin"; // large-v3 is multilingual only
+    } else if (isEnglish) {
+        extension = @"en.bin"; // English-only models
+    } else {
+        extension = @"bin"; // Multilingual models
     }
 
     // Check if model exists - bundled first, then external
@@ -2181,6 +2253,68 @@ transcription_complete:
             VTTLog(@"❌ Failed to launch download task: %@", exception);
             self.statusMenuItem.title = @"Status: Download failed to start";
             self.statusItem.button.title = @"VTT ⚠️";
+        }
+    }
+}
+
+- (void)selectLanguage:(id)sender {
+    NSMenuItem *item = (NSMenuItem *)sender;
+    NSString *newLanguage = item.representedObject; // "en" or "auto"
+
+    // Update UI checkmarks
+    for (NSMenuItem *menuItem in item.menu.itemArray) {
+        menuItem.state = NSControlStateValueOff;
+    }
+    item.state = NSControlStateValueOn;
+
+    // Update language setting
+    self.selectedLanguage = newLanguage;
+    NSString *languageDisplay = [newLanguage isEqualToString:@"en"] ? @"English only" : @"Multilingual";
+    self.languageMenuItem.title = [NSString stringWithFormat:@"Language: %@", languageDisplay];
+
+    // Save preference
+    [[NSUserDefaults standardUserDefaults] setObject:newLanguage forKey:@"selectedLanguage"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+
+    VTTLog(@"Language switched to: %@ (%@)", languageDisplay, newLanguage);
+
+    // Rebuild model menu to enable/disable models based on language
+    [self rebuildModelMenu];
+}
+
+- (void)rebuildModelMenu {
+    NSMenu *modelMenu = self.modelMenuItem.submenu;
+    BOOL isEnglish = [self.selectedLanguage isEqualToString:@"en"];
+
+    VTTLog(@"Rebuilding model menu for language: %@ (isEnglish=%d)", self.selectedLanguage, isEnglish);
+
+    // Update existing menu items instead of rebuilding (to preserve references)
+    for (NSMenuItem *item in modelMenu.itemArray) {
+        if (item.isSeparatorItem) continue;
+
+        NSString *title = item.title;
+        BOOL isTinyOrBase = [title containsString:@"tiny"] || [title containsString:@"base"];
+
+        // Disable tiny/base models in multilingual mode (poor quality)
+        // CT2 models and large models are always available
+        BOOL shouldEnable = isEnglish || !isTinyOrBase || [title hasPrefix:@"CT2"];
+        [item setEnabled:shouldEnable];
+
+        VTTLog(@"  %@ - enabled: %d (isTinyOrBase=%d)", title, shouldEnable, isTinyOrBase);
+    }
+
+    // If currently selected model is now disabled, switch to small
+    NSString *currentTitle = self.modelMenuItem.title;
+    BOOL currentIsTinyOrBase = [self.selectedModel isEqualToString:@"tiny"] || [self.selectedModel isEqualToString:@"base"];
+    if (!isEnglish && currentIsTinyOrBase && ![self.selectedModel hasPrefix:@"CT2"]) {
+        VTTLog(@"⚠️  Current model (%@) disabled in multilingual mode, switching to small", self.selectedModel);
+
+        // Find and select the "small" model menu item
+        for (NSMenuItem *item in modelMenu.itemArray) {
+            if ([item.representedObject isEqualToString:@"small"]) {
+                [self selectModel:item];
+                break;
+            }
         }
     }
 }
