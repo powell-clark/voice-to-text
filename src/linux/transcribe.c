@@ -61,12 +61,30 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
         // ═══════════════════════════════════════════════════════════════
         // WHISPER.CPP BACKEND (W models: tiny, base, small, medium, large)
         // ═══════════════════════════════════════════════════════════════
-        const char *whisper_cli = "/home/powell-clark/projects/voice-to-text/third_party/whisper.cpp/build/bin/whisper-cli";
 
-        if (access(whisper_cli, X_OK) != 0) {
-            vtt_log("ERROR: whisper-cli not found at %s", whisper_cli);
+        // Try multiple locations for whisper-cli (PPA install, manual install, dev mode)
+        const char *whisper_cli_paths[] = {
+            "/usr/bin/whisper-cli",                          // PPA/system install
+            "/usr/local/bin/whisper-cli",                    // Manual install
+            "./third_party/whisper.cpp/build/bin/whisper-cli",  // Relative (dev)
+            NULL
+        };
+
+        const char *whisper_cli = NULL;
+        for (int i = 0; whisper_cli_paths[i] != NULL; i++) {
+            if (access(whisper_cli_paths[i], X_OK) == 0) {
+                whisper_cli = whisper_cli_paths[i];
+                break;
+            }
+        }
+
+        if (!whisper_cli) {
+            vtt_log("ERROR: whisper-cli not found. Try installing whisper.cpp or use CT2 models.");
+            vtt_log("Searched: /usr/bin, /usr/local/bin, ./third_party/whisper.cpp/build/bin");
             return NULL;
         }
+
+        vtt_log("Using whisper-cli: %s", whisper_cli);
 
         // Extract base model name (strip "W " prefix if present)
         const char *base_model = model_to_use;
@@ -121,13 +139,31 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
         // ═══════════════════════════════════════════════════════════════
         // CTRANSLATE2 BACKEND (CT2 models: tiny, base, small, medium, large-v3)
         // ═══════════════════════════════════════════════════════════════
-        const char *script_path = "/home/powell-clark/projects/voice-to-text/src/common/transcribe.py";
-        const char *python_path = "python3.12";
 
-        if (access(script_path, R_OK) != 0) {
-            vtt_log("ERROR: transcribe.py not found at %s", script_path);
+        // Try multiple locations for transcribe.py (PPA install, dev mode)
+        const char *script_paths[] = {
+            "/usr/share/voice-to-text/transcribe.py",       // PPA/system install
+            "./src/common/transcribe.py",                   // Relative (dev)
+            "src/common/transcribe.py",                     // Relative alt
+            NULL
+        };
+
+        const char *script_path = NULL;
+        for (int i = 0; script_paths[i] != NULL; i++) {
+            if (access(script_paths[i], R_OK) == 0) {
+                script_path = script_paths[i];
+                break;
+            }
+        }
+
+        if (!script_path) {
+            vtt_log("ERROR: transcribe.py not found");
+            vtt_log("Searched: /usr/share/voice-to-text, ./src/common");
+            vtt_log("Install with: pip3 install --break-system-packages faster-whisper");
             return NULL;
         }
+
+        const char *python_path = "python3";  // Use system python3 (not version-specific)
 
         // Extract base model name (strip "CT2 " prefix if present)
         const char *base_model = model_to_use;
