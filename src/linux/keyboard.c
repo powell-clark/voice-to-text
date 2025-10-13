@@ -61,13 +61,19 @@ int vtt_keyboard_init(vtt_keyboard_t *keyboard, vtt_keyboard_callback_t callback
     }
     keyboard->data_display = data_display;
 
-    // Get Scroll Lock keycode
-    KeySym scroll_lock_sym = XK_Scroll_Lock;
-    keyboard->scroll_lock_keycode = XKeysymToKeycode(display, scroll_lock_sym);
+    // Get Right Alt keycode (ISO_Level3_Shift is the X11 name for Right Alt)
+    KeySym right_alt_sym = XK_ISO_Level3_Shift;
+    keyboard->scroll_lock_keycode = XKeysymToKeycode(display, right_alt_sym);
+
+    // Fallback to Alt_R if ISO_Level3_Shift not found
+    if (keyboard->scroll_lock_keycode == 0) {
+        right_alt_sym = XK_Alt_R;
+        keyboard->scroll_lock_keycode = XKeysymToKeycode(display, right_alt_sym);
+    }
 
     if (keyboard->scroll_lock_keycode == 0) {
-        vtt_log("Warning: Scroll Lock key not found, using keycode 78");
-        keyboard->scroll_lock_keycode = 78; // Fallback
+        vtt_log("Warning: Right Alt key not found, using keycode 108");
+        keyboard->scroll_lock_keycode = 108; // Fallback for Right Alt
     }
 
     // Set up XRecord extension
@@ -105,7 +111,7 @@ int vtt_keyboard_init(vtt_keyboard_t *keyboard, vtt_keyboard_callback_t callback
     keyboard->context = (void *)(long)context;
     keyboard->running = false;
 
-    vtt_log("Keyboard hook initialized (Scroll Lock, keycode %d)", keyboard->scroll_lock_keycode);
+    vtt_log("Keyboard hook initialized (Right Alt, keycode %d)", keyboard->scroll_lock_keycode);
     return 0;
 }
 
