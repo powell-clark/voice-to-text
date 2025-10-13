@@ -199,28 +199,41 @@ The app will prompt you on first launch.
 
 No special permissions required. The app uses X11 for keyboard monitoring and XTest for text input. If running under Wayland, you may need to use XWayland compatibility mode.
 
-## Choose a Model
+## Choose Language and Model
 
-Select a model from the menu bar. **We recommend starting with small** (multilingual) for the best balance of speed, accuracy, and language support.
+Voice to Text has a simple two-step configuration:
 
-### macOS - Two Backends Available:
-- **W models** - whisper.cpp (C++, no Python required, slower)
-- **CT2 models** - CTranslate2/faster-whisper (Python, 5-10x faster)
+### 1. Select Language Mode
+- **English only (fastest)** - Optimized for English transcription, uses .en models automatically
+- **Multilingual (99 languages)** - Auto-detects language from 99+ supported languages
 
-### Multilingual Models (Support 99+ Languages):
-- **tiny** - Fastest, less accurate (~39MB) - supports all languages
-- **base** - Fast, good for simple dictation (~74MB) - supports all languages
-- **small** - **Recommended** - Good accuracy, reasonable speed (~244MB) - supports all languages
-- **medium** - Slower, more accurate (~769MB) - supports all languages
-- **large** / **large-v3** - Best accuracy, slowest (~1550MB) - supports all languages
+The backend automatically selects the optimal model variant (.en for English) - you don't need to worry about it!
 
-### English-Only Models (Faster, English Only):
-- **small.en** - Faster than small, but English only (~244MB)
-- **medium.en** - Faster than medium, but English only (~769MB)
+### 2. Select Model Size
+
+The menu shows simple model names. The backend automatically selects English-only (.en) variants when "English only" is selected:
+
+#### Two Backends Available:
+- **W models** - whisper.cpp (C++, no Python required, good for offline systems)
+- **CT2 models** - CTranslate2/faster-whisper (Python, 5-10x faster with GPU acceleration)
+
+#### Available Models:
+- **tiny** - Fastest, less accurate (~39MB)
+- **base** - Fast, good for simple dictation (~74MB)
+- **small** - **Recommended** - Good balance of speed and accuracy (~244MB)
+- **medium** - Slower, more accurate (~769MB)
+- **large** / **large-v3** - Best accuracy, slowest (~1550MB)
+
+**Note:** Tiny and base are disabled in Multilingual mode (poor accuracy for 99 languages). All models are available in English-only mode.
+
+**Behind the scenes:**
+- English mode: "W small" → backend uses "W small.en" (faster English-only model)
+- Multilingual mode: "W small" → backend uses "W small" (supports 99 languages)
+- Large has no .en variant, always uses multilingual model with language="en" for English
 
 **Choosing the right model:**
-- **Need multiple languages?** Use tiny, base, small, medium, or large (auto-detects language)
-- **English only?** Use small.en or medium.en for faster transcription
+- **Start with CT2 small in English-only mode** - Best balance of speed and accuracy
+- **Need other languages? Switch to Multilingual mode** - Auto-detects 99+ languages
 - **Larger models are more accurate but slower.** Models download automatically on first use.
 
 **With GPU:** Models run 5-10x faster with CUDA acceleration. Small model transcribes ~3 seconds in <1 second.
