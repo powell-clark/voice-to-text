@@ -360,6 +360,9 @@ static void audioInputCallback(void* userData,
     self.languageMenuItem.submenu = languageMenu;
     [self.menu addItem:self.languageMenuItem];
 
+    // Check which models exist and disable unavailable ones
+    [self rebuildModelMenu];
+
     // Microphone selection submenu
     self.micMenuItem = [[NSMenuItem alloc] initWithTitle:@"Microphone: Default"
                                                    action:nil
@@ -1030,8 +1033,9 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     } else {
     }
 
-    // Capture the just-finished raw file path before new recordings begin
+    // Capture the just-finished raw file path and buffer full flag before new recordings begin
     NSString *rawPath = [NSString stringWithUTF8String:self.audioState->tempFileName];
+    BOOL wasBufferFull = self.audioState->bufferFull;
 
     // Update UI state and enqueue job (FIFO, no drop)
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -1041,7 +1045,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
     dispatch_async(dispatch_get_main_queue(), ^{ self.pendingJobs++; });
     dispatch_async(self.transcribeQueue, ^{
-        [self processAudioFileAtPath:rawPath];
+        [self processAudioFileAtPath:rawPath wasBufferFull:wasBufferFull];
         dispatch_async(dispatch_get_main_queue(), ^{
             self.pendingJobs--;
             if (!self.audioState->isRecording && self.pendingJobs == 0) {
@@ -1168,7 +1172,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     return [self.selectedModel hasPrefix:@"CT2 "];
 }
 
-- (void)processAudioFileAtPath:(NSString *)rawPath {
+- (void)processAudioFileAtPath:(NSString *)rawPath wasBufferFull:(BOOL)wasBufferFull {
 
     // Create unique WAV file based on the raw file name (preserves session uniqueness)
     char wavFile[256];
@@ -1221,9 +1225,12 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     if (duration < 0.5f) {
         VTTLog(@"⚠️  Recording too short (%.2f seconds) - rejecting", duration);
         rejectionMessage = @"[Transcription activated: audio too short]";
-    } else if (max_val < 500) {
+    } else if (max_val < 500 && !wasBufferFull) {
+        // Skip amplitude check if recording hit max length (may have timing issues)
         VTTLog(@"⚠️  Audio too quiet (amplitude %d) - rejecting", max_val);
         rejectionMessage = @"[Transcription activated: no audio detected]";
+    } else if (wasBufferFull && max_val < 500) {
+        VTTLog(@"⚠️  Audio appears silent but max length was reached - attempting transcription anyway");
     }
 
     // If rejected, type rejection message and return
@@ -2285,6 +2292,7 @@ transcription_complete:
 - (void)rebuildModelMenu {
     NSMenu *modelMenu = self.modelMenuItem.submenu;
     BOOL isEnglish = [self.selectedLanguage isEqualToString:@"en"];
+    NSFileManager *fm = [NSFileManager defaultManager];
 
     VTTLog(@"Rebuilding model menu for language: %@ (isEnglish=%d)", self.selectedLanguage, isEnglish);
 
@@ -2292,29 +2300,81 @@ transcription_complete:
     for (NSMenuItem *item in modelMenu.itemArray) {
         if (item.isSeparatorItem) continue;
 
-        NSString *title = item.title;
-        BOOL isTinyOrBase = [title containsString:@"tiny"] || [title containsString:@"base"];
+        NSString *representedModel = item.representedObject;
+        if (!representedModel) continue;
 
-        // Disable tiny/base models in multilingual mode (poor quality)
-        // CT2 models and large models are always available
-        BOOL shouldEnable = isEnglish || !isTinyOrBase || [title hasPrefix:@"CT2"];
+        // CT2 models don't need file checks (downloaded on-demand by faster-whisper)
+        if ([representedModel hasPrefix:@"CT2"]) {
+            [item setEnabled:YES];
+            VTTLog(@"  %@ - enabled: YES (CT2 auto-download)", item.title);
+            continue;
+        }
+
+        // For W models, check if the required file exists
+        NSString *modelFile = representedModel;
+        NSString *extension;
+
+        if ([modelFile isEqualToString:@"large"]) {
+            modelFile = @"large-v3";
+            extension = @"bin"; // large-v3 is multilingual only
+        } else if (isEnglish) {
+            extension = @"en.bin"; // English-only models
+        } else {
+            extension = @"bin"; // Multilingual models
+        }
+
+        // Check bundled location first, then external
+        NSString *bundledPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:
+                                 [NSString stringWithFormat:@"ggml-%@.%@", modelFile, extension]];
+        NSString *externalPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.%@",
+                                 NSHomeDirectory(), modelFile, extension];
+
+        BOOL fileExists = [fm fileExistsAtPath:bundledPath] || [fm fileExistsAtPath:externalPath];
+
+        // Disable tiny/base in multilingual mode (poor quality) OR if file doesn't exist
+        BOOL isTinyOrBase = [modelFile isEqualToString:@"tiny"] || [modelFile isEqualToString:@"base"];
+        BOOL shouldEnable = fileExists && (isEnglish || !isTinyOrBase);
+
         [item setEnabled:shouldEnable];
 
-        VTTLog(@"  %@ - enabled: %d (isTinyOrBase=%d)", title, shouldEnable, isTinyOrBase);
+        VTTLog(@"  %@ (ggml-%@.%@) - enabled: %d (exists=%d, isEnglish=%d, isTinyOrBase=%d)",
+               item.title, modelFile, extension, shouldEnable, fileExists, isEnglish, isTinyOrBase);
     }
 
-    // If currently selected model is now disabled, switch to small
-    NSString *currentTitle = self.modelMenuItem.title;
-    BOOL currentIsTinyOrBase = [self.selectedModel isEqualToString:@"tiny"] || [self.selectedModel isEqualToString:@"base"];
-    if (!isEnglish && currentIsTinyOrBase && ![self.selectedModel hasPrefix:@"CT2"]) {
-        VTTLog(@"⚠️  Current model (%@) disabled in multilingual mode, switching to small", self.selectedModel);
+    // If currently selected model is now disabled, find first enabled model
+    NSString *currentModel = self.selectedModel;
+    BOOL currentStillEnabled = NO;
 
-        // Find and select the "small" model menu item
+    for (NSMenuItem *item in modelMenu.itemArray) {
+        if ([item.representedObject isEqualToString:currentModel] && item.enabled) {
+            currentStillEnabled = YES;
+            break;
+        }
+    }
+
+    if (!currentStillEnabled && ![currentModel hasPrefix:@"CT2"]) {
+        VTTLog(@"⚠️  Current model (%@) no longer valid, finding first enabled model", currentModel);
+
+        // Find first enabled model (prefer small if available)
+        NSMenuItem *fallbackItem = nil;
+        NSMenuItem *preferredItem = nil;
+
         for (NSMenuItem *item in modelMenu.itemArray) {
-            if ([item.representedObject isEqualToString:@"small"]) {
-                [self selectModel:item];
-                break;
+            if (item.enabled && item.representedObject) {
+                if (!fallbackItem) fallbackItem = item;
+                if ([item.representedObject isEqualToString:@"small"]) {
+                    preferredItem = item;
+                    break;
+                }
             }
+        }
+
+        NSMenuItem *selectedItem = preferredItem ?: fallbackItem;
+        if (selectedItem) {
+            VTTLog(@"Switching to: %@", selectedItem.title);
+            [self selectModel:selectedItem];
+        } else {
+            VTTLog(@"❌ No enabled models found!");
         }
     }
 }
