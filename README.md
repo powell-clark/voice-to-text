@@ -15,15 +15,20 @@ Voice-to-text using OpenAI Whisper with **automatic multi-language support** (99
 
 ## Multi-Language Support
 
-Voice to Text automatically detects and transcribes **99+ languages** including:
+Voice to Text supports **99+ languages** with automatic detection - no configuration needed!
 
+**Multilingual models** (tiny, base, small, medium, large, large-v3):
 - **European:** English, Spanish, French, German, Italian, Portuguese, Dutch, Polish, Russian, Turkish, Greek, Swedish, Danish, Norwegian, Finnish, Czech, Romanian, Hungarian, Bulgarian, Croatian, and more
 - **Asian:** Chinese (Mandarin), Japanese, Korean, Hindi, Bengali, Vietnamese, Thai, Indonesian, Malay, Tagalog, Tamil, Telugu, Urdu, and more
 - **Middle Eastern:** Arabic, Hebrew, Persian (Farsi), and more
 - **African:** Swahili, Afrikaans, Zulu, and more
 - **Other:** Ukrainian, Welsh, Icelandic, Estonian, Latvian, Lithuanian, Slovenian, Slovak, Serbian, Macedonian, Bosnian, Albanian, Maltese, and more
 
-**No configuration needed** - just speak in your language and it works automatically. The AI model detects the language and transcribes accordingly.
+**English-only models** (small.en, medium.en):
+- Faster transcription, but **only support English**
+- Best choice if you only need English transcription
+
+**Note:** Automatic language detection works with multilingual models. For English-only models, only English input will be transcribed correctly.
 
 ## Recording Limits & Notifications
 
@@ -196,20 +201,27 @@ No special permissions required. The app uses X11 for keyboard monitoring and XT
 
 ## Choose a Model
 
-Select a model from the menu bar. **We recommend starting with small** for a good balance of speed and accuracy.
+Select a model from the menu bar. **We recommend starting with small** (multilingual) for the best balance of speed, accuracy, and language support.
 
 ### macOS - Two Backends Available:
 - **W models** - whisper.cpp (C++, no Python required, slower)
 - **CT2 models** - CTranslate2/faster-whisper (Python, 5-10x faster)
 
-### Linux - Whisper Models (CTranslate2/faster-whisper backend):
-- **tiny** - Fastest, less accurate (~39MB)
-- **base** - Fast, good for simple dictation (~74MB)
-- **small** - **Recommended** - Good accuracy, reasonable speed (~244MB)
-- **medium** - Slower, more accurate (~769MB)
-- **large** / **large-v3** - Best accuracy, slowest (~1550MB)
+### Multilingual Models (Support 99+ Languages):
+- **tiny** - Fastest, less accurate (~39MB) - supports all languages
+- **base** - Fast, good for simple dictation (~74MB) - supports all languages
+- **small** - **Recommended** - Good accuracy, reasonable speed (~244MB) - supports all languages
+- **medium** - Slower, more accurate (~769MB) - supports all languages
+- **large** / **large-v3** - Best accuracy, slowest (~1550MB) - supports all languages
 
-**Larger models take longer to transcribe but are more accurate.** Models download automatically on first use.
+### English-Only Models (Faster, English Only):
+- **small.en** - Faster than small, but English only (~244MB)
+- **medium.en** - Faster than medium, but English only (~769MB)
+
+**Choosing the right model:**
+- **Need multiple languages?** Use tiny, base, small, medium, or large (auto-detects language)
+- **English only?** Use small.en or medium.en for faster transcription
+- **Larger models are more accurate but slower.** Models download automatically on first use.
 
 **With GPU:** Models run 5-10x faster with CUDA acceleration. Small model transcribes ~3 seconds in <1 second.
 
