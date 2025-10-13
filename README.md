@@ -1,17 +1,21 @@
 # Voice to Text
 
-Voice-to-text using OpenAI Whisper. Hold Right Alt to speak, release when finished. Your text appears in any focused input box.
+Voice-to-text using OpenAI Whisper. Hold a hotkey to speak, release when finished. Your text appears in any focused input box.
+
+**Available for macOS and Linux**
 
 ## How It Works
 
-1. Hold **Right Alt** (Right Option key)
+1. Hold the hotkey (**Scroll Lock** on Linux, **Right Alt** on macOS)
 2. Speak
 3. Release when finished
 4. Text appears in your focused input box
 
-**No internet required** - all transcription happens locally on your Mac.
+**No internet required** - all transcription happens locally on your device.
 
 ## Installation
+
+### macOS
 
 ```bash
 brew tap powell-clark/voice-to-text
@@ -20,7 +24,30 @@ brew install --cask voice-to-text
 
 Voice to Text automatically installs to /Applications.
 
+### Linux (Ubuntu/Debian)
+
+```bash
+# Install dependencies
+sudo apt install build-essential pkg-config \
+    portaudio19-dev libx11-dev libxtst-dev libxext-dev \
+    libgtk-3-dev libayatana-appindicator3-dev \
+    python3.12 python3-pip
+
+# Install faster-whisper for transcription
+python3.12 -m pip install --break-system-packages faster-whisper
+
+# Clone and build
+git clone https://github.com/powell-clark/voice-to-text.git
+cd voice-to-text
+make -f Makefile.linux
+
+# Run
+./vtt-linux
+```
+
 ### Build from Source
+
+#### macOS
 ```bash
 # Clone repository
 git clone https://github.com/powell-clark/voice-to-text.git
@@ -36,6 +63,19 @@ cp -R VTT.app /Applications/
 open /Applications/VTT.app
 ```
 
+#### Linux
+```bash
+# See Installation section above for dependencies
+
+# Clone and build
+git clone https://github.com/powell-clark/voice-to-text.git
+cd voice-to-text
+make -f Makefile.linux
+
+# Install (optional)
+sudo make -f Makefile.linux install
+```
+
 ## First Run Setup
 
 **IMPORTANT:** Grant these three permissions in System Settings → Privacy & Security or the app won't work:
@@ -47,15 +87,20 @@ The app will prompt you on first launch.
 
 ## Choose a Model
 
-Select a model from the menu bar. **We recommend starting with small (244 MB)** - it provides the best balance of speed and accuracy.
+Select a model from the menu bar. **We recommend starting with large-v3** for best accuracy.
 
-- **tiny** (39 MB) - Fastest, less accurate
-- **base** (74 MB) - Fast, good for simple dictation
-- **small** (244 MB) - **Recommended** - good accuracy, reasonable speed
-- **medium** (769 MB) - Slower, more accurate
-- **large** (1550 MB) - Slowest, best accuracy
+### macOS - Two Backends Available:
+- **W models** - whisper.cpp (C++, no Python required, slower)
+- **CT2 models** - CTranslate2/faster-whisper (Python, 5-10x faster)
 
-**Larger models take longer to transcribe but are more accurate.** Models download automatically on first selection.
+### Linux - CTranslate2 Backend:
+- **CT2 tiny** - Fastest, less accurate
+- **CT2 base** - Fast, good for simple dictation
+- **CT2 small** - Good accuracy, reasonable speed
+- **CT2 medium** - Slower, more accurate
+- **CT2 large-v3** - **Recommended** - best accuracy
+
+**Larger models take longer to transcribe but are more accurate.** Models download automatically on first use.
 
 ## Microphone Selection
 
@@ -63,12 +108,21 @@ Choose your microphone from the menu bar. **Use your system default microphone**
 
 ## Technical Details
 
+### macOS
 - Pure Objective-C implementation for minimal overhead
 - CoreAudio for low-latency audio capture (16kHz mono)
 - CGEventTap for global hotkey monitoring
-- Embedded whisper.cpp for fast transcription
+- Two backends: whisper.cpp (C++) or faster-whisper (Python/CTranslate2)
 - Linear resampling for device compatibility
 - 4KB audio buffers (~43ms latency)
+
+### Linux
+- C implementation with GTK3 system tray
+- PortAudio for cross-platform audio capture (16kHz mono)
+- X11 XRecord for global keyboard hook (Scroll Lock)
+- XTest for text input simulation
+- CTranslate2/faster-whisper backend for transcription
+- pthread worker for background processing
 
 ## Troubleshooting
 
@@ -102,6 +156,7 @@ The Makefile handles:
 
 ## Architecture
 
+### macOS App Bundle
 ```
 VTT.app/
 ├── Contents/
@@ -112,6 +167,29 @@ VTT.app/
 │   │   ├── AppIcon.icns      # App icon
 │   │   └── ggml-small.en.bin # Bundled model
 │   └── Info.plist
+```
+
+### Cross-Platform Repository Structure
+```
+voice-to-text/
+├── src/
+│   ├── common/              # Shared cross-platform code
+│   │   ├── logging.c/h      # Logging system
+│   │   ├── queue.c/h        # Thread-safe queue
+│   │   └── transcribe.py    # Python transcription backend
+│   ├── macos/               # macOS-specific code
+│   │   ├── VTTDaemon.m      # Main app
+│   │   ├── VTTOnboarding.m  # Permission onboarding
+│   │   └── create_icon.py   # Icon generator
+│   └── linux/               # Linux-specific code
+│       ├── audio.c/h        # PortAudio recording
+│       ├── keyboard.c/h     # X11 keyboard hook
+│       ├── typing.c/h       # XTest text input
+│       ├── transcribe.c/h   # Python wrapper caller
+│       ├── gui.c/h          # GTK3 AppIndicator
+│       └── main.c           # Entry point
+├── Makefile                 # macOS build
+└── Makefile.linux           # Linux build
 ```
 
 ## Contributing

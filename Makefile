@@ -36,9 +36,9 @@ all: whisper-lib app
 # Build the menu bar app binary (Objective-C)
 app: $(APP_NAME)
 
-$(APP_NAME): VTTDaemon.m VTTOnboarding.m
-	$(CC) $(COMPILE_FLAGS) -c VTTDaemon.m -o VTTDaemon.o
-	$(CC) $(COMPILE_FLAGS) -c VTTOnboarding.m -o VTTOnboarding.o
+$(APP_NAME): src/macos/VTTDaemon.m src/macos/VTTOnboarding.m
+	$(CC) $(COMPILE_FLAGS) -c src/macos/VTTDaemon.m -o VTTDaemon.o
+	$(CC) $(COMPILE_FLAGS) -c src/macos/VTTOnboarding.m -o VTTOnboarding.o
 	$(CC) $(LINK_FLAGS) VTTDaemon.o VTTOnboarding.o $(LDFLAGS) -o $(APP_NAME)
 	rm -f VTTDaemon.o VTTOnboarding.o
 	@echo "✅ Built VTT menu bar app (Universal Binary)"
@@ -50,7 +50,7 @@ bundle: app
 	mkdir -p $(APP_NAME).app/Contents/Resources
 	cp $(APP_NAME) $(APP_NAME).app/Contents/MacOS/$(APP_NAME)
 	# Create app icon
-	python3 create_icon.py
+	python3 src/macos/create_icon.py
 	iconutil -c icns /tmp/VTT.iconset -o $(APP_NAME).app/Contents/Resources/AppIcon.icns
 	# Optionally bundle whisper-cli if present (set WHISPER_CLI or use common locations)
 	@if [ -n "$(WHISPER_CLI)" ] && [ -x "$(WHISPER_CLI)" ]; then \
@@ -103,7 +103,7 @@ bundle: app
 
 # Create app icon
 icon:
-	python3 create_icon.py
+	python3 src/macos/create_icon.py
 	iconutil -c icns /tmp/VTT.iconset -o $(APP_NAME).app/Contents/Resources/AppIcon.icns
 	@echo "✅ Created app icon"
 
@@ -115,8 +115,8 @@ complete: app bundle icon
 test: test_vtt_daemon
 	./test_vtt_daemon
 
-test_vtt_daemon: test_vtt_daemon.m
-	$(CC) $(COMPILE_FLAGS) $(LINK_FLAGS) -o test_vtt_daemon test_vtt_daemon.m
+test_vtt_daemon: src/macos/test_vtt_daemon.m
+	$(CC) $(COMPILE_FLAGS) $(LINK_FLAGS) -o test_vtt_daemon src/macos/test_vtt_daemon.m
 	@echo "✅ Built VTT tests"
 
 clean:
