@@ -336,6 +336,19 @@ int main(int argc, char *argv[]) {
     // Populate microphone menu
     vtt_gui_update_microphones(&app.gui);
 
+    // Open audio stream now that GUI is initialized (eliminates latency on key press)
+    if (vtt_audio_open_stream(&app.audio) != 0) {
+        vtt_log("Failed to open audio stream");
+        app.running = false;
+        vtt_queue_shutdown(&app.queue);
+        pthread_join(app.worker_thread, NULL);
+        vtt_gui_cleanup(&app.gui);
+        vtt_typing_cleanup(&app.typing);
+        vtt_keyboard_cleanup(&app.keyboard);
+        vtt_audio_cleanup(&app.audio);
+        return 1;
+    }
+
     // Start keyboard monitoring
     if (vtt_keyboard_start(&app.keyboard) != 0) {
         vtt_log("Failed to start keyboard monitoring");
