@@ -188,7 +188,7 @@ int vtt_gui_init(vtt_gui_t *gui, void *app, const char *config_dir) {
     gui->mic_item = mic_item;
 
     // Hotkey item - clickable to change hotkey
-    GtkWidget *hotkey_item = gtk_menu_item_new_with_label("Hotkey: Right Alt");
+    GtkWidget *hotkey_item = gtk_menu_item_new_with_label("Hotkey: Scroll Lock");
     g_signal_connect(hotkey_item, "activate", G_CALLBACK(on_change_hotkey), app);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), hotkey_item);
     gui->hotkey_item = hotkey_item;
@@ -483,7 +483,7 @@ static void on_about(GtkMenuItem *item, gpointer user_data) {
         "Voice to Text Linux\n\n"
         "Version 1.0\n"
         "Voice-to-text transcription for Linux\n\n"
-        "Press Right Alt to start/stop recording"
+        "Press Scroll Lock to start/stop recording"
     );
 
     gtk_dialog_run(GTK_DIALOG(dialog));
@@ -701,8 +701,8 @@ static void on_change_hotkey(GtkMenuItem *item, gpointer user_data) {
         GTK_BUTTONS_OK,
         "Hotkey Customization\n\n"
         "Live hotkey customization is coming soon!\n\n"
-        "For now, the hotkey is set to Right Alt.\n"
-        "You can hold Right Alt to start recording and release to transcribe."
+        "For now, the hotkey is set to Scroll Lock.\n"
+        "You can hold Scroll Lock to start recording and release to transcribe."
     );
 
     gtk_dialog_run(GTK_DIALOG(dialog));

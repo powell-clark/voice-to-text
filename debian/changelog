@@ -19,7 +19,7 @@ voice-to-text (1.0.0-1) noble; urgency=medium
   * GPU acceleration support (CUDA)
   * Settings persistence
   * System tray integration
-  * Push-to-talk recording with Right Alt
+  * Push-to-talk recording with Scroll Lock
   * Recording limit (300 seconds) with notifications
 
  -- Emmanuel Powell-Clark <emmanuel@powell-clark.com>  Sun, 13 Oct 2025 14:30:00 +0000
