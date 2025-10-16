@@ -71,60 +71,16 @@ int vtt_audio_init(vtt_audio_t *audio) {
 
 int vtt_audio_start_recording(vtt_audio_t *audio) {
     audio->buffer_pos = 0;
-    audio->recording = true;
     audio->buffer_full = false;
-
-    PaError err;
-    if (audio->selected_device_index == -1) {
-        // Use default device
-        err = Pa_OpenDefaultStream(&audio->stream,
-                                   CHANNELS, 0,
-                                   paInt16, SAMPLE_RATE,
-                                   FRAMES_PER_BUFFER,
-                                   audio_callback, audio);
-    } else {
-        // Use selected device
-        PaStreamParameters inputParams;
-        inputParams.device = audio->selected_device_index;
-        inputParams.channelCount = CHANNELS;
-        inputParams.sampleFormat = paInt16;
-        inputParams.suggestedLatency = Pa_GetDeviceInfo(audio->selected_device_index)->defaultLowInputLatency;
-        inputParams.hostApiSpecificStreamInfo = NULL;
-
-        err = Pa_OpenStream(&audio->stream,
-                           &inputParams,
-                           NULL,  // no output
-                           SAMPLE_RATE,
-                           FRAMES_PER_BUFFER,
-                           paClipOff,
-                           audio_callback,
-                           audio);
-    }
-
-    if (err != paNoError) {
-        vtt_log("Failed to open audio stream: %s", Pa_GetErrorText(err));
-        return -1;
-    }
-
-    err = Pa_StartStream(audio->stream);
-    if (err != paNoError) {
-        vtt_log("Failed to start audio stream: %s", Pa_GetErrorText(err));
-        return -1;
-    }
+    audio->recording = true;  // Just flip the recording flag - stream is already open
 
     vtt_log("Recording started");
     return 0;
 }
 
 char *vtt_audio_stop_recording(vtt_audio_t *audio) {
-    audio->recording = false;
+    audio->recording = false;  // Just flip the recording flag - keep stream open
     bool was_buffer_full = audio->buffer_full;
-
-    if (audio->stream) {
-        Pa_StopStream(audio->stream);
-        Pa_CloseStream(audio->stream);
-        audio->stream = NULL;
-    }
 
     float duration = (float)audio->buffer_pos / SAMPLE_RATE;
 
@@ -262,8 +218,66 @@ void vtt_audio_free_devices(vtt_audio_device_t **devices, int count) {
     free(devices);
 }
 
+// Public function to open audio stream (called after init and after device selection)
+int vtt_audio_open_stream(vtt_audio_t *audio) {
+    // Close existing stream if open
+    if (audio->stream) {
+        Pa_StopStream(audio->stream);
+        Pa_CloseStream(audio->stream);
+        audio->stream = NULL;
+    }
+
+    PaError err;
+    if (audio->selected_device_index == -1) {
+        // Use default device
+        err = Pa_OpenDefaultStream(&audio->stream,
+                                   CHANNELS, 0,
+                                   paInt16, SAMPLE_RATE,
+                                   FRAMES_PER_BUFFER,
+                                   audio_callback, audio);
+    } else {
+        // Use selected device
+        PaStreamParameters inputParams;
+        inputParams.device = audio->selected_device_index;
+        inputParams.channelCount = CHANNELS;
+        inputParams.sampleFormat = paInt16;
+        inputParams.suggestedLatency = Pa_GetDeviceInfo(audio->selected_device_index)->defaultLowInputLatency;
+        inputParams.hostApiSpecificStreamInfo = NULL;
+
+        err = Pa_OpenStream(&audio->stream,
+                           &inputParams,
+                           NULL,  // no output
+                           SAMPLE_RATE,
+                           FRAMES_PER_BUFFER,
+                           paClipOff,
+                           audio_callback,
+                           audio);
+    }
+
+    if (err != paNoError) {
+        vtt_log("Failed to open audio stream: %s", Pa_GetErrorText(err));
+        return -1;
+    }
+
+    err = Pa_StartStream(audio->stream);
+    if (err != paNoError) {
+        vtt_log("Failed to start audio stream: %s", Pa_GetErrorText(err));
+        return -1;
+    }
+
+    vtt_log("Audio stream opened and started (zero-latency mode)");
+    return 0;
+}
+
 void vtt_audio_set_device(vtt_audio_t *audio, int device_index) {
     audio->selected_device_index = device_index;
+
+    // Reopen stream with new device
+    if (vtt_audio_open_stream(audio) != 0) {
+        vtt_log("Failed to switch audio device");
+        return;
+    }
+
     if (device_index == -1) {
         vtt_log("Audio device set to default");
     } else {

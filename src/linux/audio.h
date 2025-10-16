@@ -29,6 +29,9 @@ typedef struct {
 // Initialize audio system
 int vtt_audio_init(vtt_audio_t *audio);
 
+// Open audio stream (call after init and after selecting device)
+int vtt_audio_open_stream(vtt_audio_t *audio);
+
 // Start recording
 int vtt_audio_start_recording(vtt_audio_t *audio);
 
