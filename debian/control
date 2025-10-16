@@ -40,7 +40,7 @@ Description: Offline voice-to-text transcription with 99+ language support
  French, German, Chinese, Japanese, Korean, Arabic, Hindi, and more.
  .
  Features:
-  - Push-to-talk recording (Right Alt key by default)
+  - Push-to-talk recording (Scroll Lock key by default)
   - 99+ language support with automatic detection
   - Multiple Whisper model sizes (tiny to large-v3)
   - Two backends: whisper.cpp (C++) and CTranslate2 (Python, 5-10x faster)
@@ -50,7 +50,7 @@ Description: Offline voice-to-text transcription with 99+ language support
   - 100% offline operation (no internet required)
  .
  The application runs as a system tray icon and transcribes your voice
- directly into any focused application. Press and hold Right Alt to record,
+ directly into any focused application. Press and hold Scroll Lock to record,
  release to transcribe.
  .
  To enable GPU acceleration, install cuda-toolkit-12-6 and libcudnn9-cuda-12.
