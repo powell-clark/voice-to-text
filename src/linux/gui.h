@@ -24,6 +24,7 @@ typedef struct {
     char *initial_prompt;
     char *config_dir;
     bool logging_enabled;
+    bool initializing;  // Prevent saving settings during GUI initialization
 } vtt_gui_t;
 
 // Initialize GUI
@@ -37,6 +38,9 @@ void vtt_gui_set_status(vtt_gui_t *gui, const char *status);
 
 // Update icon status
 void vtt_gui_set_icon(vtt_gui_t *gui, const char *icon_status);
+
+// Update microphone menu
+void vtt_gui_update_microphones(vtt_gui_t *gui);
 
 // Cleanup
 void vtt_gui_cleanup(vtt_gui_t *gui);
