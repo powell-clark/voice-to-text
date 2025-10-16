@@ -42,6 +42,7 @@ int vtt_gui_init(vtt_gui_t *gui, void *app, const char *config_dir) {
     gui->user_data = app;
     gui->config_dir = strdup(config_dir);
     gui->logging_enabled = true;
+    gui->initializing = true;  // Prevent saving settings during initialization
 
     // Load settings from disk (or use defaults if not found)
     vtt_settings_t settings;
@@ -257,6 +258,8 @@ int vtt_gui_init(vtt_gui_t *gui, void *app, const char *config_dir) {
     // Set initial model menu based on loaded language setting
     rebuild_model_menu(gui);
 
+    gui->initializing = false;  // Initialization complete, allow saving settings
+
     vtt_log("GUI initialized (AppIndicator)");
     return 0;
 }
@@ -337,6 +340,11 @@ static void on_model_selected(GtkMenuItem *item, gpointer user_data) {
     const char *model = (const char *)g_object_get_data(G_OBJECT(item), "model");
 
     if (model) {
+        // Skip if we're still initializing (prevents overwriting loaded settings)
+        if (gui->initializing) {
+            return;
+        }
+
         vtt_log("Model selected: %s", model);
 
         free(gui->selected_model);
