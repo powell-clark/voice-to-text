@@ -1,3 +1,13 @@
+voice-to-text (1.0.1-1) noble; urgency=medium
+
+  * Fix GUI initialization overwriting model settings
+  * Eliminate recording start latency (zero-latency mode)
+  * Pre-open audio stream for instant recording response
+  * Fix first syllables being lost due to stream initialization delay
+  * Improve model selection persistence across restarts
+
+ -- Emmanuel Powell-Clark <emmanuel@powell-clark.com>  Wed, 16 Oct 2025 10:15:00 +0000
+
 voice-to-text (1.0.0-1) noble; urgency=medium
 
   * Initial release
