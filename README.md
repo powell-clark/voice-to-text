@@ -110,6 +110,22 @@ View logs: `log stream --predicate 'process == "VTT"'`
 
 ### Linux (systemd service)
 
+**System tray menu:**
+- Click icon → Select microphone
+- Click icon → Choose language mode
+- Click icon → Select AI model
+- Click icon → Customize hotkey
+- Click icon → Enable/disable logging
+- Click icon → Quit
+
+**Customizing the hotkey:**
+- Default: **Scroll Lock** (recommended, doesn't interfere with other applications)
+- To change: Click tray icon → "Hotkey: Scroll Lock" → Press and hold your desired key
+- Best options: F1-F12, Pause, Insert, Home, End, Page Up, Page Down
+- Note: Some keys may show "invalid key" error - just try a different key
+- Changes save automatically to `~/.local/share/voice-to-text/settings.conf`
+
+**Managing the service:**
 ```bash
 # Start/stop/restart
 systemctl --user start vtt
