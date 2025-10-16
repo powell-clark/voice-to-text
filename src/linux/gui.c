@@ -1,9 +1,12 @@
 #include "gui.h"
 #include "audio.h"
+#include "keyboard.h"
 #include "../common/logging.h"
 #include "../common/settings.h"
 #include <gtk/gtk.h>
 #include <libayatana-appindicator/app-indicator.h>
+#include <gdk/gdkx.h>
+#include <X11/Xlib.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -258,6 +261,25 @@ int vtt_gui_init(vtt_gui_t *gui, void *app, const char *config_dir) {
     // Set initial model menu based on loaded language setting
     rebuild_model_menu(gui);
 
+    // Update hotkey label based on loaded settings
+    if (settings.hotkey_keycode != 0) {
+        // Get app structure to access keyboard display
+        typedef struct {
+            void *audio;
+            vtt_keyboard_t keyboard;
+            // ... rest doesn't matter
+        } vtt_app_stub_t;
+
+        vtt_app_stub_t *app_stub = (vtt_app_stub_t *)app;
+        if (app_stub && app_stub->keyboard.display) {
+            const char *key_name = vtt_keyboard_get_key_name(app_stub->keyboard.display, settings.hotkey_keycode);
+            char hotkey_label[256];
+            snprintf(hotkey_label, sizeof(hotkey_label), "Hotkey: %s", key_name);
+            gtk_menu_item_set_label(GTK_MENU_ITEM(hotkey_item), hotkey_label);
+            vtt_log("Hotkey label updated to: %s", key_name);
+        }
+    }
+
     gui->initializing = false;  // Initialization complete, allow saving settings
 
     vtt_log("GUI initialized (AppIndicator)");
@@ -330,9 +352,10 @@ void vtt_gui_cleanup(vtt_gui_t *gui) {
 // Callbacks
 
 static void on_quit(GtkMenuItem *item, gpointer user_data) {
+    (void)item;
+    (void)user_data;
     vtt_log("Quit requested");
     gtk_main_quit();
-    exit(0);
 }
 
 static void on_model_selected(GtkMenuItem *item, gpointer user_data) {
@@ -425,16 +448,38 @@ static void on_mic_selected(GtkMenuItem *item, gpointer user_data) {
     if (device_name) {
         vtt_log("Microphone selected: %s (index %d)", device_name, device_index);
 
-        // Get app pointer and set device
+        // Get app pointer and check if recording
         typedef struct {
-            void *audio;  // We'll need to cast this properly
-            // ... other fields
+            vtt_audio_t audio;
+            void *keyboard;
+            void *typing;
+            vtt_gui_t gui;
+            void *queue;
+            void *worker_thread;
+            bool running;
+            bool recording;
         } vtt_app_stub_t;
 
-        // Cast user_data back to app (which was passed in vtt_gui_init)
         vtt_app_stub_t *app = (vtt_app_stub_t *)gui->user_data;
-        if (app && app->audio) {
-            vtt_audio_set_device((vtt_audio_t *)app->audio, device_index);
+
+        // Prevent changing microphone while recording
+        if (app && app->recording) {
+            vtt_log("Cannot change microphone while recording");
+
+            GtkWidget *dialog = gtk_message_dialog_new(
+                NULL,
+                GTK_DIALOG_MODAL,
+                GTK_MESSAGE_WARNING,
+                GTK_BUTTONS_OK,
+                "Cannot change microphone while recording.\n\nPlease release the hotkey and try again."
+            );
+            gtk_dialog_run(GTK_DIALOG(dialog));
+            gtk_widget_destroy(dialog);
+            return;
+        }
+
+        if (app) {
+            vtt_audio_set_device(&app->audio, device_index);
         }
 
         // Update menu label
@@ -690,21 +735,165 @@ static void on_customize_prompt(GtkMenuItem *item, gpointer user_data) {
     gtk_widget_show_all(dialog);
 }
 
+// Hotkey capture dialog state
+typedef struct {
+    GtkWidget *dialog;
+    GtkWidget *label;
+    vtt_gui_t *gui;
+    void *app;
+    int captured_keycode;
+    bool key_pressed;
+} hotkey_dialog_t;
+
+static gboolean on_hotkey_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
+    (void)widget;
+    hotkey_dialog_t *data = (hotkey_dialog_t *)user_data;
+
+    // Get the X11 keycode from GDK event
+    int keycode = event->hardware_keycode;
+
+    // Log the captured key for debugging
+    vtt_log("Hotkey dialog captured: keycode=%d, keyval=%u, state=%u",
+            keycode, event->keyval, event->state);
+
+    // Validate X11 keycode range (8-255)
+    if (keycode < 8 || keycode > 255) {
+        vtt_log("Invalid keycode captured: %d (must be 8-255), ignoring", keycode);
+        char text[256];
+        snprintf(text, sizeof(text), "Press and hold the key you want to use...\n\nInvalid key detected (keycode %d)!\n\nTry a different key.", keycode);
+        gtk_label_set_text(GTK_LABEL(data->label), text);
+        return TRUE;
+    }
+
+    data->captured_keycode = keycode;
+    data->key_pressed = true;
+
+    // Get Display from default GDK display
+    GdkDisplay *gdk_display = gdk_display_get_default();
+    Display *x_display = GDK_DISPLAY_XDISPLAY(gdk_display);
+
+    // Get key name
+    const char *key_name = vtt_keyboard_get_key_name(x_display, data->captured_keycode);
+
+    // Update label
+    char text[256];
+    snprintf(text, sizeof(text), "Press and hold the key you want to use...\n\nKey detected: %s\n\nRelease the key to confirm.", key_name);
+    gtk_label_set_text(GTK_LABEL(data->label), text);
+
+    return TRUE;  // Stop event propagation
+}
+
+static gboolean on_hotkey_key_release(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
+    (void)widget;
+    (void)event;
+    hotkey_dialog_t *data = (hotkey_dialog_t *)user_data;
+
+    // Only accept release if we captured a key press first
+    if (!data->key_pressed) {
+        return TRUE;
+    }
+
+    // Get app structure to access keyboard
+    typedef struct {
+        void *audio;
+        vtt_keyboard_t keyboard;
+        // ... rest doesn't matter
+    } vtt_app_stub_t;
+
+    vtt_app_stub_t *app = (vtt_app_stub_t *)data->app;
+    if (!app) {
+        gtk_dialog_response(GTK_DIALOG(data->dialog), GTK_RESPONSE_CANCEL);
+        return TRUE;
+    }
+
+    // Get Display
+    GdkDisplay *gdk_display = gdk_display_get_default();
+    Display *x_display = GDK_DISPLAY_XDISPLAY(gdk_display);
+
+    // Get key name for logging and display
+    const char *key_name = vtt_keyboard_get_key_name(x_display, data->captured_keycode);
+    vtt_log("Hotkey changed to: %s (keycode %d)", key_name, data->captured_keycode);
+
+    // Update keyboard monitoring
+    vtt_keyboard_set_hotkey(&app->keyboard, data->captured_keycode);
+
+    // Update GUI menu item
+    char label[256];
+    snprintf(label, sizeof(label), "Hotkey: %s", key_name);
+    gtk_menu_item_set_label(GTK_MENU_ITEM(data->gui->hotkey_item), label);
+
+    // Save to settings
+    vtt_settings_t settings;
+    settings.selected_model = data->gui->selected_model;
+    settings.selected_language = data->gui->selected_language;
+    settings.voice_prefix = data->gui->voice_prefix;
+    settings.initial_prompt = data->gui->initial_prompt;
+    settings.selected_device_index = -1;
+    settings.hotkey_keycode = data->captured_keycode;
+    vtt_settings_save(&settings, data->gui->config_dir);
+
+    // Close dialog - use gtk_dialog_response to exit gtk_dialog_run() cleanly
+    gtk_dialog_response(GTK_DIALOG(data->dialog), GTK_RESPONSE_OK);
+    return TRUE;
+}
+
 static void on_change_hotkey(GtkMenuItem *item, gpointer user_data) {
     (void)item;
-    (void)user_data;
+    void *app = user_data;
 
-    GtkWidget *dialog = gtk_message_dialog_new(
-        NULL,
-        GTK_DIALOG_MODAL,
-        GTK_MESSAGE_INFO,
-        GTK_BUTTONS_OK,
-        "Hotkey Customization\n\n"
-        "Live hotkey customization is coming soon!\n\n"
-        "For now, the hotkey is set to Scroll Lock.\n"
-        "You can hold Scroll Lock to start recording and release to transcribe."
-    );
+    // Get GUI from app
+    typedef struct {
+        void *audio;
+        vtt_keyboard_t keyboard;
+        void *typing;
+        vtt_gui_t gui;
+        // ... rest doesn't matter
+    } vtt_app_stub_t;
 
+    vtt_app_stub_t *app_struct = (vtt_app_stub_t *)app;
+    vtt_gui_t *gui = &app_struct->gui;
+
+    // Create dialog data
+    hotkey_dialog_t *data = malloc(sizeof(hotkey_dialog_t));
+    data->gui = gui;
+    data->app = app;
+    data->captured_keycode = 0;
+    data->key_pressed = false;
+
+    // Create dialog
+    GtkWidget *dialog = gtk_dialog_new();
+    gtk_window_set_title(GTK_WINDOW(dialog), "Customize Hotkey");
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 400, 180);
+    gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
+    gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER);
+    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+
+    data->dialog = dialog;
+
+    // Get content area
+    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    gtk_container_set_border_width(GTK_CONTAINER(content), 20);
+
+    // Label
+    GtkWidget *label = gtk_label_new("Press and hold the key you want to use...\n\nWaiting for key press...");
+    gtk_label_set_justify(GTK_LABEL(label), GTK_JUSTIFY_CENTER);
+    gtk_box_pack_start(GTK_BOX(content), label, TRUE, TRUE, 10);
+
+    data->label = label;
+
+    // Add cancel button
+    gtk_dialog_add_button(GTK_DIALOG(dialog), "Cancel", GTK_RESPONSE_CANCEL);
+
+    // Connect key events
+    g_signal_connect(dialog, "key-press-event", G_CALLBACK(on_hotkey_key_press), data);
+    g_signal_connect(dialog, "key-release-event", G_CALLBACK(on_hotkey_key_release), data);
+
+    // Free data on close
+    g_signal_connect_swapped(dialog, "destroy", G_CALLBACK(free), data);
+
+    gtk_widget_show_all(dialog);
+
+    // Run dialog (blocks until closed)
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
 }

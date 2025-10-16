@@ -5,6 +5,7 @@
 #include "gui.h"
 #include "../common/logging.h"
 #include "../common/queue.h"
+#include "../common/settings.h"
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -61,7 +62,7 @@ static void on_buffer_full(void *user_data) {
     // Post notification to main GTK thread using g_idle_add
     notification_data_t *data = malloc(sizeof(notification_data_t));
     snprintf(data->message, sizeof(data->message),
-             "Recording limit reached (%ds) - release key to transcribe", 300);
+             "Recording limit reached (%ds) - release key to transcribe", 120);
 
     g_idle_add(show_notification_idle, data);
 }
@@ -108,7 +109,7 @@ static void *transcription_worker(void *arg) {
 
                 if (is_truncated) {
                     // Add truncation indicator before voice prefix
-                    snprintf(final_text, sizeof(final_text), "[Truncated - 300s limit] %s%s", prefix, text);
+                    snprintf(final_text, sizeof(final_text), "[Truncated - 120s limit] %s%s", prefix, text);
                 } else if (strstr(text, prefix) == NULL) {
                     snprintf(final_text, sizeof(final_text), "%s%s", prefix, text);
                 } else {
@@ -332,6 +333,15 @@ int main(int argc, char *argv[]) {
         vtt_audio_cleanup(&app.audio);
         return 1;
     }
+
+    // Load hotkey from settings and apply it
+    vtt_settings_t hotkey_settings;
+    vtt_settings_init(&hotkey_settings);
+    if (vtt_settings_load(&hotkey_settings, log_dir) == 0 && hotkey_settings.hotkey_keycode != 0) {
+        vtt_keyboard_set_hotkey(&app.keyboard, hotkey_settings.hotkey_keycode);
+        vtt_log("Applied custom hotkey from settings: keycode %d", hotkey_settings.hotkey_keycode);
+    }
+    vtt_settings_cleanup(&hotkey_settings);
 
     // Populate microphone menu
     vtt_gui_update_microphones(&app.gui);

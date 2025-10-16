@@ -20,6 +20,15 @@ typedef struct {
 // Initialize keyboard hook
 int vtt_keyboard_init(vtt_keyboard_t *keyboard, vtt_keyboard_callback_t callback);
 
+// Set custom hotkey (0 = use default Scroll Lock)
+int vtt_keyboard_set_hotkey(vtt_keyboard_t *keyboard, int keycode);
+
+// Get current hotkey keycode
+int vtt_keyboard_get_hotkey(vtt_keyboard_t *keyboard);
+
+// Get human-readable name for a keycode (returns static string)
+const char* vtt_keyboard_get_key_name(void *display, int keycode);
+
 // Start monitoring (runs in background thread)
 int vtt_keyboard_start(vtt_keyboard_t *keyboard);
 
