@@ -1,51 +1,49 @@
 # Voice to Text
 
-Fast, reliable push-to-talk voice transcription using OpenAI Whisper with CTranslate2 backend and optional GPU acceleration.
+Local push-to-talk voice transcription using OpenAI Whisper.
 
 [![macOS](https://img.shields.io/badge/macOS-11.0+-blue?logo=apple)](https://github.com/powell-clark/voice-to-text)
 [![Linux](https://img.shields.io/badge/Linux-Ubuntu%2024.04+-orange?logo=linux)](https://github.com/powell-clark/voice-to-text)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
-**100% offline. No cloud. No subscriptions. Works on macOS and Linux.**
+**100% offline. No cloud. No subscriptions.**
 
 ---
 
-## How It Works
+## Install
 
-<p align="center">
-  <img src="docs/images/mac-menu.png" width="300" alt="macOS Menu">
-  <img src="docs/images/voice-to-text-linux-menu.png" width="300" alt="Linux Menu">
-</p>
-
-Press Right Alt (macOS) or Scroll Lock (Linux) → Speak → Release → Text appears
-
-Works in: Slack, Terminal, VS Code, browsers, Notion, email - **anywhere you can type**.
-
----
-
-## Quick Start
-
-### macOS (30 seconds)
+### macOS
 
 ```bash
 brew tap powell-clark/voice-to-text
 brew install --cask voice-to-text
 ```
 
-Look for the microphone icon in your menu bar. Grant permissions. Done.
-
-**Hotkey:** Hold **Right Alt** + speak
-
-### Linux (1 minute)
+### Linux
 
 ```bash
 sudo add-apt-repository ppa:powellclark/voice-to-text
 sudo apt update && sudo apt install voice-to-text
 ```
 
-Runs as a systemd service. Check your system tray.
+---
 
-**Hotkey:** Hold **Scroll Lock** + speak
+## Usage
+
+**macOS:** Hold **Right Alt** + speak
+**Linux:** Hold **Scroll Lock** + speak (customizable from tray menu)
+
+Text appears instantly in any application - Slack, Terminal, VS Code, browsers, email, anywhere you can type.
+
+<details>
+<summary>View menu screenshots</summary>
+
+<p align="center">
+  <img src="docs/images/mac-menu.png" width="300" alt="macOS Menu">
+  <img src="docs/images/voice-to-text-linux-menu.png" width="300" alt="Linux Menu">
+</p>
+
+</details>
 
 ---
 
