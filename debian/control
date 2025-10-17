@@ -1,10 +1,9 @@
 Source: voice-to-text
 Section: sound
 Priority: optional
-Maintainer: Emmanuel Powell-Clark <emmanuel@powell-clark.com>
+Maintainer: Emmanuel Powell-Clark <emmanuel@powellclark.com>
 Build-Depends: debhelper-compat (= 13),
-               build-essential,
-               pkg-config,
+               pkgconf,
                portaudio19-dev,
                libx11-dev,
                libxtst-dev,
@@ -22,7 +21,7 @@ Package: voice-to-text
 Architecture: amd64
 Depends: ${shlibs:Depends},
          ${misc:Depends},
-         portaudio19-dev,
+         libportaudio2,
          libx11-6,
          libxtst6,
          libxext6,

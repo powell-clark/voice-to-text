@@ -40,7 +40,7 @@ gpg --full-generate-key
 # - Key size: 4096 bits
 # - Expiration: 0 (never expires) or 2y (2 years)
 # - Name: Emmanuel Powell-Clark
-# - Email: emmanuel@powell-clark.com
+# - Email: emmanuel@powellclark.com
 
 # List your keys
 gpg --list-secret-keys --keyid-format=long
@@ -48,7 +48,7 @@ gpg --list-secret-keys --keyid-format=long
 # Example output:
 # sec   rsa4096/ABCD1234EFGH5678 2025-10-13 [SC]
 #       Full-Key-ID-Here
-# uid   Emmanuel Powell-Clark <emmanuel@powell-clark.com>
+# uid   Emmanuel Powell-Clark <emmanuel@powellclark.com>
 
 # Export public key
 gpg --armor --export ABCD1234EFGH5678 > ~/gpg-public-key.asc
@@ -175,7 +175,7 @@ voice-to-text (1.0.1-1) noble; urgency=medium
   * Example: Fix model download progress indicator
   * Example: Add support for custom hotkeys
 
- -- Emmanuel Powell-Clark <emmanuel@powell-clark.com>  Mon, 14 Oct 2025 10:00:00 +0000
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Mon, 14 Oct 2025 10:00:00 +0000
 
 # Save and exit
 ```
@@ -363,4 +363,4 @@ backportpackage -d focal -u ppa:powell-clark/voice-to-text voice-to-text
 ---
 
 *Last Updated: 2025-10-13*
-*Maintainer: Emmanuel Powell-Clark <emmanuel@powell-clark.com>*
+*Maintainer: Emmanuel Powell-Clark <emmanuel@powellclark.com>*

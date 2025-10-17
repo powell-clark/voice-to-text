@@ -1,0 +1,26 @@
+[Unit]
+Description=Voice to Text - Offline voice transcription
+Documentation=https://github.com/powell-clark/voice-to-text
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/vtt-linux
+Restart=on-failure
+RestartSec=5
+
+# Environment
+Environment=DISPLAY=:0
+Environment=PYTHONPATH=/usr/share/voice-to-text
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vtt
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=graphical-session.target

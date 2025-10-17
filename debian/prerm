@@ -1,0 +1,33 @@
+#!/bin/bash
+set -e
+
+# prerm script for voice-to-text
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        # Try to stop the user service if it's running
+        # Note: This runs as root during package removal, so we can't directly
+        # stop user services. Users should stop their service manually, or
+        # it will be stopped when the binary is removed.
+
+        echo "Stopping voice-to-text service (if running)..."
+
+        # Inform the user
+        if [ "$1" = "remove" ]; then
+            echo "To stop the service before removal, run:"
+            echo "  systemctl --user stop vtt"
+        fi
+        ;;
+
+    failed-upgrade)
+        ;;
+
+    *)
+        echo "prerm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

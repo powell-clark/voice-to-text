@@ -1,0 +1,40 @@
+#!/bin/bash
+set -e
+
+# postrm script for voice-to-text
+
+case "$1" in
+    purge)
+        # On purge, remove user data directories
+        echo "Purging voice-to-text user data..."
+
+        # Note: This runs as root, so we can't easily remove user-specific files
+        # Users should manually clean up ~/.local/share/voice-to-text and
+        # ~/.cache/huggingface/hub if desired
+
+        echo "User data locations that can be manually removed:"
+        echo "  ~/.local/share/voice-to-text (settings and logs)"
+        echo "  ~/.cache/huggingface/hub (downloaded AI models)"
+        echo "  ~/.config/systemd/user/vtt.service (if manually created)"
+        ;;
+
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        # Reload systemd daemon to remove the service
+        echo "Cleaning up systemd configuration..."
+
+        # Note: Users need to run this themselves
+        if [ "$1" = "remove" ]; then
+            echo "To clean up systemd, run:"
+            echo "  systemctl --user daemon-reload"
+        fi
+        ;;
+
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

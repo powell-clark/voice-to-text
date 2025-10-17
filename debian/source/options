@@ -1,0 +1,6 @@
+extend-diff-ignore = "(^|/)(\.git|build|vtt-linux|\.DS_Store|__pycache__|\.pyc)$"
+tar-ignore = "third_party/whisper.cpp/build"
+tar-ignore = "third_party/whisper.cpp/bindings/javascript/*.js"
+tar-ignore = "build"
+tar-ignore = "vtt-linux"
+tar-ignore = ".git"

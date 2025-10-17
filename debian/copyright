@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: voice-to-text
-Upstream-Contact: Emmanuel Powell-Clark <emmanuel@powell-clark.com>
+Upstream-Contact: Emmanuel Powell-Clark <emmanuel@powellclark.com>
 Source: https://github.com/powell-clark/voice-to-text
 
 Files: *
