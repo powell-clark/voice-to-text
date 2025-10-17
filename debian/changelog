@@ -1,3 +1,14 @@
+voice-to-text (1.0.4) noble; urgency=medium
+
+  * Fix UTF-8 typing support for non-ASCII characters (Linux)
+  * Fix newline separator handling (Linux)
+  * Fix multilingual model preload (macOS)
+  * Fix language switching context reload (macOS)
+  * Fix Whisper params language setting (macOS)
+  * Fix download progress notifications (macOS)
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Fri, 17 Oct 2025 19:20:00 +0100
+
 voice-to-text (1.0.3) noble; urgency=medium
 
   * Fix buffer-full detection edge case (Linux audio.c)
