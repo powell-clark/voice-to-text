@@ -1,3 +1,12 @@
+voice-to-text (1.0.3) noble; urgency=medium
+
+  * Fix buffer-full detection edge case (Linux audio.c)
+  * Fix crash from unchecked fopen (macOS VTTDaemon.m)
+  * Fix CT2 unusable on Apple Silicon (search /opt/homebrew first)
+  * Fix temp file leaks on early return (macOS cleanup paths)
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Fri, 17 Oct 2025 19:00:00 +0100
+
 voice-to-text (1.0.2) noble; urgency=medium
 
   * Fix critical GTK thread-safety bug (prevent random crashes)
