@@ -15,16 +15,16 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	# Install binary
-	install -D -m 0755 vtt-linux $(DESTDIR)/usr/bin/vtt-linux
+	install -D -m 0755 vtt-linux debian/voice-to-text/usr/bin/vtt-linux
 
 	# Install source files for Python backend
-	install -D -m 0755 src/common/transcribe.py $(DESTDIR)/usr/share/voice-to-text/transcribe.py
+	install -D -m 0755 src/common/transcribe.py debian/voice-to-text/usr/share/voice-to-text/transcribe.py
 
 	# Install systemd user service
-	install -D -m 0644 vtt.service $(DESTDIR)/usr/lib/systemd/user/vtt.service
+	install -D -m 0644 vtt.service debian/voice-to-text/usr/lib/systemd/user/vtt.service
 
 	# Install desktop entry
-	install -D -m 0644 debian/voice-to-text.desktop $(DESTDIR)/usr/share/applications/voice-to-text.desktop
+	install -D -m 0644 debian/voice-to-text.desktop debian/voice-to-text/usr/share/applications/voice-to-text.desktop
 
 override_dh_auto_clean:
 	# Clean build artifacts
