@@ -183,6 +183,27 @@ make -f Makefile.linux
 
 ### macOS
 
+**First-time setup: Grant permissions**
+
+On first run, macOS requires permissions for microphone, accessibility, and input monitoring. Click "Check Permissions..." from the menu bar icon:
+
+<details>
+<summary>View permission setup steps</summary>
+
+1. Click "Open System Settings" when prompted:
+
+   <img src="docs/images/check-permissions-warning.png" width="400">
+
+2. Allow microphone access:
+
+   <img src="docs/images/mac-allow-microphone.png" width="400">
+
+3. Verify all permissions are enabled:
+
+   <img src="docs/images/check-permissions-mac-successful.png" width="400">
+
+</details>
+
 **Hotkey not working**
 - System Settings → Privacy & Security → Input Monitoring
 - Enable "Voice to Text", restart app
