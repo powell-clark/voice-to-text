@@ -3,10 +3,12 @@
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 #include <X11/extensions/XTest.h>
+#include <X11/Xatom.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 int vtt_typing_init(vtt_typing_t *typing) {
     Display *display = XOpenDisplay(NULL);
@@ -57,6 +59,91 @@ static void type_key(Display *display, KeySym keysym, bool shift) {
     }
 }
 
+// Decode one UTF-8 character and return its Unicode codepoint
+// Returns the codepoint and advances *pos by the number of bytes consumed
+// Returns 0 on error
+static unsigned int decode_utf8(const unsigned char *text, size_t len, size_t *pos) {
+    if (*pos >= len) return 0;
+
+    unsigned char byte = text[*pos];
+
+    // 1-byte ASCII (0xxxxxxx)
+    if ((byte & 0x80) == 0) {
+        (*pos)++;
+        return byte;
+    }
+
+    // 2-byte sequence (110xxxxx 10xxxxxx)
+    if ((byte & 0xE0) == 0xC0) {
+        if (*pos + 1 >= len) return 0;
+        unsigned int codepoint = ((byte & 0x1F) << 6) | (text[*pos + 1] & 0x3F);
+        *pos += 2;
+        return codepoint;
+    }
+
+    // 3-byte sequence (1110xxxx 10xxxxxx 10xxxxxx)
+    if ((byte & 0xF0) == 0xE0) {
+        if (*pos + 2 >= len) return 0;
+        unsigned int codepoint = ((byte & 0x0F) << 12) |
+                                  ((text[*pos + 1] & 0x3F) << 6) |
+                                  (text[*pos + 2] & 0x3F);
+        *pos += 3;
+        return codepoint;
+    }
+
+    // 4-byte sequence (11110xxx 10xxxxxx 10xxxxxx 10xxxxxx)
+    if ((byte & 0xF8) == 0xF0) {
+        if (*pos + 3 >= len) return 0;
+        unsigned int codepoint = ((byte & 0x07) << 18) |
+                                  ((text[*pos + 1] & 0x3F) << 12) |
+                                  ((text[*pos + 2] & 0x3F) << 6) |
+                                  (text[*pos + 3] & 0x3F);
+        *pos += 4;
+        return codepoint;
+    }
+
+    // Invalid UTF-8 sequence - skip this byte
+    (*pos)++;
+    return 0;
+}
+
+// Paste text using clipboard (fallback for non-ASCII characters)
+static void paste_text(Display *display, const char *text) {
+    Window root = DefaultRootWindow(display);
+    Atom clipboard = XInternAtom(display, "CLIPBOARD", False);
+    Atom utf8 = XInternAtom(display, "UTF8_STRING", False);
+    Atom targets = XInternAtom(display, "TARGETS", False);
+
+    // Store text in clipboard
+    XSetSelectionOwner(display, clipboard, root, CurrentTime);
+    XChangeProperty(display, root, clipboard, utf8, 8, PropModeReplace,
+                   (unsigned char *)text, (int)strlen(text));
+    XFlush(display);
+
+    usleep(10000); // 10ms delay for clipboard to be set
+
+    // Simulate Ctrl+V
+    KeyCode ctrl_code = XKeysymToKeycode(display, XK_Control_L);
+    KeyCode v_code = XKeysymToKeycode(display, XK_v);
+
+    XTestFakeKeyEvent(display, ctrl_code, True, CurrentTime);
+    XFlush(display);
+    usleep(1000);
+
+    XTestFakeKeyEvent(display, v_code, True, CurrentTime);
+    XFlush(display);
+    usleep(1000);
+
+    XTestFakeKeyEvent(display, v_code, False, CurrentTime);
+    XFlush(display);
+    usleep(1000);
+
+    XTestFakeKeyEvent(display, ctrl_code, False, CurrentTime);
+    XFlush(display);
+
+    usleep(10000); // 10ms delay after paste
+}
+
 void vtt_typing_type_text(vtt_typing_t *typing, const char *text) {
     if (!text || !typing->display) {
         return;
@@ -65,14 +152,32 @@ void vtt_typing_type_text(vtt_typing_t *typing, const char *text) {
     Display *display = (Display *)typing->display;
     size_t len = strlen(text);
 
-    vtt_log("Typing %zu characters", len);
+    vtt_log("Typing %zu bytes", len);
 
     if (typing->initial_delay_ms > 0) {
         usleep((useconds_t)typing->initial_delay_ms * 1000);
     }
 
-    for (size_t i = 0; i < len; i++) {
-        char c = text[i];
+    const unsigned char *utext = (const unsigned char *)text;
+    size_t pos = 0;
+
+    while (pos < len) {
+        size_t start_pos = pos;
+        unsigned int codepoint = decode_utf8(utext, len, &pos);
+
+        if (codepoint == 0) {
+            continue; // Skip invalid UTF-8
+        }
+
+        // For non-ASCII, use clipboard paste for remaining text
+        if (codepoint > 127) {
+            vtt_log("Non-ASCII character detected (U+%04X), using clipboard paste for remaining text", codepoint);
+            paste_text(display, text + start_pos);
+            break;
+        }
+
+        // Handle ASCII characters directly
+        char c = (char)codepoint;
         KeySym keysym = 0;
         bool shift = false;
 

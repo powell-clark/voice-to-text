@@ -491,10 +491,16 @@ static void audioInputCallback(void* userData,
                 // Resolve model path (bundled preferred)
                 // Map model names (large → large-v3 which is multilingual)
                 NSString *modelFile = self.selectedModel;
-                NSString *extension = @"en.bin"; // Default: English-only
+                NSString *extension;
+                BOOL isEnglish = [self.selectedLanguage isEqualToString:@"en"];
+
                 if ([self.selectedModel isEqualToString:@"large"]) {
                     modelFile = @"large-v3";
-                    extension = @"bin"; // large-v3 is multilingual
+                    extension = @"bin"; // large-v3 is multilingual only
+                } else if (isEnglish) {
+                    extension = @"en.bin"; // English-only model
+                } else {
+                    extension = @"bin"; // Multilingual model
                 }
 
             NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.%@", modelFile, extension]];
@@ -1796,7 +1802,10 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         params.translate = false;
         params.no_context = true;
         params.single_segment = false;
-        params.language = "auto";  // Auto-detect language (supports 99 languages)
+
+        // Set language based on user preference
+        BOOL isEnglish = [self.selectedLanguage isEqualToString:@"en"];
+        params.language = isEnglish ? "en" : "auto";
         params.initial_prompt = [self.initialPrompt UTF8String];
 
         // Dynamic thread count based on CPU architecture
@@ -1815,7 +1824,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
         VTTLog(@"Whisper params:");
         VTTLog(@"  - threads: %d", nth);
-        VTTLog(@"  - language: en");
+        VTTLog(@"  - language: %s", params.language);
         VTTLog(@"  - sampling: GREEDY");
         VTTLog(@"  - no_context: true");
         VTTLog(@"Invoking whisper_full(ctx=%p, params, samples=%p, n=%d)...", self.wctx, fsamples, (int)n_out);
@@ -2359,6 +2368,12 @@ transcription_complete:
                         // Send notification at 25%, 50%, 75%, 100%
                         float percentValue = [percent floatValue];
                         static float lastNotified = 0;
+
+                        // Reset progress tracking for new downloads (detect when progress goes backwards)
+                        if (percentValue < lastNotified) {
+                            lastNotified = 0;
+                        }
+
                         if ((percentValue >= 25.0 && lastNotified < 25.0) ||
                             (percentValue >= 50.0 && lastNotified < 50.0) ||
                             (percentValue >= 75.0 && lastNotified < 75.0) ||
@@ -2533,6 +2548,88 @@ transcription_complete:
 
     // Rebuild model menu to enable/disable models based on language
     [self rebuildModelMenu];
+
+#ifdef USE_WHISPER_LIB
+    // Reload whisper context for new language (requires different model file: .en.bin vs .bin)
+    // Free old context on transcribeQueue to ensure no transcription is using it
+    if (![self.selectedModel hasPrefix:@"CT2 "]) {
+        dispatch_async(self.transcribeQueue, ^{
+            if (self.wctx) {
+                VTTLog(@"Freeing whisper context after language change...");
+                whisper_free(self.wctx);
+                self.wctx = NULL;
+            }
+        });
+
+        // Trigger preload of new model file in background
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            @autoreleasepool {
+                NSString *modelFile = self.selectedModel;
+                NSString *extension;
+                BOOL isEnglish = [newLanguage isEqualToString:@"en"];
+
+                if ([self.selectedModel isEqualToString:@"large"]) {
+                    modelFile = @"large-v3";
+                    extension = @"bin";
+                } else if (isEnglish) {
+                    extension = @"en.bin";
+                } else {
+                    extension = @"bin";
+                }
+
+                NSString *bundledModelPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:[NSString stringWithFormat:@"ggml-%@.%@", modelFile, extension]];
+                NSString *externalModelPath = [NSString stringWithFormat:@"%@/whisper.cpp/models/ggml-%@.%@", NSHomeDirectory(), modelFile, extension];
+                NSString *modelPath = nil;
+
+                if ([[NSFileManager defaultManager] fileExistsAtPath:bundledModelPath]) {
+                    modelPath = bundledModelPath;
+                } else if ([[NSFileManager defaultManager] fileExistsAtPath:externalModelPath]) {
+                    modelPath = externalModelPath;
+                }
+
+                if (!modelPath) {
+                    VTTLog(@"⚠️ Model file not found for new language: %@.%@", modelFile, extension);
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        self.statusMenuItem.title = @"Status: Model not found";
+                        self.statusItem.button.title = @"VTT ⚠️";
+                    });
+                    return;
+                }
+
+                VTTLog(@"Reloading model for language change: %@", modelPath);
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.statusMenuItem.title = [NSString stringWithFormat:@"Status: Loading %@ model…", self.selectedModel];
+                    self.statusItem.button.title = @"VTT ⏳";
+                });
+
+                struct whisper_context_params cparams = whisper_context_default_params();
+                cparams.use_gpu = true;
+                cparams.flash_attn = true;
+
+                const char *mp = [modelPath UTF8String];
+                struct whisper_context *new_ctx = whisper_init_from_file_with_params(mp, cparams);
+
+                if (new_ctx) {
+                    VTTLog(@"✅ Whisper context reloaded for new language");
+                    dispatch_async(self.transcribeQueue, ^{
+                        self.wctx = new_ctx;
+                    });
+
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        self.statusMenuItem.title = [NSString stringWithFormat:@"Status: Ready (%@)", languageDisplay];
+                        self.statusItem.button.title = @"VTT ✅";
+                    });
+                } else {
+                    VTTLog(@"❌ Failed to reload whisper context for new language");
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        self.statusMenuItem.title = @"Status: Model load failed";
+                        self.statusItem.button.title = @"VTT ⚠️";
+                    });
+                }
+            }
+        });
+    }
+#endif
 }
 
 - (void)rebuildModelMenu {
