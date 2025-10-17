@@ -551,34 +551,73 @@ void vtt_gui_run(vtt_gui_t *gui) {
     gtk_main();
 }
 
-void vtt_gui_set_status(vtt_gui_t *gui, const char *status) {
-    if (gui->status_item) {
+// Thread-safe data structures for GUI updates
+typedef struct {
+    vtt_gui_t *gui;
+    char status[256];
+} status_update_t;
+
+typedef struct {
+    vtt_gui_t *gui;
+    char icon_status[32];
+} icon_update_t;
+
+// GLib idle callbacks (run on GTK main thread)
+static gboolean set_status_idle(gpointer user_data) {
+    status_update_t *data = (status_update_t *)user_data;
+
+    if (data->gui->status_item) {
         char label[256];
-        snprintf(label, sizeof(label), "Status: %s", status);
-        gtk_menu_item_set_label(GTK_MENU_ITEM(gui->status_item), label);
+        snprintf(label, sizeof(label), "Status: %s", data->status);
+        gtk_menu_item_set_label(GTK_MENU_ITEM(data->gui->status_item), label);
     }
+
+    free(data);
+    return G_SOURCE_REMOVE;
+}
+
+static gboolean set_icon_idle(gpointer user_data) {
+    icon_update_t *data = (icon_update_t *)user_data;
+
+    if (data->gui && data->gui->indicator) {
+        AppIndicator *indicator = (AppIndicator *)data->gui->indicator;
+
+        // Map status strings to appropriate icon names
+        if (strcmp(data->icon_status, "ready") == 0) {
+            app_indicator_set_icon(indicator, "audio-input-microphone");
+        } else if (strcmp(data->icon_status, "recording") == 0) {
+            app_indicator_set_icon(indicator, "media-record");
+        } else if (strcmp(data->icon_status, "processing") == 0) {
+            app_indicator_set_icon(indicator, "emblem-synchronizing");
+        } else {
+            app_indicator_set_icon(indicator, "audio-input-microphone");
+        }
+    }
+
+    free(data);
+    return G_SOURCE_REMOVE;
+}
+
+void vtt_gui_set_status(vtt_gui_t *gui, const char *status) {
+    status_update_t *data = malloc(sizeof(status_update_t));
+    if (!data) return;
+
+    data->gui = gui;
+    snprintf(data->status, sizeof(data->status), "%s", status);
+
+    g_idle_add(set_status_idle, data);
 }
 
 void vtt_gui_set_icon(vtt_gui_t *gui, const char *icon_status) {
     if (!gui || !gui->indicator) return;
 
-    AppIndicator *indicator = (AppIndicator *)gui->indicator;
+    icon_update_t *data = malloc(sizeof(icon_update_t));
+    if (!data) return;
 
-    // Map status strings to appropriate icon names
-    // See: https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
-    if (strcmp(icon_status, "ready") == 0) {
-        // Idle state - show microphone (green checkmark could also work)
-        app_indicator_set_icon(indicator, "audio-input-microphone");
-    } else if (strcmp(icon_status, "recording") == 0) {
-        // Recording state - show red recording indicator
-        app_indicator_set_icon(indicator, "media-record");
-    } else if (strcmp(icon_status, "processing") == 0) {
-        // Transcribing state - show processing/working indicator
-        app_indicator_set_icon(indicator, "emblem-synchronizing");
-    } else {
-        // Default fallback to microphone
-        app_indicator_set_icon(indicator, "audio-input-microphone");
-    }
+    data->gui = gui;
+    snprintf(data->icon_status, sizeof(data->icon_status), "%s", icon_status);
+
+    g_idle_add(set_icon_idle, data);
 }
 
 void vtt_gui_cleanup(vtt_gui_t *gui) {

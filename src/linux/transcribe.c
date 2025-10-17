@@ -163,7 +163,7 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
         }
 
         vtt_log("Using transcribe.py: %s", script_path);
-        const char *python_path = "python3.12";
+        const char *python_path = "python3";
 
         // Extract base model name (strip "CT2 " prefix if present)
         const char *base_model = model_to_use;
