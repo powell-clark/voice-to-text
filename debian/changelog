@@ -1,3 +1,15 @@
+voice-to-text (1.0.1ubuntu3) noble; urgency=medium
+
+  * Exclude third_party directory from source package to reduce size
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Fri, 17 Oct 2025 13:54:42 +0100
+
+voice-to-text (1.0.1ubuntu2) noble; urgency=medium
+
+  * Fix debian/rules install paths for PPA build
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Fri, 17 Oct 2025 13:09:35 +0100
+
 voice-to-text (1.0.1) noble; urgency=medium
 
   * Fix GUI initialization overwriting model settings

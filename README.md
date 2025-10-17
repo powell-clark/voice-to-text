@@ -19,16 +19,21 @@ The app installs to `/Applications/Voice to Text.app` and runs in your menu bar.
 
 **First Run:** Grant permissions for Microphone, Accessibility, and Input Monitoring when prompted.
 
-### Linux (Ubuntu/Debian) - Coming Soon via PPA
+### Linux (Ubuntu/Debian)
+
+**Install from PPA:**
 
 ```bash
-# PPA installation (coming soon!)
 sudo add-apt-repository ppa:powell-clark/voice-to-text
 sudo apt update
 sudo apt install voice-to-text
 ```
 
-**For now, see [Build from Source](#-build-from-source-and-contributing) below.**
+The app installs system-wide and runs as a systemd user service with a system tray icon.
+
+**First Run:** The service starts automatically. Click the system tray icon to select your microphone and configure settings.
+
+**Alternative:** [Build from Source](#-build-from-source-and-contributing)
 
 ---
 
