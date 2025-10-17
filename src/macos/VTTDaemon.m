@@ -97,8 +97,7 @@ typedef struct {
 @property (atomic) BOOL waitingForKeyRelease;  // Set when max length reached, cleared when PTT released
 @property (nonatomic) BOOL loggingEnabled;
 @property (strong) NSMenuItem *loggingToggleItem;
-@property (nonatomic) AudioDeviceID selectedMicrophoneID;
-@property (strong) NSMenuItem *micMenuItem;
+@property (strong) NSMenuItem *micMenuItem; // Read-only microphone status (like Linux)
 @property (nonatomic) CGKeyCode hotkeyCode;
 @property (nonatomic) CGEventFlags hotkeyModifiers;
 @property (strong) NSMenuItem *hotkeyMenuItem;
@@ -160,7 +159,7 @@ static void resample_linear_i16_mono(const int16_t *in, size_t in_len,
 // 1. Core Audio calls this function when kAudioHardwarePropertyDevices changes
 // 2. Function is called on an arbitrary thread (hence @autoreleasepool)
 // 3. We dispatch to main queue to safely update the UI (menu items)
-// 4. refreshMicrophoneMenu clears and repopulates the microphone submenu
+// 4. updateMicrophoneDisplay shows current system default microphone name
 //
 // Registration happens in applicationDidFinishLaunching: after menu creation.
 // See line ~291 where AudioObjectAddPropertyListener is called.
@@ -171,7 +170,7 @@ static void resample_linear_i16_mono(const int16_t *in, size_t in_len,
 // - Native macOS Core Audio API
 //
 // Note for debugging:
-// - If build fails, check that refreshMicrophoneMenu method exists (~line 2179)
+// - If build fails, check that updateMicrophoneDisplay method exists
 // - Verify AudioToolbox framework is linked
 // - Check that self is properly __bridged when passing to callback
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -181,9 +180,9 @@ static OSStatus audioDeviceChangeCallback(AudioObjectID inObjectID,
                                          void* inClientData) {
     @autoreleasepool {
         VTTDaemon* daemon = (__bridge VTTDaemon*)inClientData;
-        VTTLog(@"Audio devices changed, refreshing microphone menu");
+        VTTLog(@"Audio devices changed, updating microphone display");
         dispatch_async(dispatch_get_main_queue(), ^{
-            [daemon refreshMicrophoneMenu];
+            [daemon updateMicrophoneDisplay];
         });
     }
     return noErr;
@@ -366,14 +365,20 @@ static void audioInputCallback(void* userData,
     // Check which models exist and disable unavailable ones
     [self rebuildModelMenu];
 
-    // Microphone selection submenu
+    // Microphone status (read-only, like Linux)
     self.micMenuItem = [[NSMenuItem alloc] initWithTitle:@"Microphone: Default"
                                                    action:nil
                                             keyEquivalent:@""];
-    NSMenu *micMenu = [[NSMenu alloc] init];
-    [self populateMicrophoneMenu:micMenu];
-    self.micMenuItem.submenu = micMenu;
+    [self.micMenuItem setEnabled:NO]; // Read-only status
     [self.menu addItem:self.micMenuItem];
+
+    // Update microphone display and refresh periodically
+    [self updateMicrophoneDisplay];
+    [NSTimer scheduledTimerWithTimeInterval:3.0
+                                     target:self
+                                   selector:@selector(updateMicrophoneDisplay)
+                                   userInfo:nil
+                                    repeats:YES];
 
     // ═══════════════════════════════════════════════════════════════════════
     // ADDED 2025-10-13 02:10 UTC: Register for audio device changes
@@ -2583,139 +2588,40 @@ transcription_complete:
     }
 }
 
-- (void)populateMicrophoneMenu:(NSMenu *)menu {
-    // Get all audio input devices
-    AudioObjectPropertyAddress devicesAddr = {
-        kAudioHardwarePropertyDevices,
+- (void)updateMicrophoneDisplay {
+    if (!self.micMenuItem) return;
+
+    // Get the system default input device
+    AudioDeviceID deviceID = 0;
+    UInt32 size = sizeof(deviceID);
+    AudioObjectPropertyAddress addr = {
+        kAudioHardwarePropertyDefaultInputDevice,
         kAudioObjectPropertyScopeGlobal,
         kAudioObjectPropertyElementMain
     };
 
-    UInt32 propSize = 0;
-    OSStatus status = AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &devicesAddr, 0, NULL, &propSize);
-    if (status != noErr) return;
+    OSStatus status = AudioObjectGetPropertyData(kAudioObjectSystemObject, &addr, 0, NULL, &size, &deviceID);
 
-    int deviceCount = propSize / sizeof(AudioDeviceID);
-    AudioDeviceID *devices = (AudioDeviceID *)malloc(propSize);
-    status = AudioObjectGetPropertyData(kAudioObjectSystemObject, &devicesAddr, 0, NULL, &propSize, devices);
-    if (status != noErr) { free(devices); return; }
-
-    // Load saved preference
-    NSNumber *savedID = [[NSUserDefaults standardUserDefaults] objectForKey:@"selectedMicrophoneID"];
-    self.selectedMicrophoneID = savedID ? [savedID unsignedIntValue] : 0;
-
-    // Add "Default" option
-    NSMenuItem *defaultItem = [[NSMenuItem alloc] initWithTitle:@"Default (Auto-Select)"
-                                                         action:@selector(selectMicrophone:)
-                                                  keyEquivalent:@""];
-    defaultItem.target = self;
-    defaultItem.tag = 0;  // 0 = default
-    defaultItem.state = (self.selectedMicrophoneID == 0) ? NSControlStateValueOn : NSControlStateValueOff;
-    [menu addItem:defaultItem];
-
-    [menu addItem:[NSMenuItem separatorItem]];
-
-    // Add each input device
-    for (int i = 0; i < deviceCount; i++) {
-        // Check if this is an input device
-        AudioObjectPropertyAddress streamAddr = {
-            kAudioDevicePropertyStreams,
-            kAudioDevicePropertyScopeInput,
-            kAudioObjectPropertyElementMain
-        };
-
-        UInt32 streamSize = 0;
-        status = AudioObjectGetPropertyDataSize(devices[i], &streamAddr, 0, NULL, &streamSize);
-        if (status != noErr || streamSize == 0) continue;
-
+    if (status == noErr && deviceID != 0) {
         // Get device name
-        CFStringRef deviceName = NULL;
-        UInt32 nameSize = sizeof(deviceName);
         AudioObjectPropertyAddress nameAddr = {
             kAudioDevicePropertyDeviceNameCFString,
             kAudioObjectPropertyScopeGlobal,
             kAudioObjectPropertyElementMain
         };
-        status = AudioObjectGetPropertyData(devices[i], &nameAddr, 0, NULL, &nameSize, &deviceName);
+        CFStringRef deviceName = NULL;
+        UInt32 nameSize = sizeof(deviceName);
 
-        if (status == noErr && deviceName != NULL) {
-            NSString *name = (__bridge_transfer NSString *)deviceName;
-
-            NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:name
-                                                          action:@selector(selectMicrophone:)
-                                                   keyEquivalent:@""];
-            item.target = self;
-            item.tag = devices[i];
-            item.state = (devices[i] == self.selectedMicrophoneID) ? NSControlStateValueOn : NSControlStateValueOff;
-            [menu addItem:item];
-
-            // Update menu title if this is the selected device
-            if (devices[i] == self.selectedMicrophoneID) {
-                self.micMenuItem.title = [NSString stringWithFormat:@"Microphone: %@", name];
-            }
+        if (AudioObjectGetPropertyData(deviceID, &nameAddr, 0, NULL, &nameSize, &deviceName) == noErr && deviceName != NULL) {
+            NSString *name = (__bridge NSString *)deviceName;
+            self.micMenuItem.title = [NSString stringWithFormat:@"Microphone: %@", name];
+            CFRelease(deviceName);
+        } else {
+            self.micMenuItem.title = @"Microphone: Default";
         }
-    }
-
-    free(devices);
-
-    // If default is selected, update title
-    if (self.selectedMicrophoneID == 0) {
-        self.micMenuItem.title = @"Microphone: Default";
-    }
-}
-
-- (void)selectMicrophone:(id)sender {
-    NSMenuItem *item = (NSMenuItem *)sender;
-    AudioDeviceID deviceID = (AudioDeviceID)item.tag;
-
-    // Update checkmarks
-    for (NSMenuItem *menuItem in item.menu.itemArray) {
-        menuItem.state = NSControlStateValueOff;
-    }
-    item.state = NSControlStateValueOn;
-
-    // Save selection
-    self.selectedMicrophoneID = deviceID;
-    [[NSUserDefaults standardUserDefaults] setObject:@(deviceID) forKey:@"selectedMicrophoneID"];
-    [[NSUserDefaults standardUserDefaults] synchronize];
-
-    // Update menu title
-    if (deviceID == 0) {
-        self.micMenuItem.title = @"Microphone: Default";
     } else {
-        self.micMenuItem.title = [NSString stringWithFormat:@"Microphone: %@", item.title];
+        self.micMenuItem.title = @"Microphone: Default";
     }
-
-    // Reinitialize audio with new device
-    if (self.audioState) {
-        if (self.audioState->queue) {
-            AudioQueueDispose(self.audioState->queue, true);
-        }
-        free(self.audioState);
-        self.audioState = NULL;
-    }
-    [self initializeAudio];
-
-    VTTLog(@"Switched to microphone: %@ (ID: %u)", item.title, deviceID);
-    self.statusMenuItem.title = [NSString stringWithFormat:@"Status: Using %@", item.title];
-}
-
-- (void)refreshMicrophoneMenu {
-    if (!self.micMenuItem) return;
-
-    NSMenu *micMenu = self.micMenuItem.submenu;
-    if (!micMenu) {
-        micMenu = [[NSMenu alloc] init];
-        self.micMenuItem.submenu = micMenu;
-    }
-
-    // Clear existing menu items
-    [micMenu removeAllItems];
-
-    // Repopulate the menu
-    [self populateMicrophoneMenu:micMenu];
-
-    VTTLog(@"Microphone menu refreshed");
 }
 
 - (void)toggleLogging:(id)sender {
