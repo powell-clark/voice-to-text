@@ -1,3 +1,11 @@
+voice-to-text (1.0.1ubuntu4) noble; urgency=medium
+
+  * Fix critical GTK thread-safety bug (prevent random crashes)
+  * Fix Xlib threading bug (add XInitThreads)
+  * Fix python version dependency (python3.12 → python3)
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Fri, 17 Oct 2025 18:30:00 +0100
+
 voice-to-text (1.0.1ubuntu3) noble; urgency=medium
 
   * Exclude third_party directory from source package to reduce size
