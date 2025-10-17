@@ -287,7 +287,7 @@ static void *transcription_worker(void *arg) {
                 // Type the text (optionally prepend newline between messages)
                 app->typing_active = true;
                 if (app->gui.append_newline && app->typing_has_output) {
-                    vtt_typing_type_text(&app->typing, " \u2028");
+                    vtt_typing_type_text(&app->typing, "\n");
                 }
                 vtt_typing_type_text(&app->typing, final_text);
                 app->typing_active = false;
