@@ -7,6 +7,7 @@
 #include <libayatana-appindicator/app-indicator.h>
 #include <gdk/gdkx.h>
 #include <X11/Xlib.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -14,7 +15,6 @@
 static void on_quit(GtkMenuItem *item, gpointer user_data);
 static void on_model_selected(GtkMenuItem *item, gpointer user_data);
 static void on_language_selected(GtkMenuItem *item, gpointer user_data);
-static void on_mic_selected(GtkMenuItem *item, gpointer user_data);
 static void on_show_logs(GtkMenuItem *item, gpointer user_data);
 static void on_toggle_logging(GtkMenuItem *item, gpointer user_data);
 static void on_about(GtkMenuItem *item, gpointer user_data);
@@ -27,25 +27,316 @@ static void on_prompt_reset(GtkButton *button, gpointer user_data);
 static void on_prompt_save(GtkButton *button, gpointer user_data);
 static void on_prompt_dialog_destroy(GtkWidget *widget, gpointer user_data);
 
-// Hot-plug detection timer
-static gboolean check_audio_devices(gpointer user_data);
+static void format_device_label(char *dest, size_t dest_size, const char *raw_name, bool mark_default);
 
 // Helper to rebuild model menu based on language (truly dynamic)
 static void rebuild_model_menu(vtt_gui_t *gui);
+static void update_microphone_label(vtt_gui_t *gui);
+static gboolean refresh_microphone_label(gpointer user_data);
+
+static void copy_truncated(char *dest, size_t dest_size, const char *src);
+static void append_truncated(char *dest, size_t dest_size, const char *suffix);
+static void trim_trailing_whitespace(char *str);
+static void replace_underscores(char *dest, size_t dest_size, const char *src);
+
+static bool read_line_trim(FILE *fp, char *buffer, size_t buffer_size) {
+    if (!fp || !buffer || buffer_size == 0) {
+        return false;
+    }
+
+    if (!fgets(buffer, (int)buffer_size, fp)) {
+        return false;
+    }
+
+    size_t len = strlen(buffer);
+    while (len > 0 && (buffer[len - 1] == '\n' || buffer[len - 1] == '\r')) {
+        buffer[len - 1] = '\0';
+        len--;
+    }
+    return true;
+}
+
+static bool get_source_description_for_name(const char *source_name, char *dest, size_t dest_size);
+
+static bool get_default_source_description(char *dest, size_t dest_size) {
+    if (!dest || dest_size == 0) {
+        return false;
+    }
+
+    FILE *name_fp = popen("pactl get-default-source 2>/dev/null", "r");
+    if (!name_fp) {
+        return false;
+    }
+
+    char source_name[256];
+    if (!read_line_trim(name_fp, source_name, sizeof(source_name)) || source_name[0] == '\0') {
+        pclose(name_fp);
+        return false;
+    }
+    pclose(name_fp);
+
+    return get_source_description_for_name(source_name, dest, dest_size);
+}
+
+static bool get_source_description_for_name(const char *source_name, char *dest, size_t dest_size) {
+    if (!source_name || !dest || dest_size == 0) {
+        return false;
+    }
+
+    FILE *list_fp = popen("pactl list sources 2>/dev/null", "r");
+    if (!list_fp) {
+        return false;
+    }
+
+    char line[1024];
+    char current_name[256] = {0};
+    bool match = false;
+
+    while (fgets(line, sizeof(line), list_fp)) {
+        if (strncmp(line, "Source #", 8) == 0) {
+            current_name[0] = '\0';
+            match = false;
+            continue;
+        }
+
+        if (strncmp(line, "\tName: ", 7) == 0) {
+            copy_truncated(current_name, sizeof(current_name), line + 7);
+            trim_trailing_whitespace(current_name);
+            match = (strcmp(current_name, source_name) == 0);
+            continue;
+        }
+
+        if (match && strncmp(line, "\tDescription: ", 14) == 0) {
+            char description[512];
+            copy_truncated(description, sizeof(description), line + 14);
+            trim_trailing_whitespace(description);
+            copy_truncated(dest, dest_size, description);
+            pclose(list_fp);
+            return true;
+        }
+    }
+
+    pclose(list_fp);
+    return false;
+}
+
+static void update_microphone_label(vtt_gui_t *gui) {
+    if (!gui || !gui->mic_label_item) {
+        return;
+    }
+
+    char display[256];
+    if (!get_default_source_description(display, sizeof(display))) {
+        format_device_label(display, sizeof(display), "default", true);
+    }
+
+    char label[256];
+    snprintf(label, sizeof(label), "Microphone: %.220s", display);
+    gtk_menu_item_set_label(GTK_MENU_ITEM(gui->mic_label_item), label);
+}
+
+static gboolean refresh_microphone_label(gpointer user_data) {
+    vtt_gui_t *gui = (vtt_gui_t *)user_data;
+    update_microphone_label(gui);
+    return G_SOURCE_CONTINUE;
+}
+
+static void populate_settings_snapshot(vtt_gui_t *gui, vtt_settings_t *settings) {
+    if (!settings) return;
+    memset(settings, 0, sizeof(*settings));
+
+    settings->selected_model = gui->selected_model;
+    settings->selected_language = gui->selected_language;
+    settings->voice_prefix = gui->voice_prefix;
+    settings->initial_prompt = gui->initial_prompt;
+    settings->selected_device_index = -1;
+
+    if (gui->keyboard) {
+        int current_hotkey = vtt_keyboard_get_hotkey(gui->keyboard);
+        if (current_hotkey >= 8 && current_hotkey <= 255) {
+            settings->hotkey_keycode = current_hotkey;
+        }
+    }
+
+    settings->append_newline = gui->append_newline;
+}
+
+static void copy_truncated(char *dest, size_t dest_size, const char *src) {
+    if (!dest || dest_size == 0) {
+        return;
+    }
+    if (!src) src = "";
+
+    size_t max_copy = dest_size - 1;
+    if (max_copy == 0) {
+        dest[0] = '\0';
+        return;
+    }
+
+    size_t src_len = strlen(src);
+    if (src_len > max_copy) {
+        src_len = max_copy;
+    }
+
+    memcpy(dest, src, src_len);
+    dest[src_len] = '\0';
+}
+
+static void append_truncated(char *dest, size_t dest_size, const char *suffix) {
+    if (!dest || dest_size == 0 || !suffix) {
+        return;
+    }
+
+    size_t current_len = strlen(dest);
+    if (current_len >= dest_size - 1) {
+        return;
+    }
+
+    strncat(dest, suffix, dest_size - current_len - 1);
+}
+
+static void trim_trailing_whitespace(char *str) {
+    if (!str) {
+        return;
+    }
+
+    size_t len = strlen(str);
+    while (len > 0 && isspace((unsigned char)str[len - 1])) {
+        str[len - 1] = '\0';
+        len--;
+    }
+}
+
+static void replace_underscores(char *dest, size_t dest_size, const char *src) {
+    size_t j = 0;
+    for (size_t i = 0; src[i] != '\0' && j < dest_size - 1; i++) {
+        if (src[i] == '_' && src[i + 1] == '_') {
+            dest[j++] = 'O';
+            i++;  // Skip second underscore
+        } else if (src[i] == '_') {
+            dest[j++] = ' ';
+        } else {
+            dest[j++] = src[i];
+        }
+    }
+    dest[j] = '\0';
+    trim_trailing_whitespace(dest);
+}
+
+static void format_device_label(char *dest, size_t dest_size, const char *raw_name, bool mark_default) {
+    if (!dest || dest_size == 0) {
+        return;
+    }
+
+    if (!raw_name || raw_name[0] == '\0') {
+        snprintf(dest, dest_size, "Unknown device");
+        return;
+    }
+
+    if (strcmp(raw_name, "default") == 0 || strcmp(raw_name, "default (default)") == 0) {
+        copy_truncated(dest, dest_size, "System Default (PipeWire)");
+        return;
+    }
+
+    if (strcmp(raw_name, "pulse") == 0) {
+        copy_truncated(dest, dest_size, "PulseAudio Compatibility");
+        return;
+    }
+
+    if (strcmp(raw_name, "pipewire") == 0) {
+        copy_truncated(dest, dest_size, "PipeWire (Direct)");
+        return;
+    }
+
+    char working[256];
+    strncpy(working, raw_name, sizeof(working) - 1);
+    working[sizeof(working) - 1] = '\0';
+
+    // Remove technical suffixes like "(hw:2,0)"
+    char *paren = strchr(working, '(');
+    if (paren && strstr(paren, "hw:")) {
+        *paren = '\0';
+    }
+    trim_trailing_whitespace(working);
+
+    // Handle ALSA PipeWire-style names: alsa_input.usb-<device>-00.mono-fallback
+    if (strncmp(working, "alsa_input.", 11) == 0 || strncmp(working, "alsa_output.", 12) == 0) {
+        const char *usb = strstr(working, "usb-");
+        if (usb) {
+            usb += 4;
+            size_t len = strcspn(usb, ".");
+            if (len >= sizeof(working)) {
+                len = sizeof(working) - 1;
+            }
+
+            char extracted[256];
+            strncpy(extracted, usb, len);
+            extracted[len] = '\0';
+
+            char *dash_suffix = strrchr(extracted, '-');
+            if (dash_suffix && strlen(dash_suffix) <= 3) {
+                *dash_suffix = '\0';
+            }
+
+            char friendly[256];
+            replace_underscores(friendly, sizeof(friendly), extracted);
+
+            if (friendly[0] != '\0') {
+                copy_truncated(dest, dest_size, friendly);
+                append_truncated(dest, dest_size, " (USB)");
+                return;
+            }
+        }
+
+        const char *after_colon = strchr(working, ':');
+        if (after_colon) {
+            after_colon++;
+            while (*after_colon == ' ') after_colon++;
+            if (*after_colon) {
+                copy_truncated(dest, dest_size, after_colon);
+                trim_trailing_whitespace(dest);
+                if (mark_default && strstr(dest, "default") == NULL) {
+                    append_truncated(dest, dest_size, " (default)");
+                }
+                return;
+            }
+        }
+    }
+
+    if (working[0] != '\0') {
+        if (mark_default && strstr(working, "default") == NULL) {
+            copy_truncated(dest, dest_size, working);
+            append_truncated(dest, dest_size, " (default)");
+        } else {
+            copy_truncated(dest, dest_size, working);
+        }
+        trim_trailing_whitespace(dest);
+        return;
+    }
+
+    copy_truncated(dest, dest_size, raw_name);
+}
 
 typedef struct {
     vtt_gui_t *gui;
     GtkWidget *prefix_entry;
     GtkTextBuffer *text_buffer;
     GtkWidget *dialog;
+    GtkWidget *newline_toggle;
 } prompt_dialog_data_t;
 
-int vtt_gui_init(vtt_gui_t *gui, void *app, const char *config_dir) {
+int vtt_gui_init(vtt_gui_t *gui,
+                 vtt_audio_t *audio,
+                 vtt_keyboard_t *keyboard,
+                 bool *recording_flag,
+                 const char *config_dir) {
     memset(gui, 0, sizeof(vtt_gui_t));
-    gui->user_data = app;
     gui->config_dir = strdup(config_dir);
     gui->logging_enabled = true;
     gui->initializing = true;  // Prevent saving settings during initialization
+    gui->audio = audio;
+    gui->keyboard = keyboard;
+    gui->recording_flag = recording_flag;
 
     // Load settings from disk (or use defaults if not found)
     vtt_settings_t settings;
@@ -56,6 +347,7 @@ int vtt_gui_init(vtt_gui_t *gui, void *app, const char *config_dir) {
     gui->selected_language = strdup(settings.selected_language);
     gui->voice_prefix = strdup(settings.voice_prefix);
     gui->initial_prompt = strdup(settings.initial_prompt);
+    gui->append_newline = settings.append_newline;
 
     vtt_settings_cleanup(&settings);
 
@@ -184,15 +476,17 @@ int vtt_gui_init(vtt_gui_t *gui, void *app, const char *config_dir) {
     gui->model_item = model_item;
 
     // Microphone submenu
-    GtkWidget *mic_item = gtk_menu_item_new_with_label("Microphone: Default");
-    GtkWidget *mic_menu = gtk_menu_new();
-    gtk_menu_item_set_submenu(GTK_MENU_ITEM(mic_item), mic_menu);
+    GtkWidget *mic_item = gtk_menu_item_new_with_label("Microphone: Detecting...");
+    gtk_widget_set_sensitive(mic_item, FALSE);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), mic_item);
-    gui->mic_item = mic_item;
+    gui->mic_label_item = mic_item;
+
+    update_microphone_label(gui);
+    g_timeout_add_seconds(3, refresh_microphone_label, gui);
 
     // Hotkey item - clickable to change hotkey
     GtkWidget *hotkey_item = gtk_menu_item_new_with_label("Hotkey: Scroll Lock");
-    g_signal_connect(hotkey_item, "activate", G_CALLBACK(on_change_hotkey), app);
+    g_signal_connect(hotkey_item, "activate", G_CALLBACK(on_change_hotkey), gui);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), hotkey_item);
     gui->hotkey_item = hotkey_item;
 
@@ -234,50 +528,17 @@ int vtt_gui_init(vtt_gui_t *gui, void *app, const char *config_dir) {
     app_indicator_set_menu(indicator, GTK_MENU(menu));
     gui->menu = menu;
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Hot-plug Detection for Microphones (ADDED: 2025-10-13 02:10 UTC)
-    // ═══════════════════════════════════════════════════════════════════════
-    // Linux Implementation: Polling-based device monitoring
-    //
-    // Since PortAudio doesn't provide native device change notifications on
-    // Linux, we use a GLib timer to periodically check for device changes.
-    //
-    // How it works:
-    // 1. Timer calls check_audio_devices() every 3 seconds
-    // 2. Function queries PortAudio for current device count
-    // 3. Compares with previous menu item count
-    // 4. If different, calls vtt_gui_update_microphones() to refresh menu
-    //
-    // This allows users to plug in USB microphones or connect Bluetooth audio
-    // devices and see them appear in the menu within 3 seconds, without
-    // needing to restart the application.
-    //
-    // Alternative considered: Using udev or libudev for instant notifications
-    // would be more efficient but adds complexity and dependencies.
-    // ═══════════════════════════════════════════════════════════════════════
-    g_timeout_add_seconds(3, check_audio_devices, gui);
-    vtt_log("Started audio device monitoring (3s interval)");
-
     // Set initial model menu based on loaded language setting
     rebuild_model_menu(gui);
 
     // Update hotkey label based on loaded settings
-    if (settings.hotkey_keycode != 0) {
-        // Get app structure to access keyboard display
-        typedef struct {
-            void *audio;
-            vtt_keyboard_t keyboard;
-            // ... rest doesn't matter
-        } vtt_app_stub_t;
-
-        vtt_app_stub_t *app_stub = (vtt_app_stub_t *)app;
-        if (app_stub && app_stub->keyboard.display) {
-            const char *key_name = vtt_keyboard_get_key_name(app_stub->keyboard.display, settings.hotkey_keycode);
-            char hotkey_label[256];
-            snprintf(hotkey_label, sizeof(hotkey_label), "Hotkey: %s", key_name);
-            gtk_menu_item_set_label(GTK_MENU_ITEM(hotkey_item), hotkey_label);
-            vtt_log("Hotkey label updated to: %s", key_name);
-        }
+    if (settings.hotkey_keycode != 0 && gui->keyboard && gui->keyboard->display) {
+        const char *key_name = vtt_keyboard_get_key_name(gui->keyboard->display,
+                                                         settings.hotkey_keycode);
+        char hotkey_label[256];
+        snprintf(hotkey_label, sizeof(hotkey_label), "Hotkey: %s", key_name);
+        gtk_menu_item_set_label(GTK_MENU_ITEM(hotkey_item), hotkey_label);
+        vtt_log("Hotkey label updated to: %s", key_name);
     }
 
     gui->initializing = false;  // Initialization complete, allow saving settings
@@ -324,11 +585,7 @@ void vtt_gui_cleanup(vtt_gui_t *gui) {
     // Save settings before cleanup
     if (gui->config_dir) {
         vtt_settings_t settings;
-        settings.selected_model = gui->selected_model;
-        settings.selected_language = gui->selected_language;
-        settings.voice_prefix = gui->voice_prefix;
-        settings.initial_prompt = gui->initial_prompt;
-        settings.selected_device_index = -1;  // TODO: save selected device
+        populate_settings_snapshot(gui, &settings);
         vtt_settings_save(&settings, gui->config_dir);
     }
 
@@ -389,11 +646,7 @@ static void on_model_selected(GtkMenuItem *item, gpointer user_data) {
 
         // Save settings immediately
         vtt_settings_t settings;
-        settings.selected_model = gui->selected_model;
-        settings.selected_language = gui->selected_language;
-        settings.voice_prefix = gui->voice_prefix;
-        settings.initial_prompt = gui->initial_prompt;
-        settings.selected_device_index = -1;
+        populate_settings_snapshot(gui, &settings);
         vtt_settings_save(&settings, gui->config_dir);
 
         // Update status
@@ -428,11 +681,7 @@ static void on_language_selected(GtkMenuItem *item, gpointer user_data) {
 
         // Save settings immediately
         vtt_settings_t settings;
-        settings.selected_model = gui->selected_model;
-        settings.selected_language = gui->selected_language;
-        settings.voice_prefix = gui->voice_prefix;
-        settings.initial_prompt = gui->initial_prompt;
-        settings.selected_device_index = -1;
+        populate_settings_snapshot(gui, &settings);
         vtt_settings_save(&settings, gui->config_dir);
 
         // Update status
@@ -440,58 +689,7 @@ static void on_language_selected(GtkMenuItem *item, gpointer user_data) {
     }
 }
 
-static void on_mic_selected(GtkMenuItem *item, gpointer user_data) {
-    vtt_gui_t *gui = (vtt_gui_t *)user_data;
-    int device_index = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "device_index"));
-    const char *device_name = (const char *)g_object_get_data(G_OBJECT(item), "device_name");
 
-    if (device_name) {
-        vtt_log("Microphone selected: %s (index %d)", device_name, device_index);
-
-        // Get app pointer and check if recording
-        typedef struct {
-            vtt_audio_t audio;
-            void *keyboard;
-            void *typing;
-            vtt_gui_t gui;
-            void *queue;
-            void *worker_thread;
-            bool running;
-            bool recording;
-        } vtt_app_stub_t;
-
-        vtt_app_stub_t *app = (vtt_app_stub_t *)gui->user_data;
-
-        // Prevent changing microphone while recording
-        if (app && app->recording) {
-            vtt_log("Cannot change microphone while recording");
-
-            GtkWidget *dialog = gtk_message_dialog_new(
-                NULL,
-                GTK_DIALOG_MODAL,
-                GTK_MESSAGE_WARNING,
-                GTK_BUTTONS_OK,
-                "Cannot change microphone while recording.\n\nPlease release the hotkey and try again."
-            );
-            gtk_dialog_run(GTK_DIALOG(dialog));
-            gtk_widget_destroy(dialog);
-            return;
-        }
-
-        if (app) {
-            vtt_audio_set_device(&app->audio, device_index);
-        }
-
-        // Update menu label
-        char label[256];
-        if (device_index == -1) {
-            snprintf(label, sizeof(label), "Microphone: Default");
-        } else {
-            snprintf(label, sizeof(label), "Microphone: %s", device_name);
-        }
-        gtk_menu_item_set_label(GTK_MENU_ITEM(gui->mic_item), label);
-    }
-}
 
 static void on_show_logs(GtkMenuItem *item, gpointer user_data) {
     const char *log_path = vtt_log_get_path();
@@ -578,6 +776,10 @@ static void on_prompt_reset(GtkButton *button, gpointer user_data) {
     gtk_text_buffer_set_text(data->text_buffer,
         "Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.",
         -1);
+
+    if (data->newline_toggle) {
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->newline_toggle), TRUE);
+    }
 }
 
 static void on_prompt_save(GtkButton *button, gpointer user_data) {
@@ -599,13 +801,14 @@ static void on_prompt_save(GtkButton *button, gpointer user_data) {
     vtt_log("Updated initial prompt: %s", new_prompt);
     g_free(new_prompt);
 
+    if (data->newline_toggle) {
+        data->gui->append_newline = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->newline_toggle));
+        vtt_log("Updated newline setting: %s", data->gui->append_newline ? "on" : "off");
+    }
+
     // Save settings to disk immediately
     vtt_settings_t settings;
-    settings.selected_model = data->gui->selected_model;
-    settings.selected_language = data->gui->selected_language;
-    settings.voice_prefix = data->gui->voice_prefix;
-    settings.initial_prompt = data->gui->initial_prompt;
-    settings.selected_device_index = -1;
+    populate_settings_snapshot(data->gui, &settings);
     vtt_settings_save(&settings, data->gui->config_dir);
 
     // Close dialog
@@ -630,7 +833,7 @@ static void on_customize_prompt(GtkMenuItem *item, gpointer user_data) {
     }
 
     // Create dialog data
-    prompt_dialog_data_t *data = malloc(sizeof(prompt_dialog_data_t));
+    prompt_dialog_data_t *data = calloc(1, sizeof(prompt_dialog_data_t));
     data->gui = gui;
 
     // Create dialog
@@ -700,6 +903,12 @@ static void on_customize_prompt(GtkMenuItem *item, gpointer user_data) {
     GtkWidget *spacer2 = gtk_label_new("");
     gtk_box_pack_start(GTK_BOX(vbox), spacer2, FALSE, FALSE, 0);
 
+    // Newline toggle
+    GtkWidget *newline_toggle = gtk_check_button_new_with_label("Insert newline between transcriptions");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(newline_toggle), gui->append_newline);
+    gtk_box_pack_start(GTK_BOX(vbox), newline_toggle, FALSE, FALSE, 0);
+    data->newline_toggle = newline_toggle;
+
     // === BUTTON ROW ===
     GtkWidget *button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_box_pack_start(GTK_BOX(vbox), button_box, FALSE, FALSE, 0);
@@ -740,7 +949,7 @@ typedef struct {
     GtkWidget *dialog;
     GtkWidget *label;
     vtt_gui_t *gui;
-    void *app;
+    vtt_keyboard_t *keyboard;
     int captured_keycode;
     bool key_pressed;
 } hotkey_dialog_t;
@@ -760,24 +969,38 @@ static gboolean on_hotkey_key_press(GtkWidget *widget, GdkEventKey *event, gpoin
     if (keycode < 8 || keycode > 255) {
         vtt_log("Invalid keycode captured: %d (must be 8-255), ignoring", keycode);
         char text[256];
-        snprintf(text, sizeof(text), "Press and hold the key you want to use...\n\nInvalid key detected (keycode %d)!\n\nTry a different key.", keycode);
+        snprintf(text, sizeof(text),
+                 "Press and hold the key you want to use...\n\n"
+                 "Invalid key detected (keycode %d)!\n\nTry a different key.", keycode);
         gtk_label_set_text(GTK_LABEL(data->label), text);
+        data->captured_keycode = 0;
+        data->key_pressed = false;
         return TRUE;
     }
 
     data->captured_keycode = keycode;
     data->key_pressed = true;
 
-    // Get Display from default GDK display
-    GdkDisplay *gdk_display = gdk_display_get_default();
-    Display *x_display = GDK_DISPLAY_XDISPLAY(gdk_display);
+    // Prefer the keyboard's X11 display if available
+    Display *x_display = NULL;
+    if (data->keyboard && data->keyboard->display) {
+        x_display = (Display *)data->keyboard->display;
+    } else {
+        GdkDisplay *gdk_display = gdk_display_get_default();
+        if (gdk_display) {
+            x_display = GDK_DISPLAY_XDISPLAY(gdk_display);
+        }
+    }
 
-    // Get key name
-    const char *key_name = vtt_keyboard_get_key_name(x_display, data->captured_keycode);
+    const char *key_name = x_display
+        ? vtt_keyboard_get_key_name(x_display, data->captured_keycode)
+        : "Unknown";
 
     // Update label
     char text[256];
-    snprintf(text, sizeof(text), "Press and hold the key you want to use...\n\nKey detected: %s\n\nRelease the key to confirm.", key_name);
+    snprintf(text, sizeof(text),
+             "Press and hold the key you want to use...\n\n"
+             "Key detected: %s\n\nRelease the key to confirm.", key_name);
     gtk_label_set_text(GTK_LABEL(data->label), text);
 
     return TRUE;  // Stop event propagation
@@ -793,29 +1016,44 @@ static gboolean on_hotkey_key_release(GtkWidget *widget, GdkEventKey *event, gpo
         return TRUE;
     }
 
-    // Get app structure to access keyboard
-    typedef struct {
-        void *audio;
-        vtt_keyboard_t keyboard;
-        // ... rest doesn't matter
-    } vtt_app_stub_t;
-
-    vtt_app_stub_t *app = (vtt_app_stub_t *)data->app;
-    if (!app) {
+    if (!data->keyboard) {
         gtk_dialog_response(GTK_DIALOG(data->dialog), GTK_RESPONSE_CANCEL);
         return TRUE;
     }
 
-    // Get Display
-    GdkDisplay *gdk_display = gdk_display_get_default();
-    Display *x_display = GDK_DISPLAY_XDISPLAY(gdk_display);
+    // Validate stored keycode before applying
+    if (data->captured_keycode < 8 || data->captured_keycode > 255) {
+        vtt_log("Hotkey release received invalid keycode %d, ignoring", data->captured_keycode);
+        char text[256];
+        snprintf(text, sizeof(text),
+                 "Press and hold the key you want to use...\n\n"
+                 "Invalid key detected. Please try again.");
+        gtk_label_set_text(GTK_LABEL(data->label), text);
+        data->captured_keycode = 0;
+        data->key_pressed = false;
+        return TRUE;
+    }
+
+    // Choose display for key name lookup
+    Display *x_display = data->keyboard->display
+        ? (Display *)data->keyboard->display
+        : GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
 
     // Get key name for logging and display
     const char *key_name = vtt_keyboard_get_key_name(x_display, data->captured_keycode);
     vtt_log("Hotkey changed to: %s (keycode %d)", key_name, data->captured_keycode);
 
     // Update keyboard monitoring
-    vtt_keyboard_set_hotkey(&app->keyboard, data->captured_keycode);
+    if (vtt_keyboard_set_hotkey(data->keyboard, data->captured_keycode) != 0) {
+        vtt_log("Failed to update keyboard hotkey to keycode %d", data->captured_keycode);
+        char text[256];
+        snprintf(text, sizeof(text),
+                 "Failed to set hotkey to %s.\n\nPlease try a different key.", key_name);
+        gtk_label_set_text(GTK_LABEL(data->label), text);
+        data->captured_keycode = 0;
+        data->key_pressed = false;
+        return TRUE;
+    }
 
     // Update GUI menu item
     char label[256];
@@ -824,11 +1062,7 @@ static gboolean on_hotkey_key_release(GtkWidget *widget, GdkEventKey *event, gpo
 
     // Save to settings
     vtt_settings_t settings;
-    settings.selected_model = data->gui->selected_model;
-    settings.selected_language = data->gui->selected_language;
-    settings.voice_prefix = data->gui->voice_prefix;
-    settings.initial_prompt = data->gui->initial_prompt;
-    settings.selected_device_index = -1;
+    populate_settings_snapshot(data->gui, &settings);
     settings.hotkey_keycode = data->captured_keycode;
     vtt_settings_save(&settings, data->gui->config_dir);
 
@@ -839,26 +1073,35 @@ static gboolean on_hotkey_key_release(GtkWidget *widget, GdkEventKey *event, gpo
 
 static void on_change_hotkey(GtkMenuItem *item, gpointer user_data) {
     (void)item;
-    void *app = user_data;
+    vtt_gui_t *gui = (vtt_gui_t *)user_data;
+    if (!gui) {
+        return;
+    }
 
-    // Get GUI from app
-    typedef struct {
-        void *audio;
-        vtt_keyboard_t keyboard;
-        void *typing;
-        vtt_gui_t gui;
-        // ... rest doesn't matter
-    } vtt_app_stub_t;
-
-    vtt_app_stub_t *app_struct = (vtt_app_stub_t *)app;
-    vtt_gui_t *gui = &app_struct->gui;
+    if (!gui->keyboard) {
+        vtt_log("Hotkey customization requested but keyboard subsystem is unavailable");
+        GtkWidget *dialog = gtk_message_dialog_new(
+            NULL,
+            GTK_DIALOG_MODAL,
+            GTK_MESSAGE_WARNING,
+            GTK_BUTTONS_OK,
+            "Keyboard controls are not available.\n\n"
+            "Unable to customize the hotkey."
+        );
+        gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_widget_destroy(dialog);
+        return;
+    }
 
     // Create dialog data
-    hotkey_dialog_t *data = malloc(sizeof(hotkey_dialog_t));
+    hotkey_dialog_t *data = calloc(1, sizeof(hotkey_dialog_t));
+    if (!data) {
+        vtt_log("Failed to allocate hotkey dialog data");
+        return;
+    }
+
     data->gui = gui;
-    data->app = app;
-    data->captured_keycode = 0;
-    data->key_pressed = false;
+    data->keyboard = gui->keyboard;
 
     // Create dialog
     GtkWidget *dialog = gtk_dialog_new();
@@ -898,69 +1141,6 @@ static void on_change_hotkey(GtkMenuItem *item, gpointer user_data) {
     gtk_widget_destroy(dialog);
 }
 
-void vtt_gui_update_microphones(vtt_gui_t *gui) {
-    if (!gui || !gui->mic_item) return;
-
-    // Get app pointer
-    typedef struct {
-        vtt_audio_t audio;
-        // ... rest doesn't matter for this purpose
-    } vtt_app_stub_t;
-
-    vtt_app_stub_t *app = (vtt_app_stub_t *)gui->user_data;
-    if (!app) return;
-
-    // Get device list
-    int device_count = 0;
-    vtt_audio_device_t **devices = vtt_audio_get_devices(&device_count);
-
-    // Get existing submenu
-    GtkWidget *mic_menu = gtk_menu_item_get_submenu(GTK_MENU_ITEM(gui->mic_item));
-    if (!mic_menu) {
-        mic_menu = gtk_menu_new();
-        gtk_menu_item_set_submenu(GTK_MENU_ITEM(gui->mic_item), mic_menu);
-    }
-
-    // Clear existing items
-    GList *children = gtk_container_get_children(GTK_CONTAINER(mic_menu));
-    for (GList *iter = children; iter != NULL; iter = g_list_next(iter)) {
-        gtk_widget_destroy(GTK_WIDGET(iter->data));
-    }
-    g_list_free(children);
-
-    // Add "Default" option
-    GtkWidget *default_item = gtk_menu_item_new_with_label("System Default");
-    g_object_set_data(G_OBJECT(default_item), "device_index", GINT_TO_POINTER(-1));
-    g_object_set_data_full(G_OBJECT(default_item), "device_name", g_strdup("Default"), g_free);
-    g_signal_connect(default_item, "activate", G_CALLBACK(on_mic_selected), gui);
-    gtk_menu_shell_append(GTK_MENU_SHELL(mic_menu), default_item);
-
-    // Add separator
-    gtk_menu_shell_append(GTK_MENU_SHELL(mic_menu), gtk_separator_menu_item_new());
-
-    // Add all devices
-    for (int i = 0; i < device_count; i++) {
-        char label[256];
-        if (devices[i]->is_default) {
-            snprintf(label, sizeof(label), "%s (default)", devices[i]->name);
-        } else {
-            snprintf(label, sizeof(label), "%s", devices[i]->name);
-        }
-
-        GtkWidget *item = gtk_menu_item_new_with_label(label);
-        g_object_set_data(G_OBJECT(item), "device_index", GINT_TO_POINTER(devices[i]->index));
-        g_object_set_data_full(G_OBJECT(item), "device_name", g_strdup(devices[i]->name), g_free);
-        g_signal_connect(item, "activate", G_CALLBACK(on_mic_selected), gui);
-        gtk_menu_shell_append(GTK_MENU_SHELL(mic_menu), item);
-    }
-
-    gtk_widget_show_all(mic_menu);
-
-    // Free device list
-    vtt_audio_free_devices(devices, device_count);
-
-    vtt_log("Microphone menu updated (%d devices)", device_count);
-}
 
 // Rebuild model menu based on language selection
 // Menu always shows same model sizes - backend picks .en version or sets language
@@ -995,7 +1175,7 @@ static void rebuild_model_menu(vtt_gui_t *gui) {
 
             // Update menu label
             char label[256];
-            snprintf(label, sizeof(label), "Model: %s", new_model);
+            snprintf(label, sizeof(label), "Model: %.200s", new_model);
             GtkWidget *child = gtk_bin_get_child(GTK_BIN(gui->model_item));
             if (child && GTK_IS_LABEL(child)) {
                 gtk_label_set_text(GTK_LABEL(child), label);
@@ -1062,27 +1242,3 @@ static void rebuild_model_menu(vtt_gui_t *gui) {
 }
 
 // Periodic device check for hot-plug detection (called every 3 seconds)
-static gboolean check_audio_devices(gpointer user_data) {
-    vtt_gui_t *gui = (vtt_gui_t *)user_data;
-
-    // Get current device list
-    int device_count = 0;
-    vtt_audio_device_t **devices = vtt_audio_get_devices(&device_count);
-
-    // Get existing menu and count items
-    GtkWidget *mic_menu = gtk_menu_item_get_submenu(GTK_MENU_ITEM(gui->mic_item));
-    if (mic_menu) {
-        GList *children = gtk_container_get_children(GTK_CONTAINER(mic_menu));
-        int menu_item_count = g_list_length(children) - 2;  // Subtract "Default" and separator
-        g_list_free(children);
-
-        // If device count changed, refresh menu
-        if (menu_item_count != device_count) {
-            vtt_log("Audio devices changed (%d -> %d), refreshing menu", menu_item_count, device_count);
-            vtt_gui_update_microphones(gui);
-        }
-    }
-
-    vtt_audio_free_devices(devices, device_count);
-    return G_SOURCE_CONTINUE;  // Keep timer running
-}

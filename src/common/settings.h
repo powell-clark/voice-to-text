@@ -10,6 +10,7 @@ typedef struct {
     char *initial_prompt;
     int selected_device_index;
     int hotkey_keycode;  // X11 keycode for the hotkey (0 = use default)
+    bool append_newline;
 } vtt_settings_t;
 
 // Initialize settings with defaults

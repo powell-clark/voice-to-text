@@ -6,6 +6,7 @@
 typedef struct {
     void *display;
     int delay_ms;
+    int initial_delay_ms;
 } vtt_typing_t;
 
 // Initialize typing system
