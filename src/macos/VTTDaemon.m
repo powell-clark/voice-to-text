@@ -1322,9 +1322,30 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 }
 
 - (NSString *)transcribeWithCTranslate2:(NSString *)wavPath model:(NSString *)modelName {
+    // Locate whisper-ctranslate2 CLI in common locations (Apple Silicon uses /opt/homebrew)
+    NSArray<NSString *> *ct2Paths = @[
+        @"/opt/homebrew/bin/whisper-ctranslate2",  // Apple Silicon (arm64)
+        @"/usr/local/bin/whisper-ctranslate2"       // Intel Mac (x86_64)
+    ];
+
+    NSString *ct2Binary = nil;
+    for (NSString *path in ct2Paths) {
+        if ([[NSFileManager defaultManager] isExecutableFileAtPath:path]) {
+            ct2Binary = path;
+            break;
+        }
+    }
+
+    if (!ct2Binary) {
+        VTTLog(@"❌ whisper-ctranslate2 not found in /opt/homebrew/bin or /usr/local/bin");
+        return nil;
+    }
+
+    VTTLog(@"Using CT2 binary: %@", ct2Binary);
+
     // Call whisper-ctranslate2 CLI for fast transcription
     NSTask *task = [[NSTask alloc] init];
-    task.launchPath = @"/usr/local/bin/whisper-ctranslate2";
+    task.launchPath = ct2Binary;
 
     // Extract base model name (e.g., "CT2 small" → "small")
     NSString *baseModel = modelName;
@@ -1430,6 +1451,19 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     // Read raw PCM (recorded at device sample rate) into memory
     const char *raw_c = [rawPath UTF8String];
     FILE* raw = fopen(raw_c, "rb");
+    if (!raw) {
+        VTTLog(@"❌ [ERROR] Failed to open raw audio file: %s", raw_c);
+        self.statusMenuItem.title = @"Error: Audio file not found";
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSAlert *alert = [[NSAlert alloc] init];
+            alert.messageText = @"Audio File Error";
+            alert.informativeText = @"Failed to open the recorded audio file. It may have been deleted.";
+            alert.alertStyle = NSAlertStyleWarning;
+            [alert addButtonWithTitle:@"OK"];
+            [alert runModal];
+        });
+        return;
+    }
 
     fseek(raw, 0, SEEK_END);
     long bytesRaw = ftell(raw);
@@ -1603,6 +1637,10 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
             [alert addButtonWithTitle:@"OK"];
             [alert runModal];
         });
+        // Clean up temp files and memory before returning
+        [[NSFileManager defaultManager] removeItemAtPath:rawPath error:nil];
+        [[NSFileManager defaultManager] removeItemAtPath:@(wavFile) error:nil];
+        free(out_pcm);
         return;
     }
 
@@ -1654,6 +1692,10 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
             [alert addButtonWithTitle:@"OK"];
             [alert runModal];
         });
+        // Clean up temp files and memory before returning
+        [[NSFileManager defaultManager] removeItemAtPath:rawPath error:nil];
+        [[NSFileManager defaultManager] removeItemAtPath:@(wavFile) error:nil];
+        free(out_pcm);
         return;
     }
 
