@@ -1,4 +1,4 @@
-voice-to-text (1.0.1ubuntu4) noble; urgency=medium
+voice-to-text (1.0.2) noble; urgency=medium
 
   * Fix critical GTK thread-safety bug (prevent random crashes)
   * Fix Xlib threading bug (add XInitThreads)
