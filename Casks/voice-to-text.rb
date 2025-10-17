@@ -1,9 +1,8 @@
 cask "voice-to-text" do
-  version "0.3.16"
-  sha256 "19505142ed1cdf53e32c44a1b7b5c304864edc5f9f080c15d4fb926e1abcaa04"
+  version "0.3.17"
+  sha256 "3ca9ecfae1e06543414b176c25e3e7f457c047fb43c3c36a505fc00ad80f3411"
 
-  # For local development tap - uses local built file
-  url "file://#{ENV.fetch('HOME')}/projects/voice-to-text/VTT.app.tar.gz"
+  url "https://github.com/powell-clark/voice-to-text/releases/download/v#{version}/VTT.app.tar.gz"
 
   name "VTT"
   desc "Voice to Text - macOS menu bar app for real-time voice transcription"
