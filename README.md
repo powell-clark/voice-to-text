@@ -204,9 +204,11 @@ On first run, macOS requires permissions for microphone, accessibility, and inpu
 
 </details>
 
-**Hotkey not working**
-- System Settings → Privacy & Security → Input Monitoring
-- Enable "Voice to Text", restart app
+**Permissions not working**
+- System Settings → Privacy & Security
+- Remove VTT from Microphone, Accessibility, and Input Monitoring
+- Re-add by launching VTT and clicking "Check Permissions..."
+- Restart the app
 
 **No transcription**
 - Enable logging from the menu icon
