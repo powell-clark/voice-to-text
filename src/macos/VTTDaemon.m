@@ -1587,6 +1587,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
 
             // Clean up temp files
             [[NSFileManager defaultManager] removeItemAtPath:@(wavFile) error:nil];
+            [[NSFileManager defaultManager] removeItemAtPath:rawPath error:nil];
 
             free(out_pcm);
             return;
