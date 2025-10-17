@@ -5,6 +5,11 @@ VTT.app/
 *.zip
 vtt.rb
 
+# Build artifacts
+build/
+vtt-linux
+debian/files
+
 # Archives and packages
 *.tar.gz
 *.tar
