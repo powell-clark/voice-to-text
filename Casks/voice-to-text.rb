@@ -1,9 +1,9 @@
 cask "voice-to-text" do
-  version "0.1.0"
-  sha256 :no_check
+  version "0.3.15"
+  sha256 "fa6ad651ee3eb47c96f8586c1601c348278d3f706c8b0e7a47365ec83cdea076"
 
   # For local development tap - uses local built file
-  url "file://#{ENV.fetch("HOME")}/projects/voice-to-text/VTT.app.tar.gz"
+  url "file://#{ENV.fetch('HOME')}/projects/voice-to-text/VTT.app.tar.gz"
 
   name "VTT"
   desc "Voice to Text - macOS menu bar app for real-time voice transcription"
