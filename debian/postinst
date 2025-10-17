@@ -1,0 +1,59 @@
+#!/bin/bash
+set -e
+
+# postinst script for voice-to-text
+
+case "$1" in
+    configure)
+        echo "Installing Python dependencies for voice-to-text..."
+
+        # Install faster-whisper and ctranslate2 for transcription
+        # Use --break-system-packages for Python 3.12+
+        if ! python3 -m pip list 2>/dev/null | grep -q faster-whisper; then
+            python3 -m pip install --break-system-packages faster-whisper ctranslate2 || {
+                echo "Warning: Failed to install Python packages. You may need to install manually:"
+                echo "  python3 -m pip install --break-system-packages faster-whisper ctranslate2"
+            }
+        else
+            echo "faster-whisper is already installed"
+        fi
+
+        # Reload systemd user daemon
+        echo "Reloading systemd user daemon..."
+
+        # Note: We can't run systemctl --user commands as root during package installation
+        # Users need to enable/start the service themselves
+
+        echo ""
+        echo "============================================"
+        echo "Voice to Text installation complete!"
+        echo "============================================"
+        echo ""
+        echo "To start the application:"
+        echo "  systemctl --user daemon-reload"
+        echo "  systemctl --user start vtt"
+        echo ""
+        echo "To enable auto-start on login:"
+        echo "  systemctl --user enable vtt"
+        echo ""
+        echo "For GPU acceleration (NVIDIA), install CUDA:"
+        echo "  sudo apt install cuda-toolkit-12-6 libcudnn9-cuda-12"
+        echo ""
+        echo "Check status and logs:"
+        echo "  systemctl --user status vtt"
+        echo "  journalctl --user -u vtt -f"
+        echo ""
+        ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0
