@@ -1,6 +1,9 @@
 # Voice to Text - Offline Voice Transcription
 
-**Push-to-talk voice transcription** using OpenAI Whisper AI. Supports **99+ languages** with automatic detection. **100% offline** - no internet required.
+**Push-to-talk voice transcription** using OpenAI Whisper AI. 
+
+Supports **99+ languages** with automatic detection. 
+**100% offline** - no internet required.
 
 **Available for macOS and Linux** • **99+ Languages** • **GPU Accelerated** • **Push-to-Talk Interface**
 
