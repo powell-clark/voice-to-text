@@ -31,6 +31,7 @@ sudo apt update && sudo apt install voice-to-text
 ## Usage
 
 **macOS:** Hold **Right Alt** + speak
+
 **Linux:** Hold **Scroll Lock** + speak (customizable from tray menu)
 
 Text appears instantly in any application - Slack, Terminal, VS Code, browsers, email, anywhere you can type.
