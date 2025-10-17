@@ -370,6 +370,7 @@ static void audioInputCallback(void* userData,
                                                    action:nil
                                             keyEquivalent:@""];
     [self.micMenuItem setEnabled:NO]; // Read-only status
+    [self.micMenuItem setSubmenu:nil]; // Ensure no dropdown
     [self.menu addItem:self.micMenuItem];
 
     // Update microphone display and refresh periodically
@@ -2590,6 +2591,9 @@ transcription_complete:
 
 - (void)updateMicrophoneDisplay {
     if (!self.micMenuItem) return;
+
+    // Ensure no submenu is attached (remove any existing dropdown)
+    [self.micMenuItem setSubmenu:nil];
 
     // Get the system default input device
     AudioDeviceID deviceID = 0;
