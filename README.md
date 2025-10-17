@@ -1,102 +1,129 @@
 # Voice to Text
 
-**macOS • Linux**
+> **Push-to-talk voice transcription that actually works.** Runs locally on your Mac or Linux machine. No cloud. No subscriptions. No latency.
 
-Offline voice transcription with push-to-talk. Powered by OpenAI Whisper.
-
-| Platform | Install Method | Status |
-|----------|---------------|--------|
-| **macOS** | Homebrew Cask | ✅ Available |
-| **Linux** (Ubuntu/Debian) | PPA | ✅ Available |
-| **Windows** | — | 🔜 Coming Soon |
+[![macOS](https://img.shields.io/badge/macOS-11.0+-blue?logo=apple)](https://github.com/powell-clark/voice-to-text)
+[![Linux](https://img.shields.io/badge/Linux-Ubuntu%2024.04+-orange?logo=linux)](https://github.com/powell-clark/voice-to-text)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
 ---
 
-## Install
+## Why This Exists
 
-### macOS
+Dictation software is either:
+- **Cloud-based** (slow, privacy nightmare, requires internet)
+- **Expensive** (Dragon costs £300+)
+- **Clunky** (macOS dictation, Windows Speech Recognition)
+
+Voice to Text is **free, fast, and fully local**. Press a key, speak, release. Your words appear instantly in any application.
+
+Built on OpenAI's Whisper models, optimized for real-world use.
+
+---
+
+## Demo
+
+![Linux Menu](voice-to-text-linux-menu.png)
+
+*Press Right Alt (macOS) or Scroll Lock (Linux) → Speak → Release → Text appears*
+
+Works in: Slack, Terminal, VS Code, browsers, Notion, email - **anywhere you can type**.
+
+---
+
+## Quick Start
+
+### macOS (30 seconds)
 
 ```bash
 brew tap powell-clark/voice-to-text
 brew install --cask voice-to-text
 ```
 
-App runs in your menu bar. Grant permissions for Microphone, Accessibility, and Input Monitoring when prompted.
+Look for the microphone icon in your menu bar. Grant permissions. Done.
 
-### Linux (Ubuntu/Debian)
+**Hotkey:** Hold **Right Alt** + speak
+
+### Linux (1 minute)
 
 ```bash
 sudo add-apt-repository ppa:powellclark/voice-to-text
-sudo apt update
-sudo apt install voice-to-text
+sudo apt update && sudo apt install voice-to-text
 ```
 
-Runs as a systemd service with system tray icon. Starts automatically on login.
+Runs as a systemd service. Check your system tray.
+
+**Hotkey:** Hold **Scroll Lock** + speak
 
 ---
 
-## Usage
+## Features
 
-1. **Press and hold** the hotkey (Right Alt on macOS, Scroll Lock on Linux)
-2. **Speak** into your microphone
-3. **Release** to transcribe
-4. Text appears in your current application
+### 🎯 Core
+- **Push-to-talk recording** - Hold key, speak, release
+- **Instant transcription** - Text types into your active app
+- **100% offline** - No internet, no cloud, no tracking
+- **Menu/tray integration** - Configure without opening an app
 
-Everything runs locally. No internet required.
+### 🚀 Performance
+- **Multiple models** - Balance speed vs accuracy (tiny to large-v3)
+- **GPU acceleration** - 5-10x faster with NVIDIA CUDA
+- **Two backends** - whisper.cpp (lightweight) or faster-whisper (fast)
+- **Optimized English mode** - Uses .en models for better speed
+
+### 🌍 Languages
+- **English-only mode** - Fastest, uses optimized models
+- **99+ languages** - Auto-detects Chinese, Spanish, French, German, Japanese, Arabic, and more
 
 ---
 
 ## Configuration
 
-Click the menu/tray icon to configure:
+Click the menu/tray icon to adjust:
 
-- **Microphone** - Select input device
-- **Model** - Balance speed and accuracy (tiny/base/small/medium/large)
-- **Language** - English-only (faster) or multilingual (99+ languages)
-- **Hotkey** (Linux) - Customize recording key
-- **Logging** - Enable for debugging
+| Setting | Options | Default |
+|---------|---------|---------|
+| **Model** | tiny / base / **small** / medium / large-v3 | small |
+| **Backend** | whisper.cpp (W) / faster-whisper (CT2) | CT2 |
+| **Language** | English-only / Multilingual | English-only |
+| **Microphone** | System input devices | Default |
+| **Hotkey (Linux)** | Customize recording key | Scroll Lock |
 
-### Available Models
+### Model Comparison
 
-Models download automatically on first use:
-
-| Model | Size | Speed | Best For |
+| Model | Size | Speed | Use Case |
 |-------|------|-------|----------|
-| **tiny** | 39MB | Fastest | Quick tests |
-| **base** | 74MB | Fast | Simple dictation |
-| **small** | 244MB | **Recommended** | Best balance |
-| **medium** | 769MB | Slower | Higher accuracy |
-| **large-v3** | 1550MB | Slowest | Maximum accuracy |
+| **tiny** | 39 MB | ⚡⚡⚡⚡⚡ | Testing |
+| **base** | 74 MB | ⚡⚡⚡⚡ | Simple dictation |
+| **small** | 244 MB | ⚡⚡⚡ | **Recommended - best balance** |
+| **medium** | 769 MB | ⚡⚡ | Higher accuracy |
+| **large-v3** | 1.5 GB | ⚡ | Maximum accuracy |
 
-**Two backends available:**
+**Recommendation:** Start with **CT2 small** in **English-only mode**. Add GPU acceleration if you have NVIDIA hardware.
 
-- **W models** - whisper.cpp (C++, lightweight)
-- **CT2 models** - CTranslate2 + faster-whisper (Python, 5-10x faster with GPU)
+---
 
-**Recommended:** Start with **CT2 small** in English-only mode for best performance.
+## Advanced Setup
 
 ### GPU Acceleration (Linux)
 
-With NVIDIA GPU, transcription runs 5-10x faster. Install CUDA 12.6:
+For 5-10x faster transcription with NVIDIA GPUs:
 
 ```bash
+# Install CUDA 12.6
 sudo apt install cuda-toolkit-12-6 libcudnn9-cuda-12
-```
 
-Add to `~/.bashrc`:
-
-```bash
+# Add to ~/.bashrc
 export PATH=/usr/local/cuda-12.6/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib64:$LD_LIBRARY_PATH
-```
 
-Restart the service:
-
-```bash
+# Restart service
 systemctl --user restart vtt
 ```
 
-### Linux Service Management
+Verify: `python3.12 -c "import ctranslate2; print(ctranslate2.get_cuda_device_count())"`
+
+### Service Management (Linux)
 
 ```bash
 # Start/stop/restart
@@ -114,23 +141,11 @@ systemctl --user disable vtt
 
 ---
 
-## Supported Languages
-
-**English-only mode:** Uses optimized .en models for faster transcription
-
-**Multilingual mode:** Auto-detects from 99+ languages:
-
-- **European:** English, Spanish, French, German, Italian, Portuguese, Dutch, Polish, Russian, Turkish, Greek, Swedish, Danish, Norwegian, Finnish, Czech, Romanian, Hungarian, Ukrainian
-- **Asian:** Chinese, Japanese, Korean, Hindi, Vietnamese, Thai, Indonesian, Tamil
-- **Middle Eastern:** Arabic, Hebrew, Persian
-- **African:** Swahili, Afrikaans
-- **And many more...**
-
----
-
-## Build from Source
+## Build From Source
 
 ### macOS
+
+**Requirements:** macOS 11.0+, Xcode Command Line Tools
 
 ```bash
 git clone https://github.com/powell-clark/voice-to-text.git
@@ -139,21 +154,19 @@ cd voice-to-text
 # Install dependencies
 brew install cmake portaudio
 
-# Build whisper.cpp dependencies
+# Build
 make vendor-whisper
 make whisper-lib
-
-# Build app
 make complete
-open VTT.app
 
-# Install system-wide
-cp -R VTT.app /Applications/
+# Run or install
+open VTT.app
+# OR: cp -R VTT.app /Applications/
 ```
 
-**Requirements:** macOS 11.0+, Xcode Command Line Tools
+### Linux
 
-### Linux (Ubuntu/Debian)
+**Requirements:** Ubuntu 24.04+, GCC 11+, Python 3.12+
 
 ```bash
 git clone https://github.com/powell-clark/voice-to-text.git
@@ -161,11 +174,11 @@ cd voice-to-text
 
 # Install dependencies
 sudo apt install build-essential pkg-config portaudio19-dev \
-    libx11-dev libxtst-dev libxext-dev libgtk-3-dev \
-    libayatana-appindicator3-dev libnotify-dev \
-    python3.12 python3-pip
+  libx11-dev libxtst-dev libxext-dev libgtk-3-dev \
+  libayatana-appindicator3-dev libnotify-dev \
+  python3.12 python3-pip
 
-# Install Python transcription backend
+# Install Python backend
 python3.12 -m pip install --break-system-packages faster-whisper ctranslate2
 
 # Build
@@ -173,86 +186,135 @@ make -f Makefile.linux
 ./vtt-linux
 ```
 
-**Requirements:** Ubuntu 24.04+, GCC 11+, Python 3.12+
-
 ---
 
 ## Troubleshooting
 
 ### macOS
 
-**Hotkey not working:**
+**Hotkey not working**
 - System Settings → Privacy & Security → Input Monitoring
-- Enable Voice to Text, restart app
+- Enable "Voice to Text", restart app
 
-**No transcription:**
-- Enable logging from menu
+**No transcription**
+- Enable logging from the menu icon
 - Check logs: `log stream --predicate 'process == "VTT"'`
-- Try CT2 small model
+- Try switching to CT2 small model
 
 ### Linux
 
-**Hotkey not working:**
-- Verify X11: `echo $XDG_SESSION_TYPE` (must be x11, not wayland)
+**Hotkey not working**
+- Verify X11 (not Wayland): `echo $XDG_SESSION_TYPE`
+- Must return `x11` - Wayland support coming soon
 - Check logs: `tail -f ~/.local/share/voice-to-text/vtt.log`
 - Try customizing hotkey from tray menu
 
-**No system tray icon:**
+**No system tray icon**
 - Install AppIndicator: `sudo apt install libayatana-appindicator3-1`
-- Check service status: `systemctl --user status vtt`
-- GNOME users need AppIndicator extension
+- Check service: `systemctl --user status vtt`
+- GNOME users need the [AppIndicator extension](https://extensions.gnome.org/extension/615/appindicator-support/)
 
-**GPU not working:**
+**GPU not detected**
 - Check CUDA: `nvcc --version`
 - Test: `python3.12 -c "import ctranslate2; print(ctranslate2.get_cuda_device_count())"`
 - Restart after installing CUDA: `systemctl --user restart vtt`
 
-**Microphone issues:**
+**Microphone issues**
 - List devices: `pactl list sources short`
 - Test: `arecord -d 3 test.wav && aplay test.wav`
 - Select different mic from tray menu
 
 ---
 
+## Architecture
+
+```
+src/
+├── common/              # Cross-platform shared code
+│   ├── logging.c/h     # Debug logging
+│   ├── queue.c/h       # Audio buffer management
+│   ├── settings.c/h    # Configuration handling
+│   └── transcribe.py   # Python transcription backend
+├── macos/              # macOS implementation
+│   └── VTTDaemon.m     # Menu bar app + daemon
+└── linux/              # Linux implementation
+    ├── audio.c         # PortAudio recording
+    ├── keyboard.c      # X11 global hotkey hook
+    ├── typing.c        # XTest text injection
+    └── gui.c           # GTK3 system tray
+```
+
+**Tech Stack:**
+- **Audio:** PortAudio (cross-platform recording)
+- **Transcription:** whisper.cpp (C++) or faster-whisper (Python)
+- **Models:** OpenAI Whisper (tiny/base/small/medium/large-v3)
+- **UI:** macOS Cocoa / Linux GTK3
+- **Input:** X11 XTest (Linux) / Accessibility API (macOS)
+
+---
+
 ## Contributing
 
-Pull requests welcome. Ideas to contribute:
+Pull requests welcome. Use [conventional commits](https://www.conventionalcommits.org/):
+
+```
+feat: Add real-time streaming transcription
+fix: Resolve microphone detection on Ubuntu 24.10
+docs: Update GPU installation guide
+chore: Bump whisper.cpp to v1.5.4
+```
+
+### Ideas for Contributions
 
 **Features:**
-- Custom hotkey combinations
+- Custom hotkey combinations (e.g., Cmd+Shift+Space)
 - Transcription history viewer
-- Real-time streaming transcription
+- Real-time streaming (transcribe while speaking)
 - Windows/iOS/Android ports
 
 **Improvements:**
-- Better voice activity detection
-- Reduce model download sizes
-- Wayland support (Linux)
+- Voice activity detection (auto-stop recording)
+- Smaller model downloads (quantization)
+- Wayland support (replace X11)
 
 **Documentation:**
 - Video tutorials
 - Performance benchmarks
-- Integration guides (Vim, VS Code, etc.)
+- Integration guides (Vim, VS Code plugins)
 
-Use conventional commits: `feat:` `fix:` `docs:` `chore:`
+---
 
-### Repository Structure
+## Roadmap
 
-```
-src/
-├── common/              # Shared cross-platform code
-│   ├── logging.c/h
-│   ├── queue.c/h
-│   ├── settings.c/h
-│   └── transcribe.py    # Python transcription backend
-├── macos/               # macOS Objective-C implementation
-│   └── VTTDaemon.m      # Main app + menu bar
-└── linux/               # Linux C implementation
-    ├── audio.c          # PortAudio recording
-    ├── keyboard.c       # X11 global hotkey hook
-    ├── typing.c         # XTest text injection
-    └── gui.c            # GTK3 system tray
-```
+- [ ] **Windows support** - Native Win32 implementation
+- [ ] **Wayland support** - Replace X11 on Linux
+- [ ] **Streaming transcription** - Real-time as you speak
+- [ ] **Custom wake words** - "Computer, write this..."
+- [ ] **Model compression** - Smaller downloads via quantization
+- [ ] **Auto-punctuation** - Smart capitalization and punctuation
+
+---
+
+## Comparison
+
+| Feature | Voice to Text | macOS Dictation | Dragon | Whisper API |
+|---------|---------------|-----------------|--------|-------------|
+| **Privacy** | ✅ Local | ⚠️ Cloud | ✅ Local | ❌ Cloud |
+| **Cost** | ✅ Free | ✅ Free | ❌ £300+ | ❌ Pay per use |
+| **Speed** | ✅ Instant | ⚠️ 1-3s delay | ✅ Instant | ❌ Network lag |
+| **Accuracy** | ✅ Excellent | ⚠️ Good | ✅ Excellent | ✅ Excellent |
+| **Offline** | ✅ Yes | ❌ No | ✅ Yes | ❌ No |
+| **Linux** | ✅ Yes | ❌ No | ❌ No | ✅ API only |
+
+---
+
+## Credits
+
+Built with:
+- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) by Georgi Gerganov
+- [faster-whisper](https://github.com/guillaumekln/faster-whisper) by Guillaume Klein
+- [CTranslate2](https://github.com/OpenNMT/CTranslate2) by OpenNMT
+- [OpenAI Whisper](https://github.com/openai/whisper) models
 
 ---
 
@@ -264,10 +326,6 @@ See [LICENSE](LICENSE) for details.
 
 ---
 
-## Credits
+**Made with ❤️ for developers, writers, and anyone tired of typing.**
 
-Built with:
-- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) by Georgi Gerganov
-- [faster-whisper](https://github.com/guillaumekln/faster-whisper) by Guillaume Klein
-- [CTranslate2](https://github.com/OpenNMT/CTranslate2) by OpenNMT
-- [OpenAI Whisper](https://github.com/openai/whisper) models
+⭐ Star this repo if it saved your wrists
