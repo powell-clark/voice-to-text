@@ -23,6 +23,7 @@
 #include <time.h>
 #include <libnotify/notify.h>
 #include <glib.h>
+#include <X11/Xlib.h>
 
 #define MAX_RECORDING_HISTORY 20
 
@@ -459,6 +460,9 @@ static void signal_handler(int sig) {
 }
 
 int main(int argc, char *argv[]) {
+    // Initialize Xlib threading support (must be first Xlib call)
+    XInitThreads();
+
     // Singleton lock: ensure only one instance runs
     char lockfile[512];
     snprintf(lockfile, sizeof(lockfile), "%s/.local/share/voice-to-text/vtt-linux.lock", getenv("HOME"));
