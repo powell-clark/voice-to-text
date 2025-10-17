@@ -1,31 +1,23 @@
 # Voice to Text
 
-> **Push-to-talk voice transcription that actually works.** Runs locally on your Mac or Linux machine. No cloud. No subscriptions. No latency.
+Fast, reliable push-to-talk voice transcription using OpenAI Whisper with CTranslate2 backend and optional GPU acceleration.
 
 [![macOS](https://img.shields.io/badge/macOS-11.0+-blue?logo=apple)](https://github.com/powell-clark/voice-to-text)
 [![Linux](https://img.shields.io/badge/Linux-Ubuntu%2024.04+-orange?logo=linux)](https://github.com/powell-clark/voice-to-text)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
----
-
-## Why This Exists
-
-Dictation software is either:
-- **Cloud-based** (slow, privacy nightmare, requires internet)
-- **Expensive** (Dragon costs £300+)
-- **Clunky** (macOS dictation, Windows Speech Recognition)
-
-Voice to Text is **free, fast, and fully local**. Press a key, speak, release. Your words appear instantly in any application.
-
-Built on OpenAI's Whisper models, optimized for real-world use.
+**100% offline. No cloud. No subscriptions. Works on macOS and Linux.**
 
 ---
 
-## Demo
+## How It Works
 
-![Linux Menu](voice-to-text-linux-menu.png)
+<p align="center">
+  <img src="docs/images/mac-menu.png" width="300" alt="macOS Menu">
+  <img src="docs/images/voice-to-text-linux-menu.png" width="300" alt="Linux Menu">
+</p>
 
-*Press Right Alt (macOS) or Scroll Lock (Linux) → Speak → Release → Text appears*
+Press Right Alt (macOS) or Scroll Lock (Linux) → Speak → Release → Text appears
 
 Works in: Slack, Terminal, VS Code, browsers, Notion, email - **anywhere you can type**.
 
@@ -292,19 +284,6 @@ chore: Bump whisper.cpp to v1.5.4
 - [ ] **Custom wake words** - "Computer, write this..."
 - [ ] **Model compression** - Smaller downloads via quantization
 - [ ] **Auto-punctuation** - Smart capitalization and punctuation
-
----
-
-## Comparison
-
-| Feature | Voice to Text | macOS Dictation | Dragon | Whisper API |
-|---------|---------------|-----------------|--------|-------------|
-| **Privacy** | ✅ Local | ⚠️ Cloud | ✅ Local | ❌ Cloud |
-| **Cost** | ✅ Free | ✅ Free | ❌ £300+ | ❌ Pay per use |
-| **Speed** | ✅ Instant | ⚠️ 1-3s delay | ✅ Instant | ❌ Network lag |
-| **Accuracy** | ✅ Excellent | ⚠️ Good | ✅ Excellent | ✅ Excellent |
-| **Offline** | ✅ Yes | ❌ No | ✅ Yes | ❌ No |
-| **Linux** | ✅ Yes | ❌ No | ❌ No | ✅ API only |
 
 ---
 
