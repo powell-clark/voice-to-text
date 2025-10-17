@@ -12,7 +12,7 @@ cask "voice-to-text" do
   app "VTT.app"
 
   zap trash: [
-    "~/Library/Preferences/com.local.vtt.plist",
+    "~/Library/Preferences/com.powellclark.voice-to-text.plist",
     "/tmp/VTT",
   ]
 

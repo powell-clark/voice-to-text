@@ -6,7 +6,7 @@ set -e
 APP_NAME="VTT.app"
 SOURCE="$PWD/$APP_NAME"
 DEST="/Applications/$APP_NAME"
-BUNDLE_ID="com.local.vtt"
+BUNDLE_ID="com.powellclark.voice-to-text"
 
 # Parse arguments
 RESET_PERMS=false
