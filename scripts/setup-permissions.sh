@@ -5,7 +5,7 @@
 set -e
 
 APP_PATH="/Applications/VTT.app"
-BUNDLE_ID="com.local.vtt"
+BUNDLE_ID="com.powellclark.voice-to-text"
 
 echo "🔐 Setting up permissions for VTT..."
 

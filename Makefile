@@ -70,7 +70,7 @@ bundle: app
 	@echo '<plist version="1.0"><dict>' >> $(APP_NAME).app/Contents/Info.plist
 	@echo '    <key>CFBundleExecutable</key><string>VTT</string>' >> $(APP_NAME).app/Contents/Info.plist
 	@echo '    <key>CFBundleIconFile</key><string>AppIcon</string>' >> $(APP_NAME).app/Contents/Info.plist
-	@echo '    <key>CFBundleIdentifier</key><string>com.local.vtt</string>' >> $(APP_NAME).app/Contents/Info.plist
+	@echo '    <key>CFBundleIdentifier</key><string>com.powellclark.voice-to-text</string>' >> $(APP_NAME).app/Contents/Info.plist
 	@echo '    <key>CFBundleName</key><string>VTT</string>' >> $(APP_NAME).app/Contents/Info.plist
 	@echo '    <key>CFBundlePackageType</key><string>APPL</string>' >> $(APP_NAME).app/Contents/Info.plist
 	@echo '    <key>CFBundleVersion</key><string>1.0</string>' >> $(APP_NAME).app/Contents/Info.plist

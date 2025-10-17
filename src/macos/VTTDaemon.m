@@ -465,7 +465,7 @@ static void audioInputCallback(void* userData,
     [self setupKeyboardMonitoring];
 
     // Create serial transcription queue (FIFO, no drop)
-    self.transcribeQueue = dispatch_queue_create("com.local.vtt.transcribe", DISPATCH_QUEUE_SERIAL);
+    self.transcribeQueue = dispatch_queue_create("com.powellclark.voice-to-text.transcribe", DISPATCH_QUEUE_SERIAL);
     self.pendingJobs = 0;
     self.sessionCounter = 0;
 

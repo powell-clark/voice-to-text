@@ -15,18 +15,18 @@ cask "voice-to-text" do
   postflight do
     # Reset permissions to trigger fresh prompts
     system_command "/usr/bin/tccutil",
-                   args: ["reset", "Microphone", "com.local.vtt"],
+                   args: ["reset", "Microphone", "com.powellclark.voice-to-text"],
                    sudo: false
     system_command "/usr/bin/tccutil",
-                   args: ["reset", "Accessibility", "com.local.vtt"],
+                   args: ["reset", "Accessibility", "com.powellclark.voice-to-text"],
                    sudo: false
     system_command "/usr/bin/tccutil",
-                   args: ["reset", "ListenEvent", "com.local.vtt"],
+                   args: ["reset", "ListenEvent", "com.powellclark.voice-to-text"],
                    sudo: false
   end
 
   zap trash: [
-    "~/Library/Preferences/com.local.vtt.plist",
+    "~/Library/Preferences/com.powellclark.voice-to-text.plist",
     "~/Library/Preferences/VTT.plist",
     "/tmp/VTT",
   ]
