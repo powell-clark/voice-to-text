@@ -1,6 +1,6 @@
 cask "voice-to-text" do
-  version "0.3.17"
-  sha256 "3ca9ecfae1e06543414b176c25e3e7f457c047fb43c3c36a505fc00ad80f3411"
+  version "0.3.18"
+  sha256 "153843d5199f1e28a142e952560749224711896a992166a12c511153676ece37"
 
   url "https://github.com/powell-clark/voice-to-text/releases/download/v#{version}/VTT.app.tar.gz"
 
