@@ -24,7 +24,8 @@ int vtt_typing_init(vtt_typing_t *typing) {
     }
 
     typing->display = display;
-    typing->delay_ms = 1; // Small delay between keystrokes
+    typing->delay_ms = 4; // Small delay between keystrokes
+    typing->initial_delay_ms = 75; // Pause before first character
 
     vtt_log("Typing system initialized (XTest)");
     return 0;
@@ -65,6 +66,10 @@ void vtt_typing_type_text(vtt_typing_t *typing, const char *text) {
     size_t len = strlen(text);
 
     vtt_log("Typing %zu characters", len);
+
+    if (typing->initial_delay_ms > 0) {
+        usleep((useconds_t)typing->initial_delay_ms * 1000);
+    }
 
     for (size_t i = 0; i < len; i++) {
         char c = text[i];
@@ -213,7 +218,9 @@ void vtt_typing_type_text(vtt_typing_t *typing, const char *text) {
 
         if (keysym != 0) {
             type_key(display, keysym, shift);
-            usleep(typing->delay_ms * 1000);
+            if (typing->delay_ms > 0) {
+                usleep((useconds_t)typing->delay_ms * 1000);
+            }
         }
     }
 

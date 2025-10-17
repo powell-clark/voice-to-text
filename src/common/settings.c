@@ -14,6 +14,7 @@ static const char *DEFAULT_LANGUAGE = "en";  // Default to English
 static const char *DEFAULT_PREFIX = "[Voice] ";
 static const char *DEFAULT_PROMPT = "Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
 static const int DEFAULT_DEVICE = -1;
+static const bool DEFAULT_APPEND_NEWLINE = true;
 
 void vtt_settings_init(vtt_settings_t *settings) {
     settings->selected_model = strdup(DEFAULT_MODEL);
@@ -22,6 +23,7 @@ void vtt_settings_init(vtt_settings_t *settings) {
     settings->initial_prompt = strdup(DEFAULT_PROMPT);
     settings->selected_device_index = DEFAULT_DEVICE;
     settings->hotkey_keycode = 0;  // 0 = use default Right Alt
+    settings->append_newline = DEFAULT_APPEND_NEWLINE;
 }
 
 static char* escape_string(const char *str) {
@@ -121,7 +123,15 @@ int vtt_settings_load(vtt_settings_t *settings, const char *config_dir) {
         } else if (strcmp(key, "device") == 0) {
             settings->selected_device_index = atoi(value);
         } else if (strcmp(key, "hotkey") == 0) {
-            settings->hotkey_keycode = atoi(value);
+            int parsed = atoi(value);
+            if (parsed >= 8 && parsed <= 255) {
+                settings->hotkey_keycode = parsed;
+            } else {
+                vtt_log("Ignoring invalid hotkey value %d from settings", parsed);
+                settings->hotkey_keycode = 0;
+            }
+        } else if (strcmp(key, "newline") == 0) {
+            settings->append_newline = (atoi(value) != 0);
         }
     }
 
@@ -159,9 +169,11 @@ int vtt_settings_save(const vtt_settings_t *settings, const char *config_dir) {
 
     fprintf(f, "device=%d\n", settings->selected_device_index);
 
-    if (settings->hotkey_keycode != 0) {
+    if (settings->hotkey_keycode >= 8 && settings->hotkey_keycode <= 255) {
         fprintf(f, "hotkey=%d\n", settings->hotkey_keycode);
     }
+
+    fprintf(f, "newline=%d\n", settings->append_newline ? 1 : 0);
 
     fclose(f);
     vtt_log("Saved settings to %s", path);

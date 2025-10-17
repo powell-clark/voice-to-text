@@ -3,6 +3,9 @@
 
 #include <stdbool.h>
 
+#include "audio.h"
+#include "keyboard.h"
+
 typedef void (*vtt_model_callback_t)(const char *model, void *user_data);
 
 typedef struct {
@@ -10,14 +13,16 @@ typedef struct {
     void *menu;
     void *status_item;
     void *model_item;
-    void *mic_item;
+    void *mic_label_item;
     void *hotkey_item;
     void *prompt_item;
     void *logging_item;
     void *language_item;
     void *prompt_dialog;
     vtt_model_callback_t model_callback;
-    void *user_data;
+    vtt_audio_t *audio;
+    vtt_keyboard_t *keyboard;
+    bool *recording_flag;
     char *selected_model;
     char *selected_language;
     char *voice_prefix;
@@ -25,10 +30,15 @@ typedef struct {
     char *config_dir;
     bool logging_enabled;
     bool initializing;  // Prevent saving settings during GUI initialization
+    bool append_newline;
 } vtt_gui_t;
 
 // Initialize GUI
-int vtt_gui_init(vtt_gui_t *gui, void *app, const char *config_dir);
+int vtt_gui_init(vtt_gui_t *gui,
+                 vtt_audio_t *audio,
+                 vtt_keyboard_t *keyboard,
+                 bool *recording_flag,
+                 const char *config_dir);
 
 // Run GUI main loop
 void vtt_gui_run(vtt_gui_t *gui);
@@ -38,9 +48,6 @@ void vtt_gui_set_status(vtt_gui_t *gui, const char *status);
 
 // Update icon status
 void vtt_gui_set_icon(vtt_gui_t *gui, const char *icon_status);
-
-// Update microphone menu
-void vtt_gui_update_microphones(vtt_gui_t *gui);
 
 // Cleanup
 void vtt_gui_cleanup(vtt_gui_t *gui);

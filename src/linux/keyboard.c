@@ -2,6 +2,7 @@
 #include "../common/logging.h"
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
+#include <X11/XKBlib.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
@@ -41,6 +42,15 @@ int vtt_keyboard_init(vtt_keyboard_t *keyboard, vtt_keyboard_callback_t callback
         return -1;
     }
     keyboard->display = display;
+
+    Bool detectable_supported = False;
+    if (XkbSetDetectableAutoRepeat(display, True, &detectable_supported)) {
+        if (!detectable_supported) {
+            vtt_log("Detectable auto-repeat not supported; hotkey may generate repeats");
+        }
+    } else {
+        vtt_log("Failed to enable detectable auto-repeat; hotkey may generate repeats");
+    }
 
     // Get Scroll Lock keycode
     KeySym scroll_lock_sym = XK_Scroll_Lock;
