@@ -24,23 +24,26 @@ static int audio_callback(const void *input, void *output,
         int samples_to_copy = frameCount;
         int space_left = audio->buffer_size - audio->buffer_pos;
 
+        // Limit samples to available space
         if (samples_to_copy > space_left) {
             samples_to_copy = space_left;
-            // Mark that we've hit the buffer limit
-            if (space_left > 0 && !audio->buffer_full) {
-                audio->buffer_full = true;
-                vtt_log("Recording buffer full - max length reached (%d seconds)", MAX_RECORDING_SECONDS);
-
-                // Notify via callback if registered
-                if (audio->buffer_full_callback) {
-                    audio->buffer_full_callback(audio->callback_user_data);
-                }
-            }
         }
 
+        // Copy audio data
         if (samples_to_copy > 0) {
             memcpy(&audio->buffer[audio->buffer_pos], in, samples_to_copy * sizeof(short));
             audio->buffer_pos += samples_to_copy;
+        }
+
+        // Check if buffer is full after copying (fixes edge case where space_left == 0)
+        if (audio->buffer_pos >= audio->buffer_size && !audio->buffer_full) {
+            audio->buffer_full = true;
+            vtt_log("Recording buffer full - max length reached (%d seconds)", MAX_RECORDING_SECONDS);
+
+            // Notify via callback if registered
+            if (audio->buffer_full_callback) {
+                audio->buffer_full_callback(audio->callback_user_data);
+            }
         }
     }
 
