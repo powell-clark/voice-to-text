@@ -1,3 +1,15 @@
+voice-to-text (1.0.7) noble; urgency=medium
+
+  * Auto-install whisper.cpp during package installation for W model support
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Sun, 26 Oct 2025 13:51:05 +0000
+
+voice-to-text (1.0.6) noble; urgency=medium
+
+  * Add configurable newline key behavior (plain Return vs Shift+Return)
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Sun, 26 Oct 2025 13:43:56 +0000
+
 voice-to-text (1.0.5) noble; urgency=medium
 
   * Fix newline typing to use Shift+Return, preventing premature message

@@ -29,7 +29,11 @@ Depends: ${shlibs:Depends},
          libayatana-appindicator3-1,
          libnotify4,
          python3 (>= 3.10),
-         python3-pip
+         python3-pip,
+         git,
+         cmake,
+         g++,
+         make
 Recommends: cuda-toolkit-12-6,
             libcudnn9-cuda-12
 Suggests: nvidia-driver-550

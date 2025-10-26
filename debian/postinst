@@ -5,17 +5,45 @@ set -e
 
 case "$1" in
     configure)
-        echo "Installing Python dependencies for voice-to-text..."
+        echo "Installing dependencies for voice-to-text..."
 
         # Install faster-whisper and ctranslate2 for transcription
         # Use --break-system-packages for Python 3.12+
         if ! python3 -m pip list 2>/dev/null | grep -q faster-whisper; then
+            echo "Installing Python transcription backend..."
             python3 -m pip install --break-system-packages faster-whisper ctranslate2 || {
                 echo "Warning: Failed to install Python packages. You may need to install manually:"
                 echo "  python3 -m pip install --break-system-packages faster-whisper ctranslate2"
             }
         else
             echo "faster-whisper is already installed"
+        fi
+
+        # Install whisper.cpp for W model support
+        if ! command -v whisper-cli >/dev/null 2>&1; then
+            echo "Installing whisper.cpp for whisper.cpp model support..."
+            WHISPER_DIR="/opt/whisper.cpp"
+
+            if [ ! -d "$WHISPER_DIR" ]; then
+                echo "Downloading whisper.cpp..."
+                git clone https://github.com/ggerganov/whisper.cpp "$WHISPER_DIR" || {
+                    echo "Warning: Failed to download whisper.cpp"
+                    echo "You can install manually: sudo git clone https://github.com/ggerganov/whisper.cpp /opt/whisper.cpp"
+                }
+            fi
+
+            if [ -d "$WHISPER_DIR" ]; then
+                echo "Building whisper.cpp (this may take a few minutes)..."
+                cd "$WHISPER_DIR" && make -j$(nproc) && {
+                    ln -sf "$WHISPER_DIR/main" /usr/local/bin/whisper-cli
+                    echo "whisper-cli installed successfully"
+                } || {
+                    echo "Warning: Failed to build whisper.cpp"
+                    echo "You can build manually: cd /opt/whisper.cpp && sudo make"
+                }
+            fi
+        else
+            echo "whisper-cli is already installed"
         fi
 
         # Reload systemd user daemon
