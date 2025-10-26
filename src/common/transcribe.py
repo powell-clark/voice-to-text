@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 Faster-whisper wrapper for VTT Mac app
 Provides 5-10x speedup over whisper.cpp using CTranslate2 backend
