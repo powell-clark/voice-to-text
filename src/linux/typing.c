@@ -185,6 +185,7 @@ void vtt_typing_type_text(vtt_typing_t *typing, const char *text) {
         switch (c) {
             case '\n':
                 keysym = XK_Return;
+                shift = true;  // Use Shift+Return to insert newline without sending
                 break;
             case '\t':
                 keysym = XK_Tab;
