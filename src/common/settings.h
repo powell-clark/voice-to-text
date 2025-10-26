@@ -3,6 +3,11 @@
 
 #include <stdbool.h>
 
+typedef enum {
+    NEWLINE_PLAIN_RETURN = 0,   // Plain Return key (may send messages in chat apps)
+    NEWLINE_SHIFT_RETURN = 1    // Shift+Return (safer, won't send messages)
+} vtt_newline_type_t;
+
 typedef struct {
     char *selected_model;
     char *selected_language;  // Language code (e.g., "en", "es", "fr", "auto")
@@ -11,6 +16,7 @@ typedef struct {
     int selected_device_index;
     int hotkey_keycode;  // X11 keycode for the hotkey (0 = use default)
     bool append_newline;
+    vtt_newline_type_t newline_type;
 } vtt_settings_t;
 
 // Initialize settings with defaults

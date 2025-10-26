@@ -5,6 +5,7 @@
 
 #include "audio.h"
 #include "keyboard.h"
+#include "../common/settings.h"
 
 typedef void (*vtt_model_callback_t)(const char *model, void *user_data);
 
@@ -31,6 +32,7 @@ typedef struct {
     bool logging_enabled;
     bool initializing;  // Prevent saving settings during GUI initialization
     bool append_newline;
+    vtt_newline_type_t newline_type;
 } vtt_gui_t;
 
 // Initialize GUI

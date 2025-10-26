@@ -286,6 +286,8 @@ static void *transcription_worker(void *arg) {
 
                 // Type the text (optionally prepend newline between messages)
                 app->typing_active = true;
+                // Sync newline type setting
+                app->typing.newline_type = app->gui.newline_type;
                 if (app->gui.append_newline && app->typing_has_output) {
                     vtt_typing_type_text(&app->typing, "\n");
                 }
