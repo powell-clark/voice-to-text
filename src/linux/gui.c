@@ -159,6 +159,7 @@ static void populate_settings_snapshot(vtt_gui_t *gui, vtt_settings_t *settings)
     }
 
     settings->append_newline = gui->append_newline;
+    settings->newline_type = gui->newline_type;
 }
 
 static void copy_truncated(char *dest, size_t dest_size, const char *src) {
@@ -323,6 +324,8 @@ typedef struct {
     GtkTextBuffer *text_buffer;
     GtkWidget *dialog;
     GtkWidget *newline_toggle;
+    GtkWidget *newline_plain_radio;
+    GtkWidget *newline_shift_radio;
 } prompt_dialog_data_t;
 
 int vtt_gui_init(vtt_gui_t *gui,
@@ -348,6 +351,7 @@ int vtt_gui_init(vtt_gui_t *gui,
     gui->voice_prefix = strdup(settings.voice_prefix);
     gui->initial_prompt = strdup(settings.initial_prompt);
     gui->append_newline = settings.append_newline;
+    gui->newline_type = settings.newline_type;
 
     vtt_settings_cleanup(&settings);
 
@@ -819,6 +823,10 @@ static void on_prompt_reset(GtkButton *button, gpointer user_data) {
     if (data->newline_toggle) {
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->newline_toggle), TRUE);
     }
+
+    if (data->newline_shift_radio) {
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->newline_shift_radio), TRUE);
+    }
 }
 
 static void on_prompt_save(GtkButton *button, gpointer user_data) {
@@ -843,6 +851,12 @@ static void on_prompt_save(GtkButton *button, gpointer user_data) {
     if (data->newline_toggle) {
         data->gui->append_newline = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->newline_toggle));
         vtt_log("Updated newline setting: %s", data->gui->append_newline ? "on" : "off");
+    }
+
+    if (data->newline_shift_radio) {
+        bool use_shift = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->newline_shift_radio));
+        data->gui->newline_type = use_shift ? NEWLINE_SHIFT_RETURN : NEWLINE_PLAIN_RETURN;
+        vtt_log("Updated newline type: %s", use_shift ? "Shift+Return" : "Plain Return");
     }
 
     // Save settings to disk immediately
@@ -947,6 +961,29 @@ static void on_customize_prompt(GtkMenuItem *item, gpointer user_data) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(newline_toggle), gui->append_newline);
     gtk_box_pack_start(GTK_BOX(vbox), newline_toggle, FALSE, FALSE, 0);
     data->newline_toggle = newline_toggle;
+
+    // Newline type radio buttons
+    GtkWidget *newline_type_label = gtk_label_new("Newline key behavior:");
+    gtk_widget_set_halign(newline_type_label, GTK_ALIGN_START);
+    gtk_box_pack_start(GTK_BOX(vbox), newline_type_label, FALSE, FALSE, 5);
+
+    GtkWidget *newline_plain_radio = gtk_radio_button_new_with_label(NULL, "Plain Return (may send messages in chat apps)");
+    gtk_box_pack_start(GTK_BOX(vbox), newline_plain_radio, FALSE, FALSE, 0);
+    data->newline_plain_radio = newline_plain_radio;
+
+    GtkWidget *newline_shift_radio = gtk_radio_button_new_with_label_from_widget(
+        GTK_RADIO_BUTTON(newline_plain_radio),
+        "Shift+Return (safer, won't send messages)"
+    );
+    gtk_box_pack_start(GTK_BOX(vbox), newline_shift_radio, FALSE, FALSE, 0);
+    data->newline_shift_radio = newline_shift_radio;
+
+    // Set active radio button based on current setting
+    if (gui->newline_type == NEWLINE_SHIFT_RETURN) {
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(newline_shift_radio), TRUE);
+    } else {
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(newline_plain_radio), TRUE);
+    }
 
     // === BUTTON ROW ===
     GtkWidget *button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);

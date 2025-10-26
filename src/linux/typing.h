@@ -2,11 +2,13 @@
 #define VTT_TYPING_LINUX_H
 
 #include <stdbool.h>
+#include "../common/settings.h"
 
 typedef struct {
     void *display;
     int delay_ms;
     int initial_delay_ms;
+    vtt_newline_type_t newline_type;
 } vtt_typing_t;
 
 // Initialize typing system

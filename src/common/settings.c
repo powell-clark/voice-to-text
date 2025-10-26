@@ -15,6 +15,7 @@ static const char *DEFAULT_PREFIX = "[Voice] ";
 static const char *DEFAULT_PROMPT = "Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
 static const int DEFAULT_DEVICE = -1;
 static const bool DEFAULT_APPEND_NEWLINE = true;
+static const vtt_newline_type_t DEFAULT_NEWLINE_TYPE = NEWLINE_SHIFT_RETURN;
 
 void vtt_settings_init(vtt_settings_t *settings) {
     settings->selected_model = strdup(DEFAULT_MODEL);
@@ -24,6 +25,7 @@ void vtt_settings_init(vtt_settings_t *settings) {
     settings->selected_device_index = DEFAULT_DEVICE;
     settings->hotkey_keycode = 0;  // 0 = use default Right Alt
     settings->append_newline = DEFAULT_APPEND_NEWLINE;
+    settings->newline_type = DEFAULT_NEWLINE_TYPE;
 }
 
 static char* escape_string(const char *str) {
@@ -132,6 +134,9 @@ int vtt_settings_load(vtt_settings_t *settings, const char *config_dir) {
             }
         } else if (strcmp(key, "newline") == 0) {
             settings->append_newline = (atoi(value) != 0);
+        } else if (strcmp(key, "newline_type") == 0) {
+            int type = atoi(value);
+            settings->newline_type = (type == NEWLINE_PLAIN_RETURN) ? NEWLINE_PLAIN_RETURN : NEWLINE_SHIFT_RETURN;
         }
     }
 
@@ -174,6 +179,7 @@ int vtt_settings_save(const vtt_settings_t *settings, const char *config_dir) {
     }
 
     fprintf(f, "newline=%d\n", settings->append_newline ? 1 : 0);
+    fprintf(f, "newline_type=%d\n", settings->newline_type);
 
     fclose(f);
     vtt_log("Saved settings to %s", path);

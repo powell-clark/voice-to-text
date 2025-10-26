@@ -28,6 +28,7 @@ int vtt_typing_init(vtt_typing_t *typing) {
     typing->display = display;
     typing->delay_ms = 4; // Small delay between keystrokes
     typing->initial_delay_ms = 75; // Pause before first character
+    typing->newline_type = NEWLINE_SHIFT_RETURN; // Default to safer option
 
     vtt_log("Typing system initialized (XTest)");
     return 0;
@@ -185,7 +186,7 @@ void vtt_typing_type_text(vtt_typing_t *typing, const char *text) {
         switch (c) {
             case '\n':
                 keysym = XK_Return;
-                shift = true;  // Use Shift+Return to insert newline without sending
+                shift = (typing->newline_type == NEWLINE_SHIFT_RETURN);  // Use Shift+Return if configured
                 break;
             case '\t':
                 keysym = XK_Tab;
