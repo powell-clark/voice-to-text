@@ -1,3 +1,10 @@
+voice-to-text (1.0.5) noble; urgency=medium
+
+  * Fix newline typing to use Shift+Return, preventing premature message
+    sending
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Sun, 26 Oct 2025 10:02:58 +0000
+
 voice-to-text (1.0.4) noble; urgency=medium
 
   * Fix UTF-8 typing support for non-ASCII characters (Linux)
