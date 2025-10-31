@@ -88,6 +88,46 @@ def detect_device() -> tuple[str, str]:
             logger.info("Detected Intel Mac (x86_64)")
             return "cpu", "int8"
 
+    # Windows - Check for NVIDIA CUDA
+    elif system == "Windows":
+        try:
+            # Check if nvidia-smi exists and works
+            result = subprocess.run(['nvidia-smi.exe'],
+                                    capture_output=True,
+                                    timeout=2,
+                                    check=False)
+            if result.returncode == 0:
+                # CUDA GPU detected - check for cuDNN
+                import ctypes.util
+                # On Windows, cuDNN DLL is typically cudnn64_8.dll or cudnn64_9.dll
+                cudnn_lib = ctypes.util.find_library('cudnn64_8') or ctypes.util.find_library('cudnn64_9')
+
+                if cudnn_lib:
+                    # Both CUDA and cuDNN available - use GPU
+                    logger.info("✓ CUDA GPU detected with cuDNN - using GPU acceleration")
+
+                    try:
+                        gpu_info = subprocess.run(['nvidia-smi.exe', '--query-gpu=name', '--format=csv,noheader'],
+                                                 capture_output=True, text=True, timeout=2, check=False)
+                        if gpu_info.returncode == 0:
+                            gpu_name = gpu_info.stdout.strip().split('\n')[0]
+                            logger.info(f"✓ GPU: {gpu_name}")
+                    except:
+                        pass
+
+                    return "cuda", "float16"
+                else:
+                    # CUDA available but cuDNN missing - use CPU
+                    logger.warning("⚠ CUDA GPU detected but cuDNN not found - using CPU")
+                    logger.info("  Install cuDNN from: https://developer.nvidia.com/cudnn")
+                    return "cpu", "int8"
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+
+        # No CUDA - fall back to CPU
+        logger.info("CUDA not available - using CPU with INT8 quantization")
+        return "cpu", "int8"
+
     # Other platforms - default to CPU
     else:
         logger.info(f"Unknown platform: {system} - using CPU")
