@@ -1,3 +1,9 @@
+voice-to-text (1.0.8) noble; urgency=medium
+
+  * Fix Python shebang to use system Python instead of env Python
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Sun, 26 Oct 2025 14:22:04 +0000
+
 voice-to-text (1.0.7) noble; urgency=medium
 
   * Auto-install whisper.cpp during package installation for W model support

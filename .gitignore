@@ -25,3 +25,9 @@ debian/files
 
 # Claude Code session files
 .claude.md
+
+# Consciousness deployed copies
+.claude/hooks/
+.claude/skills/
+.claude/memory/
+!.claude/agents/
