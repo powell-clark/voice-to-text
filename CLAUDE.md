@@ -1,5 +1,16 @@
 # Voice-to-Text Project Instructions
 
+## Time Awareness
+
+**Include timestamp at start or end of EVERY response**
+- Format: `**Time now:** [YYYY-MM-DD HH:MM:SS TZ]`
+- **ALWAYS run the date command via Bash:** `date "+%Y-%m-%d %H:%M:%S %Z"`
+- Never guess or type timestamps manually - always execute the actual command
+- This ensures accurate timestamps regardless of model knowledge cutoff
+- The "Time now:" prefix makes it clear the timestamp reflects current time in the conversation
+
+---
+
 ## PPA Information
 - Launchpad account: `powellclark` (NO HYPHEN)
 - PPA target: `ppa:powellclark/voice-to-text`
