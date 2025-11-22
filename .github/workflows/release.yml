@@ -21,8 +21,25 @@ jobs:
 
       - name: Build VTT.app
         run: |
+          set -e
           make clean
+          make vendor-whisper || echo "⚠️ Vendor whisper failed, continuing..."
+          make whisper-lib || echo "⚠️ Whisper lib build failed, continuing..."
           make package
+
+          # Verify build artifacts
+          if [ ! -f VTT.app.tar.gz ]; then
+            echo "❌ Build failed: VTT.app.tar.gz not found"
+            exit 1
+          fi
+
+          # Verify app structure before packaging
+          tar -tzf VTT.app.tar.gz | grep -q "VTT.app/Contents/MacOS/VTT" || {
+            echo "❌ Invalid app bundle structure"
+            exit 1
+          }
+
+          echo "✅ Build verification passed"
 
       - name: Calculate SHA256
         id: sha256
@@ -38,6 +55,14 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
+      - name: Verify SHA256 calculated
+        run: |
+          if [ -z "${{ steps.sha256.outputs.sha256 }}" ]; then
+            echo "❌ SHA256 calculation failed"
+            exit 1
+          fi
+          echo "✅ SHA256: ${{ steps.sha256.outputs.sha256 }}"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -46,7 +71,14 @@ jobs:
             ## Installation
 
             ```bash
-            brew install powell-clark/voice-to-text/voice-to-text
+            brew upgrade powell-clark/voice-to-text/voice-to-text
+            ```
+
+            Or for first-time installation:
+
+            ```bash
+            brew tap powell-clark/voice-to-text
+            brew install --cask voice-to-text
             ```
 
             ## What's Changed
@@ -54,6 +86,13 @@ jobs:
             See commit history for details.
 
             **SHA256**: `${{ steps.sha256.outputs.sha256 }}`
+            **Version**: `v${{ steps.version.outputs.version }}`
+
+            ## Verification
+
+            ```bash
+            shasum -a 256 VTT.app.tar.gz
+            ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -99,8 +138,29 @@ jobs:
       - name: Commit and push cask update
         working-directory: homebrew-tap
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if there are changes
+          if git diff --quiet Casks/voice-to-text.rb; then
+            echo "⚠️ No changes to cask formula"
+            exit 0
+          fi
+
           git add Casks/voice-to-text.rb
           git commit -m "Update voice-to-text to v${{ steps.version.outputs.version }}"
-          git push
+
+          # Retry push up to 3 times with exponential backoff
+          for i in 1 2 3; do
+            if git push; then
+              echo "✅ Cask update pushed successfully"
+              exit 0
+            else
+              echo "⚠️ Push failed, attempt $i/3"
+              sleep $((2 ** i))
+            fi
+          done
+
+          echo "❌ Failed to push cask update after 3 attempts"
+          exit 1
