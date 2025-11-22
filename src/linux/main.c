@@ -3,10 +3,12 @@
 #include "typing.h"
 #include "transcribe.h"
 #include "gui.h"
+#include "wayland_detect.h"
 #include "../common/logging.h"
 #include "../common/queue.h"
 #include "../common/settings.h"
 #include "../common/crash_handler.h"
+#include "../common/error_handler.h"
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -504,6 +506,25 @@ int main(int argc, char *argv[]) {
     vtt_log("===========================================");
     vtt_log("Voice to Text - Starting");
     vtt_log("===========================================");
+
+    // Detect Wayland and warn users
+    if (vtt_is_wayland_session()) {
+        const char *compositor = vtt_get_wayland_compositor();
+        vtt_log("WARNING: Wayland session detected (compositor: %s)", compositor);
+        vtt_log("Native Wayland support is experimental");
+
+        if (vtt_has_xwayland()) {
+            vtt_log("XWayland detected - will use X11 compatibility mode");
+        } else {
+            vtt_log("ERROR: XWayland not available");
+            vtt_error_notify(VTT_ERROR_GENERIC,
+                "Wayland detected but XWayland not available. Please use X11 session.");
+            notify_uninit();
+            return 1;
+        }
+    } else {
+        vtt_log("X11 session detected");
+    }
 
     // Initialize libnotify
     if (!notify_init("Voice to Text")) {
