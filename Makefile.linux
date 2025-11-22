@@ -24,6 +24,8 @@ BUILD_DIR = build
 COMMON_SRCS = $(SRC_DIR)/common/logging.c $(SRC_DIR)/common/queue.c $(SRC_DIR)/common/settings.c $(SRC_DIR)/common/crash_handler.c $(SRC_DIR)/common/error_handler.c $(SRC_DIR)/common/transcribe_timeout.c
 LINUX_SRCS = $(SRC_DIR)/linux/audio.c \
              $(SRC_DIR)/linux/keyboard.c \
+             $(SRC_DIR)/linux/keyboard_wayland.c \
+             $(SRC_DIR)/linux/wayland_detect.c \
              $(SRC_DIR)/linux/typing.c \
              $(SRC_DIR)/linux/transcribe.c \
              $(SRC_DIR)/linux/gui.c \
