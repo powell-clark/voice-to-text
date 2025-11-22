@@ -1,11 +1,19 @@
 #include "transcribe.h"
 #include "../common/logging.h"
+#include "../common/error_handler.h"
+#include "../common/transcribe_timeout.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <errno.h>
+#include <pthread.h>
+#include <time.h>
 
 #define MAX_OUTPUT 8192
+#define TRANSCRIPTION_TIMEOUT 60  // 60 seconds max
 
 // Detect if model is whisper.cpp (W models) or CTranslate2
 // W models: tiny, base, small, medium, large (not prefixed with CT2)
@@ -81,6 +89,7 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
         if (!whisper_cli) {
             vtt_log("ERROR: whisper-cli not found. Try installing whisper.cpp or use CT2 models.");
             vtt_log("Searched: /usr/bin, /usr/local/bin, ./third_party/whisper.cpp/build/bin");
+            vtt_error_notify(VTT_ERROR_MODEL_LOAD_FAILED, "whisper-cli not found - install whisper.cpp or use CT2 models");
             return NULL;
         }
 
@@ -125,6 +134,9 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
         if (access(model_file, R_OK) != 0) {
             vtt_log("ERROR: Model file not found: %s", model_file);
             vtt_log("Download with: bash third_party/whisper.cpp/models/download-ggml-model.sh %s", model_file_name);
+            char error_msg[256];
+            snprintf(error_msg, sizeof(error_msg), "Model file not found: %s", model_file_name);
+            vtt_error_notify(VTT_ERROR_MODEL_LOAD_FAILED, error_msg);
             return NULL;
         }
 
@@ -188,27 +200,48 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
                  python_path, script_path, audio_path, ct2_model, language_to_use);
     }
 
-    FILE *fp = popen(cmd, "r");
+    // Use timeout wrapper
+    int timed_out = 0;
+    pid_t child_pid = 0;
+    time_t start_time = time(NULL);
+
+    vtt_log("Starting transcription (timeout: %ds)", TRANSCRIPTION_TIMEOUT);
+    FILE *fp = popen_with_timeout(cmd, TRANSCRIPTION_TIMEOUT, &timed_out, &child_pid);
+
     if (!fp) {
         vtt_log("Failed to run transcription");
+        vtt_error_notify(VTT_ERROR_TRANSCRIPTION_FAILED, "Could not start transcription process");
         return NULL;
     }
 
-    // Read output
+    // Read output with timeout check
     char buffer[MAX_OUTPUT] = {0};
     size_t total_read = 0;
 
     while (total_read < MAX_OUTPUT - 1) {
+        // Check if timeout exceeded
+        if (time(NULL) - start_time > TRANSCRIPTION_TIMEOUT) {
+            vtt_log("Transcription timeout exceeded (%ds), killing process %d", TRANSCRIPTION_TIMEOUT, child_pid);
+            kill(child_pid, SIGKILL);
+            pclose_with_timeout(fp, child_pid);
+            vtt_error_notify(VTT_ERROR_TRANSCRIPTION_TIMEOUT, "Transcription took longer than 60 seconds");
+            return NULL;
+        }
+
         size_t read = fread(buffer + total_read, 1, MAX_OUTPUT - total_read - 1, fp);
         if (read == 0) break;
         total_read += read;
     }
     buffer[total_read] = '\0';
 
-    int status = pclose(fp);
+    int status = pclose_with_timeout(fp, child_pid);
+
+    time_t elapsed = time(NULL) - start_time;
+    vtt_log("Transcription completed in %ld seconds", elapsed);
 
     if (status != 0) {
         vtt_log("Transcription failed with status %d", status);
+        vtt_error_notify(VTT_ERROR_TRANSCRIPTION_FAILED, "Transcription process returned error");
         return NULL;
     }
 
