@@ -6,6 +6,7 @@
 #include "../common/logging.h"
 #include "../common/queue.h"
 #include "../common/settings.h"
+#include "../common/crash_handler.h"
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -491,6 +492,14 @@ int main(int argc, char *argv[]) {
     char log_dir[512];
     snprintf(log_dir, sizeof(log_dir), "%s/.local/share/voice-to-text", getenv("HOME"));
     vtt_log_init(log_dir);
+
+    // Initialize crash handler
+    crash_handler_init(log_dir);
+
+    // Check for previous crash
+    if (crash_handler_has_previous_crash()) {
+        vtt_log("WARNING: Previous crash detected - log available at %s", crash_handler_get_log_path());
+    }
 
     vtt_log("===========================================");
     vtt_log("Voice to Text - Starting");
