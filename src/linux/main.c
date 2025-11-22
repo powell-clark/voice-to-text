@@ -9,6 +9,7 @@
 #include "../common/settings.h"
 #include "../common/crash_handler.h"
 #include "../common/error_handler.h"
+#include "../common/recording_indicator.h"
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -36,11 +37,13 @@ typedef struct {
     vtt_typing_t typing;
     vtt_gui_t gui;
     vtt_queue_t queue;
+    vtt_recording_indicator_t recording_indicator;
     pthread_t worker_thread;
     bool running;
     bool recording;
     volatile bool typing_active;
     bool typing_has_output;
+    time_t recording_start_time;
 } vtt_app_t;
 
 static vtt_app_t *g_app = NULL;
@@ -199,6 +202,19 @@ static gboolean show_notification_idle(gpointer user_data) {
     return G_SOURCE_REMOVE;
 }
 
+// GLib timeout callback to update recording indicator every second
+static gboolean update_recording_indicator_timeout(gpointer user_data) {
+    vtt_app_t *app = (vtt_app_t *)user_data;
+
+    if (app->recording && app->recording_start_time > 0) {
+        int duration = (int)(time(NULL) - app->recording_start_time);
+        vtt_recording_indicator_update(&app->recording_indicator, duration);
+    }
+
+    // Keep the timeout running
+    return G_SOURCE_CONTINUE;
+}
+
 // Audio buffer full callback (called from audio thread)
 static void on_buffer_full(void *user_data) {
     (void)user_data;
@@ -228,6 +244,10 @@ static void *transcription_worker(void *arg) {
         const char *actual_filename = is_truncated ? (audio_file + 10) : audio_file;
 
         vtt_log("Processing: %s%s", actual_filename, is_truncated ? " (TRUNCATED)" : "");
+
+        // Show transcribing notification
+        vtt_recording_indicator_transcribing(&app->recording_indicator);
+
         vtt_gui_set_status(&app->gui, "Transcribing...");
         vtt_gui_set_icon(&app->gui, "processing");
 
@@ -371,12 +391,18 @@ static void on_key_event(vtt_key_event_t event) {
         // Start recording
         vtt_log("Key pressed - starting recording");
         g_app->recording = true;
+        g_app->recording_start_time = time(NULL);
+
         vtt_gui_set_status(&g_app->gui, "Recording...");
         vtt_gui_set_icon(&g_app->gui, "recording");
+
+        // Show recording indicator notification
+        vtt_recording_indicator_start(&g_app->recording_indicator, 120);
 
         if (vtt_audio_start_recording(&g_app->audio) != 0) {
             vtt_log("Failed to start recording");
             g_app->recording = false;
+            vtt_recording_indicator_stop(&g_app->recording_indicator);
             vtt_gui_set_status(&g_app->gui, "Error: Recording failed");
             vtt_gui_set_icon(&g_app->gui, "ready");
         }
@@ -385,6 +411,9 @@ static void on_key_event(vtt_key_event_t event) {
         // Stop recording
         vtt_log("Key released - stopping recording");
         g_app->recording = false;
+
+        // Stop recording indicator
+        vtt_recording_indicator_stop(&g_app->recording_indicator);
 
         char *audio_file = vtt_audio_stop_recording(&g_app->audio);
         if (audio_file) {
@@ -628,6 +657,9 @@ int main(int argc, char *argv[]) {
     vtt_log("All systems initialized");
     vtt_gui_set_status(&app.gui, "Ready");
     vtt_gui_set_icon(&app.gui, "ready");
+
+    // Install periodic timer for updating recording indicator (every 1 second)
+    g_timeout_add_seconds(1, update_recording_indicator_timeout, &app);
 
     // Run GUI main loop (blocks until quit)
     vtt_gui_run(&app.gui);

@@ -1,0 +1,113 @@
+# Valgrind suppressions for Voice to Text
+# Suppresses known GTK/GLib/PortAudio/X11 leaks that are not our responsibility
+
+# GLib type system initialization
+{
+   glib-type-system-init
+   Memcheck:Leak
+   ...
+   fun:g_type_*
+}
+
+# GLib thread initialization
+{
+   glib-thread-init
+   Memcheck:Leak
+   ...
+   fun:g_thread_*
+}
+
+# GTK initialization
+{
+   gtk-init
+   Memcheck:Leak
+   ...
+   fun:gtk_init*
+}
+
+# GObject construction
+{
+   gobject-new
+   Memcheck:Leak
+   ...
+   fun:g_object_new*
+}
+
+# D-Bus initialization
+{
+   dbus-init
+   Memcheck:Leak
+   ...
+   fun:dbus_*
+}
+
+# libnotify initialization
+{
+   libnotify-init
+   Memcheck:Leak
+   ...
+   fun:notify_init
+}
+
+# PortAudio initialization
+{
+   portaudio-init
+   Memcheck:Leak
+   ...
+   fun:Pa_Initialize
+}
+
+# X11/XLib leaks
+{
+   xlib-init
+   Memcheck:Leak
+   ...
+   fun:XInitThreads
+}
+
+{
+   xlib-display
+   Memcheck:Leak
+   ...
+   fun:XOpenDisplay
+}
+
+# Fontconfig (used by GTK)
+{
+   fontconfig-init
+   Memcheck:Leak
+   ...
+   obj:*/libfontconfig.so.*
+}
+
+# Pango (GTK text rendering)
+{
+   pango-init
+   Memcheck:Leak
+   ...
+   obj:*/libpango*.so.*
+}
+
+# GDK (GTK drawing)
+{
+   gdk-init
+   Memcheck:Leak
+   ...
+   fun:gdk_*
+}
+
+# GIO (GLib I/O)
+{
+   gio-init
+   Memcheck:Leak
+   ...
+   fun:g_io_*
+}
+
+# GSettings
+{
+   gsettings-init
+   Memcheck:Leak
+   ...
+   fun:g_settings_*
+}
