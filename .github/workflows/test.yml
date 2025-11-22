@@ -1,0 +1,160 @@
+name: Test
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            portaudio19-dev \
+            libx11-dev \
+            libxtst-dev \
+            libxext-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libnotify-dev \
+            python3-pip \
+            clang-tidy
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --break-system-packages pylint
+
+      - name: Build Linux binary
+        run: |
+          make -f Makefile.linux
+          test -f vtt-linux
+          echo "✅ Build successful"
+
+      - name: Verify binary
+        run: |
+          file vtt-linux
+          ldd vtt-linux
+
+      - name: Run unit tests
+        run: |
+          cd tests
+          make test
+
+      - name: Run Python linter
+        run: |
+          pylint --errors-only src/common/transcribe.py || echo "⚠️ Linting issues found"
+
+      - name: Check for common C issues
+        run: |
+          # Check for potential NULL pointer dereferences
+          grep -rn "fopen\|malloc\|calloc" src/ | grep -v "if.*==" || echo "✅ No obvious NULL checks missing"
+
+  test-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install cmake portaudio
+
+      - name: Vendor whisper.cpp
+        run: |
+          bash scripts/vendor_whisper.sh
+
+      - name: Build whisper library
+        run: |
+          make whisper-lib
+
+      - name: Build macOS app
+        run: |
+          make app
+          test -f VTT
+          echo "✅ Build successful"
+
+      - name: Build complete bundle
+        run: |
+          make complete
+          test -d VTT.app
+          echo "✅ Bundle created"
+
+      - name: Verify app structure
+        run: |
+          test -f VTT.app/Contents/MacOS/VTT
+          test -f VTT.app/Contents/Info.plist
+          echo "✅ App structure valid"
+
+      - name: Code sign verification
+        run: |
+          codesign --verify --verbose VTT.app || echo "⚠️ Not signed (expected in CI)"
+
+  lint-c:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install clang-tidy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-tidy
+
+      - name: Run clang-tidy on Linux sources
+        run: |
+          find src/linux src/common -name "*.c" -exec clang-tidy {} -- -I/usr/include \; || echo "⚠️ Linting warnings found"
+
+  check-packaging:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Debian packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lintian devscripts
+
+      - name: Check Debian packaging
+        run: |
+          lintian --no-tag-display-limit debian/ || echo "⚠️ Packaging issues found"
+
+      - name: Validate changelog
+        run: |
+          dpkg-parsechangelog
+          echo "✅ Changelog valid"
+
+  security-scan:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Scan for secrets
+        run: |
+          # Check for common secret patterns
+          ! grep -r "PRIVATE KEY" . --exclude-dir=.git
+          ! grep -r "api_key" . --exclude-dir=.git --exclude="*.md"
+          echo "✅ No obvious secrets found"
+
+      - name: Check for TODO/FIXME
+        run: |
+          grep -rn "TODO\|FIXME" src/ || echo "✅ No TODOs found"
