@@ -1,5 +1,6 @@
 #include "audio.h"
 #include "../common/logging.h"
+#include "../common/error_handler.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -54,12 +55,20 @@ int vtt_audio_init(vtt_audio_t *audio) {
     PaError err = Pa_Initialize();
     if (err != paNoError) {
         vtt_log("PortAudio init failed: %s", Pa_GetErrorText(err));
+        vtt_error_notify(VTT_ERROR_MICROPHONE_INIT, Pa_GetErrorText(err));
         return -1;
     }
 
     audio->sample_rate = SAMPLE_RATE;
     audio->buffer_size = SAMPLE_RATE * MAX_RECORDING_SECONDS;
     audio->buffer = malloc(audio->buffer_size * sizeof(short));
+    if (!audio->buffer) {
+        vtt_log("Failed to allocate audio buffer");
+        vtt_error_notify(VTT_ERROR_GENERIC, "Failed to allocate memory for audio buffer");
+        Pa_Terminate();
+        return -1;
+    }
+
     audio->buffer_pos = 0;
     audio->recording = false;
     audio->stream = NULL;
@@ -238,6 +247,11 @@ int vtt_audio_open_stream(vtt_audio_t *audio) {
                                    paInt16, SAMPLE_RATE,
                                    FRAMES_PER_BUFFER,
                                    audio_callback, audio);
+        if (err != paNoError) {
+            vtt_log("Failed to open default audio stream: %s", Pa_GetErrorText(err));
+            vtt_error_notify(VTT_ERROR_MICROPHONE_ACCESS, Pa_GetErrorText(err));
+            return -1;
+        }
     } else {
         // Use selected device
         PaStreamParameters inputParams;
