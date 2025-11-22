@@ -179,6 +179,41 @@ make -f Makefile.linux
 
 ---
 
+## Developer Tools
+
+### First-Run Setup Wizard
+
+Check system requirements and test your microphone:
+```bash
+cd tools
+./first_run_wizard.sh
+```
+
+### Benchmark Models
+
+Compare performance across all models:
+```bash
+# Record test audio
+arecord -d 10 -f S16_LE -r 16000 -c 1 test.wav
+
+# Run benchmark
+cd tools
+./benchmark.sh test.wav results.md
+```
+
+### Crash Test
+
+Validate crash handler:
+```bash
+cd tools
+make crash_test
+./crash_test segfault
+```
+
+See `tools/README.md` for complete documentation.
+
+---
+
 ## Troubleshooting
 
 ### macOS
