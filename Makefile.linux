@@ -21,12 +21,13 @@ SRC_DIR = src
 BUILD_DIR = build
 
 # Source files
-COMMON_SRCS = $(SRC_DIR)/common/logging.c $(SRC_DIR)/common/queue.c $(SRC_DIR)/common/settings.c $(SRC_DIR)/common/crash_handler.c $(SRC_DIR)/common/error_handler.c $(SRC_DIR)/common/transcribe_timeout.c
+COMMON_SRCS = $(SRC_DIR)/common/logging.c $(SRC_DIR)/common/queue.c $(SRC_DIR)/common/settings.c $(SRC_DIR)/common/crash_handler.c $(SRC_DIR)/common/error_handler.c $(SRC_DIR)/common/transcribe_timeout.c $(SRC_DIR)/common/recording_indicator.c
 LINUX_SRCS = $(SRC_DIR)/linux/audio.c \
              $(SRC_DIR)/linux/keyboard.c \
              $(SRC_DIR)/linux/keyboard_wayland.c \
              $(SRC_DIR)/linux/wayland_detect.c \
              $(SRC_DIR)/linux/typing.c \
+             $(SRC_DIR)/linux/typing_wayland.c \
              $(SRC_DIR)/linux/transcribe.c \
              $(SRC_DIR)/linux/gui.c \
              $(SRC_DIR)/linux/main.c
@@ -34,9 +35,18 @@ LINUX_SRCS = $(SRC_DIR)/linux/audio.c \
 SRCS = $(COMMON_SRCS) $(LINUX_SRCS)
 OBJS = $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-.PHONY: all clean install
+.PHONY: all clean install asan debug
 
 all: $(TARGET)
+
+# AddressSanitizer build (for leak detection)
+asan: CFLAGS += -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -g -O1
+asan: LDFLAGS += -fsanitize=address -fsanitize=undefined
+asan: clean $(TARGET)
+
+# Debug build with symbols
+debug: CFLAGS += -g -O0 -DDEBUG
+debug: clean $(TARGET)
 
 $(TARGET): $(OBJS)
 	@echo "Linking $(TARGET)..."
