@@ -21,7 +21,7 @@ SRC_DIR = src
 BUILD_DIR = build
 
 # Source files
-COMMON_SRCS = $(SRC_DIR)/common/logging.c $(SRC_DIR)/common/queue.c $(SRC_DIR)/common/settings.c
+COMMON_SRCS = $(SRC_DIR)/common/logging.c $(SRC_DIR)/common/queue.c $(SRC_DIR)/common/settings.c $(SRC_DIR)/common/crash_handler.c
 LINUX_SRCS = $(SRC_DIR)/linux/audio.c \
              $(SRC_DIR)/linux/keyboard.c \
              $(SRC_DIR)/linux/typing.c \
