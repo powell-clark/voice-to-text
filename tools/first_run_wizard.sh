@@ -98,6 +98,74 @@ else
     DEPS_OK=false
 fi
 
+# Check for Whisper models
+echo ""
+echo "=========================================="
+echo "Whisper Model Check"
+echo "=========================================="
+echo ""
+
+MODEL_DIR="${HOME}/.cache/whisper"
+MODEL_FOUND=false
+
+if [ -d "$MODEL_DIR" ]; then
+    MODEL_COUNT=$(find "$MODEL_DIR" -name "ggml-*.bin" -type f 2>/dev/null | wc -l)
+    if [ "$MODEL_COUNT" -gt 0 ]; then
+        echo -e "${GREEN}✓${NC} Found $MODEL_COUNT Whisper model(s) in $MODEL_DIR"
+        echo ""
+        echo "Installed models:"
+        find "$MODEL_DIR" -name "ggml-*.bin" -type f -exec basename {} \; | sed 's/^/  - /'
+        MODEL_FOUND=true
+    fi
+fi
+
+if [ "$MODEL_FOUND" = false ]; then
+    echo -e "${YELLOW}⚠${NC} No Whisper models found in $MODEL_DIR"
+    echo ""
+    echo "Voice to Text requires a Whisper model for transcription."
+    echo "Recommended: small.en (244 MB, good accuracy, fast)"
+    echo ""
+    read -p "Download small.en model now? (y/n) " -n 1 -r
+    echo ""
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        # Check if download_model.sh exists
+        DOWNLOAD_SCRIPT="${BASH_SOURCE%/*}/download_model.sh"
+        if [ ! -f "$DOWNLOAD_SCRIPT" ]; then
+            DOWNLOAD_SCRIPT="./tools/download_model.sh"
+        fi
+
+        if [ -f "$DOWNLOAD_SCRIPT" ]; then
+            echo ""
+            echo "Downloading small.en model (244 MB)..."
+            bash "$DOWNLOAD_SCRIPT" small.en
+
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}✓${NC} Model downloaded successfully"
+                MODEL_FOUND=true
+            else
+                echo -e "${RED}✗${NC} Model download failed"
+                echo "  You can download manually later with:"
+                echo "  $DOWNLOAD_SCRIPT small.en"
+                DEPS_OK=false
+            fi
+        else
+            echo -e "${RED}✗${NC} Model downloader script not found"
+            echo "  Download manually from:"
+            echo "  https://huggingface.co/ggerganov/whisper.cpp/tree/main"
+            DEPS_OK=false
+        fi
+    else
+        echo ""
+        echo "You can download a model later with:"
+        echo "  ./tools/download_model.sh small.en"
+        echo ""
+        echo "Or list all available models:"
+        echo "  ./tools/download_model.sh list"
+        DEPS_OK=false
+    fi
+fi
+
 # Test microphone
 echo ""
 echo "=========================================="
