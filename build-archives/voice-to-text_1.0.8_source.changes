@@ -1,0 +1,47 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Format: 1.8
+Date: Sun, 26 Oct 2025 14:22:04 +0000
+Source: voice-to-text
+Built-For-Profiles: noudeb
+Architecture: source
+Version: 1.0.8
+Distribution: noble
+Urgency: medium
+Maintainer: Emmanuel Powell-Clark <emmanuel@powellclark.com>
+Changed-By: Emmanuel Powell-Clark <emmanuel@powellclark.com>
+Changes:
+ voice-to-text (1.0.8) noble; urgency=medium
+ .
+   * Fix Python shebang to use system Python instead of env Python
+Checksums-Sha1:
+ 9e5f2f3b44a6fcffd8830bca129f592f37d33e2e 1789 voice-to-text_1.0.8.dsc
+ f51fd69b94c08802431baef1e87f89e307217f6e 1363620 voice-to-text_1.0.8.tar.xz
+ 72b01bd9c43688f5f2d902cad98be975754b7d58 19602 voice-to-text_1.0.8_source.buildinfo
+Checksums-Sha256:
+ ba0f1f099343b1a62ee73150b6f4696e32aabdd1c08d57bd2e78a912a3972a6c 1789 voice-to-text_1.0.8.dsc
+ 03dbf8863395ce3808511ae4cee9c9cea7f144445571d7e4ef007145eee130ab 1363620 voice-to-text_1.0.8.tar.xz
+ 5deece836de6f61365106683c77f9dddca559ad2ddb5fabc4f1c89b3e58891e9 19602 voice-to-text_1.0.8_source.buildinfo
+Files:
+ 65086bff92c96049b7de81a9a684aadd 1789 sound optional voice-to-text_1.0.8.dsc
+ 41854578dbbcc830f9ed92080e5e978e 1363620 sound optional voice-to-text_1.0.8.tar.xz
+ 25867ae44402db3c98b393a48d72b4db 19602 sound optional voice-to-text_1.0.8_source.buildinfo
+
+-----BEGIN PGP SIGNATURE-----
+
+iQJNBAEBCgA3FiEE2EczPTz7lpN/4LXYoKsKo4loPJkFAmj+LzYZHGVtbWFudWVs
+QHBvd2VsbGNsYXJrLmNvbQAKCRCgqwqjiWg8mY0UEACPUnM5yQdoNPmEJZGHa/0+
+bncfxwGdehmBYnpQnZ4+A+mzB3kEISf5hztULaLpd3EJL3CRBvMf1orfuSi8sexk
+7s5AaW2sgQzL+Vmc1vl3JO39THBkS82724glgj9soFmyvSejOfgprTva4X+xKdcG
+jl5talLehDmQtpXMA4oolQWSguAM7QzDDYSQiDkGljW331z6RTUsVrOILMPtmNny
+BT8dgjk3BqXC979jaeJRWh97pgPfqbldy0iQwUKm3VnmDHez5fcldp3oNC3HyVDL
+xOXKIfuUSvijmi3K4N7QBi8VMbn+jxwRXt9uLLvm0KoxWGR2/AJIbfcaSjx0d3PL
+EPo77HfFSzWqyScFx+6pMG7Nc410jNeGmM5EeVHphrp826dxtXm/TYZBGVSshFCo
+p4P7YifWKrnXyZiZQtGDndHpiZHbkPryhrFLyhbli4APB0hB9yPXsKmVQrAChoA+
+isdsU/0WlSu2NRa3hhfScCmPbLCO/U4Nkx6xHeSHZvvTCKNoDDiY/IUXphIUOeuS
+wHd0NdRae7AJTqVTo7RR/WS/fVb7eF8jacj4U3aCRslmeWpbAog6zJQGoygT8cnA
+oz60Rqd4sAR5xrIrMgyrhbkHp9HdgXV64odXYzjyQxTS5Gj6lWL36J3X8oq4sUld
+DGiKmdbtrX/ckduK6dwl/A==
+=xsIN
+-----END PGP SIGNATURE-----
