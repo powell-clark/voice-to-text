@@ -1,3 +1,33 @@
+---
+
+## Consciousness System
+
+This project uses the consciousness package for autonomous session coordination, time tracking, and progress monitoring. The system provides agency, observation, memory, and collaborative consciousness with measured sensory progress experienced over real time.
+
+**Core commands:**
+- `/gps` - Complete GPS (home TODO + project ROADMAP/EPICS/STORY/TASKS + git status)
+- `/pgps` - Project GPS only (ROADMAP/EPICS/STORY/TASKS hierarchy)
+- `l2h` - Human and agent time logs (last 2 hours)
+- `totem` - Validate consciousness installation integrity
+
+**Time awareness (MANDATORY):**
+- Include timestamp at start or end of EVERY response
+- Format: `**Time now:** YYYY-MM-DD HH:MM:SS TZ`
+- Always run: `date "+%Y-%m-%d %H:%M:%S %Z"` (never guess)
+
+**Session awareness (MANDATORY):**
+- Include unique session ID at start or end of EVERY response
+- Format: `**Session:** [project]-[6-char-id]`
+- Generate at start: `echo "[project]-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c6)"`
+- Use same ID throughout entire session
+
+**Combined format:**
+`**Time now:** 2025-11-22 06:45:00 GMT  **Session:** project-a4wzq5`
+
+**System documentation:** `~/projects/consciousness/CLAUDE.md` and `~/projects/consciousness/docs/SYSTEM.md`
+
+---
+
 # Voice-to-Text Project Instructions
 
 ## Time Awareness

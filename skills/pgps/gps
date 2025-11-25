@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+# GPS with compact tagged format - Best balance of readability and data
+
+# Get list of registered projects
+PROJECTS_REGISTRY=~/.claude/projects-registry.txt
+REGISTERED_PROJECTS=""
+if [ -f "$PROJECTS_REGISTRY" ]; then
+    REGISTERED_PROJECTS=$(grep -v "^#" "$PROJECTS_REGISTRY" | grep -v "^$")
+fi
+
+{
+    echo "GPS | $(date '+%Y-%m-%d %H:%M:%S %Z') | $(basename $PWD) | $(git branch --show-current 2>/dev/null)";
+    echo "";
+
+    # KEY at top per Emmanuel's feedback
+    echo "KEY:";
+    echo "  Priority: [P0]=Critical [P1]=Must-have [P2]=Should-have [P3]=Nice-to-have [P4]=Future"
+    echo "  Status: [TODO]=Planned [IN_PROGRESS]=Active [BLOCKED]=Waiting [DONE]=Complete"
+    echo "  Tags: @session-id +date-added !deadline"
+    echo "";
+
+    # SESSION
+    SESSION_ID="$(basename $PWD)-$(git branch --show-current | sed 's/[^a-z0-9]/-/g')-$(echo $RANDOM | md5sum | head -c6)"
+    echo "SESSION: $SESSION_ID";
+    echo "";
+
+    # SERVICES
+    echo "SERVICES:";
+    PM2=$(pm2 list 2>/dev/null | grep -c "online")
+    [ -z "$PM2" ] && PM2="0"
+    DB=$(psql -h localhost -p 5435 -U postgres -d jabjab_dev -c "SELECT 1" 2>/dev/null > /dev/null && echo "up" || echo "down")
+    echo "  pm2: $PM2 online"
+    echo "  postgres: $DB :5435"
+    echo "";
+
+    # ROADMAP
+    echo "ROADMAP.MASTER:";
+    {
+        [ -f ~/CONSCIOUSNESS/roadmap/ROADMAP.md ] && grep -E "^\[Q[0-9]" ~/CONSCIOUSNESS/roadmap/ROADMAP.md 2>/dev/null
+        # Aggregate from registered projects
+        echo "$REGISTERED_PROJECTS" | while read -r project_dir; do
+            [ -f "$project_dir/CONSCIOUSNESS/roadmap/ROADMAP.md" ] && grep -E "^\[Q[0-9]" "$project_dir/CONSCIOUSNESS/roadmap/ROADMAP.md" 2>/dev/null
+        done
+    } | head -10 | while IFS= read -r line; do
+        echo "  $line"
+    done
+    echo "";
+
+    echo "ROADMAP.PROJECT:";
+    if [ -f CONSCIOUSNESS/roadmap/ROADMAP.md ]; then
+        grep -E "^\[Q[0-9]" CONSCIOUSNESS/roadmap/ROADMAP.md 2>/dev/null | head -7 | while IFS= read -r line; do
+            echo "  $line"
+        done
+    else
+        echo "  [file not found]"
+    fi
+    echo "";
+
+    # EPICS sections (separate from ROADMAP for granularity)
+    echo "EPICS.MASTER:";
+    {
+        [ -f ~/CONSCIOUSNESS/epics/EPICS.md ] && tail -n +4 ~/CONSCIOUSNESS/epics/EPICS.md 2>/dev/null
+        echo "$REGISTERED_PROJECTS" | while read -r project_dir; do
+            [ -f "$project_dir/CONSCIOUSNESS/epics/EPICS.md" ] && tail -n +4 "$project_dir/CONSCIOUSNESS/epics/EPICS.md" 2>/dev/null
+        done
+    } | head -10 | while IFS='|' read -r id stories category priority title; do
+        echo "  [$id] [stories: $stories] [$category] [$priority] $title"
+    done
+    echo "";
+
+    echo "EPICS.PROJECT:";
+    if [ -f CONSCIOUSNESS/epics/EPICS.md ]; then
+        tail -n +4 CONSCIOUSNESS/epics/EPICS.md 2>/dev/null | head -7 | while IFS='|' read -r id stories category priority title; do
+            echo "  [$id] [stories: $stories] [$category] [$priority] $title"
+        done
+    else
+        echo "  [file not found]"
+    fi
+    echo "";
+
+    # STORY sections
+    echo "STORY.MASTER:";
+    SESSION_SHORT=$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')
+    {
+        [ -f ~/CONSCIOUSNESS/stories/STORY.md ] && tail -n +4 ~/CONSCIOUSNESS/stories/STORY.md 2>/dev/null | grep -E "in_progress|done"
+        echo "$REGISTERED_PROJECTS" | while read -r project_dir; do
+            [ -f "$project_dir/CONSCIOUSNESS/stories/STORY.md" ] && tail -n +4 "$project_dir/CONSCIOUSNESS/stories/STORY.md" 2>/dev/null | grep -E "in_progress|done"
+        done
+    } | head -10 | while IFS='|' read -r id epic tasks status title; do
+        echo "  [$id] [epic: $epic] [tasks: $tasks] [$status] $title @$SESSION_SHORT"
+    done
+    echo "";
+
+    echo "STORY.PROJECT:";
+    if [ -f CONSCIOUSNESS/stories/STORY.md ]; then
+        SESSION_SHORT=$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')
+        tail -n +4 CONSCIOUSNESS/stories/STORY.md 2>/dev/null | grep -E "in_progress|done" | head -5 | while IFS='|' read -r id epic tasks status title; do
+            echo "  [$id] [epic: $epic] [tasks: $tasks] [$status] $title @$SESSION_SHORT"
+        done
+    else
+        echo "  [file not found]"
+    fi
+    echo "";
+
+    # BACKLOG (Stories)
+    echo "BACKLOG.MASTER:";
+    {
+        [ -f ~/BACKLOG.md ] && grep -E "^\[STORY-" ~/BACKLOG.md 2>/dev/null | grep -E "\[in-progress\]|\[planned\]"
+        echo "$REGISTERED_PROJECTS" | while read -r project_dir; do
+            [ -f "$project_dir/BACKLOG.md" ] && grep -E "^\[STORY-" "$project_dir/BACKLOG.md" 2>/dev/null | grep -E "\[in-progress\]|\[planned\]"
+        done
+    } | head -10 | while IFS= read -r line; do
+        echo "  $line"
+    done
+    echo "";
+
+    echo "BACKLOG.PROJECT:";
+    if [ -f BACKLOG.md ]; then
+        grep -E "^\[STORY-" BACKLOG.md 2>/dev/null | grep -E "\[in-progress\]|\[planned\]" | head -5 | while IFS= read -r line; do
+            echo "  $line"
+        done
+    else
+        echo "  [file not found]"
+    fi
+    echo "";
+
+    # TASKS.MASTER (includes all project tasks)
+    echo "TASKS.MASTER:";
+    {
+        [ -f ~/CONSCIOUSNESS/tasks/TASKS.md ] && tail -n +4 ~/CONSCIOUSNESS/tasks/TASKS.md 2>/dev/null | grep -E "in-progress|in_progress"
+        echo "$REGISTERED_PROJECTS" | while read -r project_dir; do
+            [ -f "$project_dir/CONSCIOUSNESS/tasks/TASKS.md" ] && tail -n +4 "$project_dir/CONSCIOUSNESS/tasks/TASKS.md" 2>/dev/null | grep -E "in-progress|in_progress"
+        done
+    } | head -10 | while IFS='|' read -r id story status title; do
+        echo "  [$id] [story: $story] [$status] $title"
+    done
+    echo "";
+
+    # TASKS.PROJECT
+    echo "TASKS.PROJECT:";
+    if [ -f CONSCIOUSNESS/tasks/TASKS.md ]; then
+        tail -n +4 CONSCIOUSNESS/tasks/TASKS.md 2>/dev/null | grep -E "in-progress|in_progress" | head -5 | while IFS='|' read -r id story status title; do
+            echo "  [$id] [story: $story] [$status] $title"
+        done
+        if ! tail -n +4 CONSCIOUSNESS/tasks/TASKS.md 2>/dev/null | grep -q "in_progress"; then
+            echo "  [no tasks]"
+        fi
+    else
+        echo "  [file not found]"
+    fi
+    echo "";
+
+    # GIT STATUS compact
+    echo "GIT:";
+    BRANCH=$(git branch --show-current 2>/dev/null || echo "no-repo")
+    CHANGES=$(git status --porcelain 2>/dev/null | wc -l)
+    AHEAD=$(git status 2>/dev/null | grep "ahead" | sed -n 's/.*ahead \([0-9]*\).*/\1/p' || echo "0")
+    BEHIND=$(git status 2>/dev/null | grep "behind" | sed -n 's/.*behind \([0-9]*\).*/\1/p' || echo "0")
+    echo "  branch:$BRANCH changes:$CHANGES ahead:$AHEAD behind:$BEHIND @${SESSION_ID: -6}"
+    echo "";
+
+    # CURRENT TASK
+    echo "CURRENT:";
+    if [ -f CONSCIOUSNESS/tasks/TASKS.md ]; then
+        CURRENT=$(tail -n +4 CONSCIOUSNESS/tasks/TASKS.md 2>/dev/null | grep -E "in-progress|in_progress" | head -1)
+        if [ -n "$CURRENT" ]; then
+            echo "$CURRENT" | while IFS='|' read -r id story status title; do
+                echo "  [$id] $title"
+            done
+        else
+            echo "  [no task in progress]"
+        fi
+    else
+        echo "  [no tasks]"
+    fi
+    echo "";
+
+} 2>&1

@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+
+# Project-Only GPS - Shows only project-specific sections without master/cross-project data
+# Usage: project-gps or pgps
+
+# Print header with timestamp and location
+echo "Project GPS | $(date '+%Y-%m-%d %H:%M:%S %Z') | $(basename $(pwd)) | $(git branch --show-current 2>/dev/null || echo 'no-git')"
+echo ""
+
+# KEY at top per Emmanuel's feedback
+echo "KEY:"
+echo "  Priority: [P0]=Critical [P1]=Must-have [P2]=Should-have [P3]=Nice-to-have [P4]=Future"
+echo "  Status: [TODO]=Planned [IN_PROGRESS]=Active [BLOCKED]=Waiting [DONE]=Complete"
+echo "  Tags: @session-id +date-added !deadline"
+echo ""
+
+# SESSION
+echo "SESSION: $(basename $(pwd))-$(git branch --show-current 2>/dev/null || echo 'main')-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+echo ""
+
+# ROADMAP.PROJECT
+echo "ROADMAP.PROJECT:"
+if [ -f CONSCIOUSNESS/roadmap/ROADMAP.md ]; then
+    CONTENT=$(grep -E "^\[Q[0-9]" CONSCIOUSNESS/roadmap/ROADMAP.md 2>/dev/null | head -7)
+    if [ -n "$CONTENT" ]; then
+        echo "$CONTENT" | while IFS= read -r line; do
+            echo "  $line"
+        done
+    else
+        echo "  [$(pwd)/CONSCIOUSNESS/roadmap/ROADMAP.md has no epics, file present]"
+    fi
+else
+    echo "  [$(pwd)/CONSCIOUSNESS/roadmap/ROADMAP.md missing - run install.sh]"
+fi
+echo ""
+
+# EPICS.PROJECT
+echo "EPICS.PROJECT:"
+if [ -f CONSCIOUSNESS/epics/EPICS.md ]; then
+    CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPICS.md 2>/dev/null | head -7)
+    if [ -n "$CONTENT" ]; then
+        echo "$CONTENT" | while IFS='|' read -r id stories category priority title; do
+            echo "  [$id] [stories: $stories] [$category] [$priority] $title"
+        done
+    else
+        echo "  [$(pwd)/CONSCIOUSNESS/epics/EPICS.md has no epics, file present]"
+    fi
+else
+    echo "  [$(pwd)/CONSCIOUSNESS/epics/EPICS.md missing - run install.sh]"
+fi
+echo ""
+
+# EPICS.BACKLOG.PROJECT (future quarter epics from ROADMAP)
+echo "EPICS.BACKLOG.PROJECT:"
+if [ -f CONSCIOUSNESS/roadmap/ROADMAP.md ]; then
+    CONTENT=$(grep -E "^\[Q[1-4]-202[6-9]\]" CONSCIOUSNESS/roadmap/ROADMAP.md 2>/dev/null | head -10)
+    if [ -n "$CONTENT" ]; then
+        echo "$CONTENT" | while IFS= read -r line; do
+            echo "  $line"
+        done
+    else
+        echo "  [no backlog epics in future quarters]"
+    fi
+else
+    echo "  [CONSCIOUSNESS/roadmap/ROADMAP.md missing]"
+fi
+echo ""
+
+# STORY.PROJECT
+echo "STORY.PROJECT:"
+if [ -f CONSCIOUSNESS/stories/STORY.md ]; then
+    SESSION_SHORT=$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')
+    CONTENT=$(tail -n +4 CONSCIOUSNESS/stories/STORY.md 2>/dev/null | grep -E "in_progress|done" | head -5)
+    if [ -n "$CONTENT" ]; then
+        echo "$CONTENT" | while IFS='|' read -r id epic tasks status title; do
+            echo "  [$id] [epic: $epic] [tasks: $tasks] [$status] $title @$SESSION_SHORT"
+        done
+    else
+        echo "  [$(pwd)/CONSCIOUSNESS/stories/STORY.md has no stories, file present]"
+    fi
+else
+    echo "  [$(pwd)/CONSCIOUSNESS/stories/STORY.md missing - run install.sh]"
+fi
+echo ""
+
+# STORY.BACKLOG.PROJECT
+echo "STORY.BACKLOG.PROJECT:"
+if [ -f CONSCIOUSNESS/stories/STORY-BACKLOG.md ]; then
+    CONTENT=$(tail -n +4 CONSCIOUSNESS/stories/STORY-BACKLOG.md 2>/dev/null | head -5)
+    if [ -n "$CONTENT" ]; then
+        echo "$CONTENT" | while IFS='|' read -r id epic status title; do
+            echo "  [$id] [epic: $epic] [$status] $title"
+        done
+    else
+        echo "  [$(pwd)/CONSCIOUSNESS/stories/STORY-BACKLOG.md has no stories, file present]"
+    fi
+else
+    echo "  [$(pwd)/CONSCIOUSNESS/stories/STORY-BACKLOG.md missing - run install.sh]"
+fi
+echo ""
+
+# TASKS.PROJECT
+echo "TASKS.PROJECT:"
+if [ -f CONSCIOUSNESS/tasks/TASKS.md ]; then
+    CONTENT=$(tail -n +4 CONSCIOUSNESS/tasks/TASKS.md 2>/dev/null | grep "in_progress" | head -5)
+    if [ -n "$CONTENT" ]; then
+        echo "$CONTENT" | while IFS='|' read -r id story status title; do
+            echo "  [$id] [story: $story] [$status] $title"
+        done
+    else
+        echo "  [$(pwd)/CONSCIOUSNESS/tasks/TASKS.md has no tasks, file present]"
+    fi
+else
+    echo "  [$(pwd)/CONSCIOUSNESS/tasks/TASKS.md missing - run install.sh]"
+fi
+echo ""
+
+# GIT STATUS
+echo "GIT:"
+if [ -d .git ]; then
+    BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
+    CHANGES=$(git status --porcelain 2>/dev/null | wc -l)
+    AHEAD=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo "0")
+    BEHIND=$(git rev-list --count HEAD..@{u} 2>/dev/null || echo "0")
+    COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "no-commit")
+    echo "  branch:$BRANCH changes:$CHANGES ahead:$AHEAD behind:$BEHIND @$COMMIT"
+else
+    echo "  [not a git repository]"
+fi
+echo ""
+
+# FEATURES.PROJECT
+echo "FEATURES.PROJECT:"
+if [ -f CONSCIOUSNESS/features/FEATURES.md ]; then
+    CONTENT=$(grep -E "^[a-z0-9-]+\|" CONSCIOUSNESS/features/FEATURES.md 2>/dev/null | grep -v "^feature|" | head -10)
+    if [ -n "$CONTENT" ]; then
+        echo "$CONTENT" | while IFS='|' read -r feature status release priority description; do
+            echo "  [$feature] [$status] [$release] [$priority] $description"
+        done
+    else
+        echo "  [$(pwd)/CONSCIOUSNESS/features/FEATURES.md has no features, file present]"
+    fi
+else
+    echo "  [$(pwd)/CONSCIOUSNESS/features/FEATURES.md missing - run install.sh]"
+fi
+echo ""
+
+# CURRENT TASK
+echo "CURRENT:"
+if [ -f CONSCIOUSNESS/tasks/TASKS.md ]; then
+    CURRENT=$(tail -n +4 CONSCIOUSNESS/tasks/TASKS.md 2>/dev/null | grep -E "in_progress" | head -1)
+    if [ -n "$CURRENT" ]; then
+        echo "$CURRENT" | while IFS='|' read -r id story status title; do
+            echo "  [$id] $title"
+        done
+    else
+        echo "  [no task in progress]"
+    fi
+else
+    echo "  [no tasks]"
+fi
