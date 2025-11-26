@@ -2,6 +2,19 @@
 
 # Project-Only GPS - Shows only project-specific sections without master/cross-project data
 # Usage: project-gps or pgps
+#
+# Uses unified schema from precepts/schema.json via utils/schema.sh
+
+# Source schema helper if available
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+UTILS_DIR="$SCRIPT_DIR/../../utils"
+
+if [ -f "$UTILS_DIR/schema.sh" ]; then
+    source "$UTILS_DIR/schema.sh"
+    SCHEMA_AVAILABLE=true
+else
+    SCHEMA_AVAILABLE=false
+fi
 
 # Truncate string to max length with ellipsis
 truncate() {
@@ -14,12 +27,42 @@ truncate() {
     fi
 }
 
-# Validation helper: check_file FILE EXPECTED_HEADER EXPECTED_COLS
+# Validation helper: check_file FILE FILENAME
+# Uses schema.sh if available, otherwise uses hardcoded values
 # Returns: 0=valid, 1=file missing, 2=file corrupted
 check_file() {
     local file="$1"
-    local expected_header="$2"
-    local expected_cols="$3"
+    local filename="$2"
+
+    if [ "$SCHEMA_AVAILABLE" = true ]; then
+        check_file_schema "$file" "$filename"
+        return $?
+    fi
+
+    # Fallback: get expected values based on filename
+    local expected_header=""
+    local expected_cols=""
+    case "$filename" in
+        "EPICS.md"|"EPIC-BACKLOG.md"|"EPIC-DONE.md")
+            expected_header="id|quarter|stories|category|priority|title|completion|created|started|expected_end|actual_end"
+            expected_cols=11
+            ;;
+        "STORY.md"|"STORY-BACKLOG.md"|"STORY-DONE.md")
+            expected_header="id|epic|tasks|status|title"
+            expected_cols=5
+            ;;
+        "TASKS.md"|"TASK-BACKLOG.md"|"TASK-DONE.md")
+            expected_header="id|story|status|title"
+            expected_cols=4
+            ;;
+        "FEATURES.md"|"FEATURES-BACKLOG.md"|"FEATURES-DONE.md")
+            expected_header="id|status|location|tested|description"
+            expected_cols=5
+            ;;
+        *)
+            return 0  # Unknown file, assume valid
+            ;;
+    esac
 
     if [ ! -f "$file" ]; then
         return 1  # missing
@@ -52,6 +95,48 @@ check_file() {
     return 0  # valid
 }
 
+# Get display message for file state
+# Uses schema.sh if available, otherwise uses hardcoded messages
+get_file_message() {
+    local filename="$1"
+    local msg_type="$2"  # empty, missing, corrupted
+
+    if [ "$SCHEMA_AVAILABLE" = true ]; then
+        get_message "$filename" "$msg_type"
+        return
+    fi
+
+    # Fallback messages
+    case "$msg_type" in
+        "empty")
+            case "$filename" in
+                "EPICS.md") echo "[empty - file valid, no epics defined]" ;;
+                "EPIC-BACKLOG.md") echo "[empty - file valid, no backlog epics]" ;;
+                "EPIC-DONE.md") echo "[empty - file valid, no completed epics]" ;;
+                "STORY.md") echo "[empty - file valid, no stories defined]" ;;
+                "STORY-BACKLOG.md"|"STORY-DONE.md") echo "[no entries]" ;;
+                "TASKS.md") echo "[no entries]" ;;
+                "TASK-BACKLOG.md"|"TASK-DONE.md") echo "[no entries]" ;;
+                "FEATURES.md"|"FEATURES-BACKLOG.md"|"FEATURES-DONE.md") echo "[no entries]" ;;
+                *) echo "[empty]" ;;
+            esac
+            ;;
+        "missing")
+            case "$filename" in
+                "EPICS.md"|"STORY.md"|"TASKS.md"|"FEATURES.md")
+                    echo "[file missing - run: neurologist --fix]"
+                    ;;
+                *)
+                    echo "[file missing - optional]"
+                    ;;
+            esac
+            ;;
+        "corrupted")
+            echo "[file corrupted - check $filename header]"
+            ;;
+    esac
+}
+
 # Get project name for section headers
 CURRENT_DIR=$(pwd)
 HOME_DIR=$(eval echo ~)
@@ -80,75 +165,86 @@ echo ""
 
 # ROADMAP.PROJECT - derived from EPICS.md (active epics with quarters)
 echo "ROADMAP.$PROJECT_NAME:"
-if [ -f "CONSCIOUSNESS/epics/EPICS.md" ]; then
-    CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPICS.md 2>/dev/null | grep -E "^EPIC-" | head -7)
-    if [ -n "$CONTENT" ]; then
-        echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
-            echo "  $quarter|$id|$priority|$category|$(truncate "$title" 100)|$completion"
-        done
-    else
-        echo "  [no entries]"
-    fi
-else
-    echo "  [file missing]"
-fi
+check_file "CONSCIOUSNESS/epics/EPICS.md" "EPICS.md"
+case $? in
+    0)
+        CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPICS.md 2>/dev/null | grep -E "^EPIC-" | head -7)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
+                echo "  $quarter|$id|$priority|$category|$(truncate "$title" 100)|$completion"
+            done
+        else
+            echo "  $(get_file_message "EPICS.md" "empty")"
+        fi
+        ;;
+    1) echo "  $(get_file_message "EPICS.md" "missing")" ;;
+    2) echo "  $(get_file_message "EPICS.md" "corrupted")" ;;
+esac
 echo ""
 
 # EPICS.PROJECT
 echo "EPICS.$PROJECT_NAME:"
-if [ -f "CONSCIOUSNESS/epics/EPICS.md" ]; then
-    CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPICS.md 2>/dev/null | grep -E "^EPIC-" | head -7)
-    if [ -n "$CONTENT" ]; then
-        echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
-            started_display=${started:-"not started"}
-            echo "  [$id] [$quarter] [$category] [$priority] $(truncate "$title" 100) [$completion]"
-        done
-    else
-        echo "  [no entries]"
-    fi
-else
-    echo "  [file missing]"
-fi
+check_file "CONSCIOUSNESS/epics/EPICS.md" "EPICS.md"
+case $? in
+    0)
+        CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPICS.md 2>/dev/null | grep -E "^EPIC-" | head -7)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
+                started_display=${started:-"not started"}
+                echo "  [$id] [$quarter] [$category] [$priority] $(truncate "$title" 100) [$completion]"
+            done
+        else
+            echo "  $(get_file_message "EPICS.md" "empty")"
+        fi
+        ;;
+    1) echo "  $(get_file_message "EPICS.md" "missing")" ;;
+    2) echo "  $(get_file_message "EPICS.md" "corrupted")" ;;
+esac
 echo ""
 
 # EPICS.BACKLOG.PROJECT - from EPIC-BACKLOG.md
 echo "EPICS.BACKLOG.$PROJECT_NAME:"
-if [ -f "CONSCIOUSNESS/epics/EPIC-BACKLOG.md" ]; then
-    CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPIC-BACKLOG.md 2>/dev/null | grep -E "^EPIC-" | head -7)
-    if [ -n "$CONTENT" ]; then
-        echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
-            echo "  [$id] [$quarter] [$category] [$priority] $(truncate "$title" 100)"
-        done
-    else
-        echo "  [no entries]"
-    fi
-else
-    echo "  [file missing]"
-fi
+check_file "CONSCIOUSNESS/epics/EPIC-BACKLOG.md" "EPIC-BACKLOG.md"
+case $? in
+    0)
+        CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPIC-BACKLOG.md 2>/dev/null | grep -E "^EPIC-" | head -7)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
+                echo "  [$id] [$quarter] [$category] [$priority] $(truncate "$title" 100)"
+            done
+        else
+            echo "  $(get_file_message "EPIC-BACKLOG.md" "empty")"
+        fi
+        ;;
+    1) echo "  $(get_file_message "EPIC-BACKLOG.md" "missing")" ;;
+    2) echo "  $(get_file_message "EPIC-BACKLOG.md" "corrupted")" ;;
+esac
 echo ""
 
 # EPICS.DONE.PROJECT
 echo "EPICS.DONE.$PROJECT_NAME:"
-if [ -f "CONSCIOUSNESS/epics/EPIC-DONE.md" ]; then
-    CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPIC-DONE.md 2>/dev/null | grep -E "^EPIC-" | head -5)
-    if [ -n "$CONTENT" ]; then
-        echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
-            echo "  [$id] [$category] [$priority] $(truncate "$title" 100) [completed: $actual_end]"
-        done
-    else
-        echo "  [no entries]"
-    fi
-else
-    echo "  [file missing]"
-fi
+check_file "CONSCIOUSNESS/epics/EPIC-DONE.md" "EPIC-DONE.md"
+case $? in
+    0)
+        CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPIC-DONE.md 2>/dev/null | grep -E "^EPIC-" | head -5)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
+                echo "  [$id] [$category] [$priority] $(truncate "$title" 100) [completed: $actual_end]"
+            done
+        else
+            echo "  $(get_file_message "EPIC-DONE.md" "empty")"
+        fi
+        ;;
+    1) echo "  $(get_file_message "EPIC-DONE.md" "missing")" ;;
+    2) echo "  $(get_file_message "EPIC-DONE.md" "corrupted")" ;;
+esac
 echo ""
 
 # STORY.PROJECT - ordered: in-review, in-progress, planned, blocked
 echo "STORY.$PROJECT_NAME:"
-check_file "CONSCIOUSNESS/stories/STORY.md" "id|epic|tasks|status|title" 5
+check_file "CONSCIOUSNESS/stories/STORY.md" "STORY.md"
 case $? in
     0)
-        SESSION_SHORT=$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')
         # Get all stories, order by status priority
         ALL_STORIES=$(tail -n +4 CONSCIOUSNESS/stories/STORY.md 2>/dev/null | grep -E "^STORY-")
         REVIEW=$(echo "$ALL_STORIES" | grep -E "\|in-review\|")
@@ -161,17 +257,17 @@ case $? in
                 echo "  [$id] [$epic] [$status] $(truncate "$title" 100)"
             done
         else
-            echo "  [no entries]"
+            echo "  $(get_file_message "STORY.md" "empty")"
         fi
         ;;
-    1) echo "  [file missing]" ;;
-    2) echo "  [file corrupted]" ;;
+    1) echo "  $(get_file_message "STORY.md" "missing")" ;;
+    2) echo "  $(get_file_message "STORY.md" "corrupted")" ;;
 esac
 echo ""
 
 # STORY.BACKLOG.PROJECT
 echo "STORY.BACKLOG.$PROJECT_NAME:"
-check_file "CONSCIOUSNESS/stories/STORY-BACKLOG.md" "id|epic|tasks|status|title" 5
+check_file "CONSCIOUSNESS/stories/STORY-BACKLOG.md" "STORY-BACKLOG.md"
 case $? in
     0)
         CONTENT=$(tail -n +4 CONSCIOUSNESS/stories/STORY-BACKLOG.md 2>/dev/null | grep -E "^STORY-" | head -5)
@@ -180,17 +276,17 @@ case $? in
                 echo "  [$id] [$epic] [$status] $(truncate "$title" 100)"
             done
         else
-            echo "  [no entries]"
+            echo "  $(get_file_message "STORY-BACKLOG.md" "empty")"
         fi
         ;;
-    1) echo "  [file missing]" ;;
-    2) echo "  [file corrupted]" ;;
+    1) echo "  $(get_file_message "STORY-BACKLOG.md" "missing")" ;;
+    2) echo "  $(get_file_message "STORY-BACKLOG.md" "corrupted")" ;;
 esac
 echo ""
 
 # STORY.DONE.PROJECT
 echo "STORY.DONE.$PROJECT_NAME:"
-check_file "CONSCIOUSNESS/stories/STORY-DONE.md" "id|epic|tasks|status|title" 5
+check_file "CONSCIOUSNESS/stories/STORY-DONE.md" "STORY-DONE.md"
 case $? in
     0)
         CONTENT=$(tail -n +4 CONSCIOUSNESS/stories/STORY-DONE.md 2>/dev/null | grep -E "^STORY-" | head -5)
@@ -199,17 +295,17 @@ case $? in
                 echo "  [$id] [$epic] $(truncate "$title" 100)"
             done
         else
-            echo "  [no entries]"
+            echo "  $(get_file_message "STORY-DONE.md" "empty")"
         fi
         ;;
-    1) echo "  [file missing]" ;;
-    2) echo "  [file corrupted]" ;;
+    1) echo "  $(get_file_message "STORY-DONE.md" "missing")" ;;
+    2) echo "  $(get_file_message "STORY-DONE.md" "corrupted")" ;;
 esac
 echo ""
 
 # TASKS.PROJECT - ordered: in-review, in-progress, planned, blocked
 echo "TASKS.$PROJECT_NAME:"
-check_file "CONSCIOUSNESS/tasks/TASKS.md" "id|story|status|title" 4
+check_file "CONSCIOUSNESS/tasks/TASKS.md" "TASKS.md"
 case $? in
     0)
         # Get all tasks, order by status priority
@@ -224,17 +320,17 @@ case $? in
                 echo "  [$id] [$story] [$status] $(truncate "$title" 100)"
             done
         else
-            echo "  [no entries]"
+            echo "  $(get_file_message "TASKS.md" "empty")"
         fi
         ;;
-    1) echo "  [file missing]" ;;
-    2) echo "  [file corrupted]" ;;
+    1) echo "  $(get_file_message "TASKS.md" "missing")" ;;
+    2) echo "  $(get_file_message "TASKS.md" "corrupted")" ;;
 esac
 echo ""
 
 # TASKS.BACKLOG.PROJECT - ordered by Kano: must-have, performance, delighter, nice-to-have
 echo "TASKS.BACKLOG.$PROJECT_NAME:"
-check_file "CONSCIOUSNESS/tasks/TASK-BACKLOG.md" "id|story|status|title" 4
+check_file "CONSCIOUSNESS/tasks/TASK-BACKLOG.md" "TASK-BACKLOG.md"
 case $? in
     0)
         CONTENT=$(tail -n +4 CONSCIOUSNESS/tasks/TASK-BACKLOG.md 2>/dev/null | grep -E "^TASK-" | head -7)
@@ -243,17 +339,17 @@ case $? in
                 echo "  [$id] [$story] $(truncate "$title" 100)"
             done
         else
-            echo "  [no entries]"
+            echo "  $(get_file_message "TASK-BACKLOG.md" "empty")"
         fi
         ;;
-    1) echo "  [file missing]" ;;
-    2) echo "  [file corrupted]" ;;
+    1) echo "  $(get_file_message "TASK-BACKLOG.md" "missing")" ;;
+    2) echo "  $(get_file_message "TASK-BACKLOG.md" "corrupted")" ;;
 esac
 echo ""
 
 # TASKS.DONE.PROJECT
 echo "TASKS.DONE.$PROJECT_NAME:"
-check_file "CONSCIOUSNESS/tasks/TASK-DONE.md" "id|story|status|title" 4
+check_file "CONSCIOUSNESS/tasks/TASK-DONE.md" "TASK-DONE.md"
 case $? in
     0)
         CONTENT=$(tail -n +4 CONSCIOUSNESS/tasks/TASK-DONE.md 2>/dev/null | grep -E "^TASK-" | head -5)
@@ -262,11 +358,11 @@ case $? in
                 echo "  [$id] [$story] $(truncate "$title" 100)"
             done
         else
-            echo "  [no entries]"
+            echo "  $(get_file_message "TASK-DONE.md" "empty")"
         fi
         ;;
-    1) echo "  [file missing]" ;;
-    2) echo "  [file corrupted]" ;;
+    1) echo "  $(get_file_message "TASK-DONE.md" "missing")" ;;
+    2) echo "  $(get_file_message "TASK-DONE.md" "corrupted")" ;;
 esac
 echo ""
 
@@ -316,7 +412,7 @@ echo ""
 
 # FEATURES.PROJECT
 echo "FEATURES.$PROJECT_NAME:"
-check_file "CONSCIOUSNESS/features/FEATURES.md" "id|status|location|tested|description" 5
+check_file "CONSCIOUSNESS/features/FEATURES.md" "FEATURES.md"
 case $? in
     0)
         CONTENT=$(grep -E "^FEAT-" CONSCIOUSNESS/features/FEATURES.md 2>/dev/null)
@@ -325,17 +421,17 @@ case $? in
                 echo "  [$id] [$status] $(truncate "$description" 100)"
             done
         else
-            echo "  [no entries]"
+            echo "  $(get_file_message "FEATURES.md" "empty")"
         fi
         ;;
-    1) echo "  [file missing]" ;;
-    2) echo "  [file corrupted]" ;;
+    1) echo "  $(get_file_message "FEATURES.md" "missing")" ;;
+    2) echo "  $(get_file_message "FEATURES.md" "corrupted")" ;;
 esac
 echo ""
 
 # FEATURES DONE
 echo "FEATURES.DONE:"
-check_file "CONSCIOUSNESS/features/FEATURES-DONE.md" "id|status|location|tested|description" 5
+check_file "CONSCIOUSNESS/features/FEATURES-DONE.md" "FEATURES-DONE.md"
 case $? in
     0)
         CONTENT=$(grep -E "^FEAT-" CONSCIOUSNESS/features/FEATURES-DONE.md 2>/dev/null | head -5)
@@ -344,17 +440,17 @@ case $? in
                 echo "  [$id] $(truncate "$description" 100)"
             done
         else
-            echo "  [no entries]"
+            echo "  $(get_file_message "FEATURES-DONE.md" "empty")"
         fi
         ;;
-    1) echo "  [file missing]" ;;
-    2) echo "  [file corrupted]" ;;
+    1) echo "  $(get_file_message "FEATURES-DONE.md" "missing")" ;;
+    2) echo "  $(get_file_message "FEATURES-DONE.md" "corrupted")" ;;
 esac
 echo ""
 
 # FEATURES BACKLOG
 echo "FEATURES.BACKLOG:"
-check_file "CONSCIOUSNESS/features/FEATURES-BACKLOG.md" "id|status|location|tested|description" 5
+check_file "CONSCIOUSNESS/features/FEATURES-BACKLOG.md" "FEATURES-BACKLOG.md"
 case $? in
     0)
         CONTENT=$(grep -E "^FEAT-" CONSCIOUSNESS/features/FEATURES-BACKLOG.md 2>/dev/null | head -10)
@@ -363,11 +459,11 @@ case $? in
                 echo "  [$id] [$status] $(truncate "$description" 100)"
             done
         else
-            echo "  [no entries]"
+            echo "  $(get_file_message "FEATURES-BACKLOG.md" "empty")"
         fi
         ;;
-    1) echo "  [file missing]" ;;
-    2) echo "  [file corrupted]" ;;
+    1) echo "  $(get_file_message "FEATURES-BACKLOG.md" "missing")" ;;
+    2) echo "  $(get_file_message "FEATURES-BACKLOG.md" "corrupted")" ;;
 esac
 echo ""
 
