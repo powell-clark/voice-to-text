@@ -1,0 +1,393 @@
+#!/usr/bin/env bash
+
+# Project-Only GPS - Shows only project-specific sections without master/cross-project data
+# Usage: project-gps or pgps
+
+# Truncate string to max length with ellipsis
+truncate() {
+    local str="$1"
+    local max="${2:-80}"
+    if [ ${#str} -gt $max ]; then
+        echo "${str:0:$((max-3))}..."
+    else
+        echo "$str"
+    fi
+}
+
+# Validation helper: check_file FILE EXPECTED_HEADER EXPECTED_COLS
+# Returns: 0=valid, 1=file missing, 2=file corrupted
+check_file() {
+    local file="$1"
+    local expected_header="$2"
+    local expected_cols="$3"
+
+    if [ ! -f "$file" ]; then
+        return 1  # missing
+    fi
+
+    # Get header (first non-comment, non-empty line with pipes)
+    local header=$(grep -v '^#' "$file" | grep -v '^$' | grep '|' | head -1)
+
+    if [ -z "$header" ]; then
+        return 2  # corrupted (no header)
+    fi
+
+    # Check header matches
+    if [ "$header" != "$expected_header" ]; then
+        return 2  # corrupted (wrong header)
+    fi
+
+    # Check data rows have correct column count (if any exist)
+    local data_lines=$(grep -v '^#' "$file" | grep -v '^$' | grep '|' | tail -n +2)
+    if [ -n "$data_lines" ]; then
+        local first_row=$(echo "$data_lines" | head -1)
+        local col_count=$(echo "$first_row" | tr -cd '|' | wc -c)
+        col_count=$((col_count + 1))
+
+        if [ "$col_count" -ne "$expected_cols" ]; then
+            return 2  # corrupted (wrong column count)
+        fi
+    fi
+
+    return 0  # valid
+}
+
+# Get project name for section headers
+CURRENT_DIR=$(pwd)
+HOME_DIR=$(eval echo ~)
+if [ "$CURRENT_DIR" = "$HOME_DIR" ]; then
+    PROJECT_NAME="HOME"
+elif [ "$CURRENT_DIR" = "$HOME_DIR/projects" ]; then
+    PROJECT_NAME="PROJECTS"
+else
+    PROJECT_NAME=$(basename "$CURRENT_DIR" | tr '[:lower:]' '[:upper:]')
+fi
+
+# Print header with timestamp and location
+echo "Project GPS | $(date '+%Y-%m-%d %H:%M:%S %Z') | $(basename $(pwd)) | $(git branch --show-current 2>/dev/null || echo 'no-git')"
+echo ""
+
+# KEY at top per Emmanuel's feedback
+echo "KEY:"
+echo "  Priority: [P0]=Critical [P1]=Must-have [P2]=Should-have [P3]=Nice-to-have [P4]=Future"
+echo "  Status: [TODO]=Planned [IN_PROGRESS]=Active [BLOCKED]=Waiting [DONE]=Complete"
+echo "  Tags: @session-id +date-added !deadline"
+echo ""
+
+# SESSION
+echo "SESSION: $(basename $(pwd))-$(git branch --show-current 2>/dev/null || echo 'main')-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+echo ""
+
+# ROADMAP.PROJECT - derived from EPICS.md (active epics with quarters)
+echo "ROADMAP.$PROJECT_NAME:"
+if [ -f "CONSCIOUSNESS/epics/EPICS.md" ]; then
+    CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPICS.md 2>/dev/null | grep -E "^EPIC-" | head -7)
+    if [ -n "$CONTENT" ]; then
+        echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
+            echo "  $quarter|$id|$priority|$category|$(truncate "$title" 100)|$completion"
+        done
+    else
+        echo "  [no entries]"
+    fi
+else
+    echo "  [file missing]"
+fi
+echo ""
+
+# EPICS.PROJECT
+echo "EPICS.$PROJECT_NAME:"
+if [ -f "CONSCIOUSNESS/epics/EPICS.md" ]; then
+    CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPICS.md 2>/dev/null | grep -E "^EPIC-" | head -7)
+    if [ -n "$CONTENT" ]; then
+        echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
+            started_display=${started:-"not started"}
+            echo "  [$id] [$quarter] [$category] [$priority] $(truncate "$title" 100) [$completion]"
+        done
+    else
+        echo "  [no entries]"
+    fi
+else
+    echo "  [file missing]"
+fi
+echo ""
+
+# EPICS.BACKLOG.PROJECT - from EPIC-BACKLOG.md
+echo "EPICS.BACKLOG.$PROJECT_NAME:"
+if [ -f "CONSCIOUSNESS/epics/EPIC-BACKLOG.md" ]; then
+    CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPIC-BACKLOG.md 2>/dev/null | grep -E "^EPIC-" | head -7)
+    if [ -n "$CONTENT" ]; then
+        echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
+            echo "  [$id] [$quarter] [$category] [$priority] $(truncate "$title" 100)"
+        done
+    else
+        echo "  [no entries]"
+    fi
+else
+    echo "  [file missing]"
+fi
+echo ""
+
+# EPICS.DONE.PROJECT
+echo "EPICS.DONE.$PROJECT_NAME:"
+if [ -f "CONSCIOUSNESS/epics/EPIC-DONE.md" ]; then
+    CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPIC-DONE.md 2>/dev/null | grep -E "^EPIC-" | head -5)
+    if [ -n "$CONTENT" ]; then
+        echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
+            echo "  [$id] [$category] [$priority] $(truncate "$title" 100) [completed: $actual_end]"
+        done
+    else
+        echo "  [no entries]"
+    fi
+else
+    echo "  [file missing]"
+fi
+echo ""
+
+# STORY.PROJECT - ordered: in-review, in-progress, planned, blocked
+echo "STORY.$PROJECT_NAME:"
+check_file "CONSCIOUSNESS/stories/STORY.md" "id|epic|tasks|status|title" 5
+case $? in
+    0)
+        SESSION_SHORT=$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')
+        # Get all stories, order by status priority
+        ALL_STORIES=$(tail -n +4 CONSCIOUSNESS/stories/STORY.md 2>/dev/null | grep -E "^STORY-")
+        REVIEW=$(echo "$ALL_STORIES" | grep -E "\|in-review\|")
+        PROGRESS=$(echo "$ALL_STORIES" | grep -E "\|in-progress\||\|in_progress\|")
+        PLANNED=$(echo "$ALL_STORIES" | grep -E "\|planned\|")
+        BLOCKED=$(echo "$ALL_STORIES" | grep -E "\|blocked\|")
+        CONTENT=$(printf "%s\n%s\n%s\n%s" "$REVIEW" "$PROGRESS" "$PLANNED" "$BLOCKED" | grep -v '^$' | head -7)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id epic tasks status title; do
+                echo "  [$id] [$epic] [$status] $(truncate "$title" 100)"
+            done
+        else
+            echo "  [no entries]"
+        fi
+        ;;
+    1) echo "  [file missing]" ;;
+    2) echo "  [file corrupted]" ;;
+esac
+echo ""
+
+# STORY.BACKLOG.PROJECT
+echo "STORY.BACKLOG.$PROJECT_NAME:"
+check_file "CONSCIOUSNESS/stories/STORY-BACKLOG.md" "id|epic|tasks|status|title" 5
+case $? in
+    0)
+        CONTENT=$(tail -n +4 CONSCIOUSNESS/stories/STORY-BACKLOG.md 2>/dev/null | grep -E "^STORY-" | head -5)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id epic tasks status title; do
+                echo "  [$id] [$epic] [$status] $(truncate "$title" 100)"
+            done
+        else
+            echo "  [no entries]"
+        fi
+        ;;
+    1) echo "  [file missing]" ;;
+    2) echo "  [file corrupted]" ;;
+esac
+echo ""
+
+# STORY.DONE.PROJECT
+echo "STORY.DONE.$PROJECT_NAME:"
+check_file "CONSCIOUSNESS/stories/STORY-DONE.md" "id|epic|tasks|status|title" 5
+case $? in
+    0)
+        CONTENT=$(tail -n +4 CONSCIOUSNESS/stories/STORY-DONE.md 2>/dev/null | grep -E "^STORY-" | head -5)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id epic tasks status title; do
+                echo "  [$id] [$epic] $(truncate "$title" 100)"
+            done
+        else
+            echo "  [no entries]"
+        fi
+        ;;
+    1) echo "  [file missing]" ;;
+    2) echo "  [file corrupted]" ;;
+esac
+echo ""
+
+# TASKS.PROJECT - ordered: in-review, in-progress, planned, blocked
+echo "TASKS.$PROJECT_NAME:"
+check_file "CONSCIOUSNESS/tasks/TASKS.md" "id|story|status|title" 4
+case $? in
+    0)
+        # Get all tasks, order by status priority
+        ALL_TASKS=$(tail -n +4 CONSCIOUSNESS/tasks/TASKS.md 2>/dev/null | grep -E "^TASK-")
+        REVIEW=$(echo "$ALL_TASKS" | grep -E "\|in-review\|")
+        PROGRESS=$(echo "$ALL_TASKS" | grep -E "\|in-progress\||\|in_progress\|")
+        PLANNED=$(echo "$ALL_TASKS" | grep -E "\|planned\|")
+        BLOCKED=$(echo "$ALL_TASKS" | grep -E "\|blocked\|")
+        CONTENT=$(printf "%s\n%s\n%s\n%s" "$REVIEW" "$PROGRESS" "$PLANNED" "$BLOCKED" | grep -v '^$' | head -7)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id story status title; do
+                echo "  [$id] [$story] [$status] $(truncate "$title" 100)"
+            done
+        else
+            echo "  [no entries]"
+        fi
+        ;;
+    1) echo "  [file missing]" ;;
+    2) echo "  [file corrupted]" ;;
+esac
+echo ""
+
+# TASKS.BACKLOG.PROJECT - ordered by Kano: must-have, performance, delighter, nice-to-have
+echo "TASKS.BACKLOG.$PROJECT_NAME:"
+check_file "CONSCIOUSNESS/tasks/TASK-BACKLOG.md" "id|story|status|title" 4
+case $? in
+    0)
+        CONTENT=$(tail -n +4 CONSCIOUSNESS/tasks/TASK-BACKLOG.md 2>/dev/null | grep -E "^TASK-" | head -7)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id story status title; do
+                echo "  [$id] [$story] $(truncate "$title" 100)"
+            done
+        else
+            echo "  [no entries]"
+        fi
+        ;;
+    1) echo "  [file missing]" ;;
+    2) echo "  [file corrupted]" ;;
+esac
+echo ""
+
+# TASKS.DONE.PROJECT
+echo "TASKS.DONE.$PROJECT_NAME:"
+check_file "CONSCIOUSNESS/tasks/TASK-DONE.md" "id|story|status|title" 4
+case $? in
+    0)
+        CONTENT=$(tail -n +4 CONSCIOUSNESS/tasks/TASK-DONE.md 2>/dev/null | grep -E "^TASK-" | head -5)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id story status title; do
+                echo "  [$id] [$story] $(truncate "$title" 100)"
+            done
+        else
+            echo "  [no entries]"
+        fi
+        ;;
+    1) echo "  [file missing]" ;;
+    2) echo "  [file corrupted]" ;;
+esac
+echo ""
+
+# TODO - Claude-managed session tasks (from TodoWrite via sync-todo.py)
+echo "TODO.$PROJECT_NAME:"
+if [ -f "CONSCIOUSNESS/TODO.md" ]; then
+    # Extract in-progress tasks (lines starting with "- " but not None, DONE, completed, or warnings)
+    IN_PROGRESS=$(grep -E "^- [^✅⚠️N\[]" CONSCIOUSNESS/TODO.md 2>/dev/null | grep -v "^- None" | grep -v "\[DONE\]" | head -5)
+    # Extract warning tasks (session expired)
+    WARNINGS=$(grep -E "^- ⚠️" CONSCIOUSNESS/TODO.md 2>/dev/null | head -3)
+
+    if [ -n "$IN_PROGRESS" ] || [ -n "$WARNINGS" ]; then
+        if [ -n "$IN_PROGRESS" ]; then
+            echo "$IN_PROGRESS" | while read -r line; do
+                task="${line#- }"
+                echo "  [active] $(truncate "$task" 90)"
+            done
+        fi
+        if [ -n "$WARNINGS" ]; then
+            echo "$WARNINGS" | while read -r line; do
+                task="${line#- ⚠️ }"
+                task="${task% (Session expired*}"
+                echo "  [stale] $(truncate "$task" 90)"
+            done
+        fi
+    else
+        echo "  [no active todos]"
+    fi
+else
+    echo "  [file missing]"
+fi
+echo ""
+
+# GIT STATUS
+echo "GIT:"
+if [ -d .git ]; then
+    BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
+    CHANGES=$(git status --porcelain 2>/dev/null | wc -l)
+    AHEAD=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo "0")
+    BEHIND=$(git rev-list --count HEAD..@{u} 2>/dev/null || echo "0")
+    COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "no-commit")
+    echo "  branch:$BRANCH changes:$CHANGES ahead:$AHEAD behind:$BEHIND @$COMMIT"
+else
+    echo "  [not a git repository]"
+fi
+echo ""
+
+# FEATURES.PROJECT
+echo "FEATURES.$PROJECT_NAME:"
+check_file "CONSCIOUSNESS/features/FEATURES.md" "id|status|location|tested|description" 5
+case $? in
+    0)
+        CONTENT=$(grep -E "^FEAT-" CONSCIOUSNESS/features/FEATURES.md 2>/dev/null)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id status location tested description; do
+                echo "  [$id] [$status] $(truncate "$description" 100)"
+            done
+        else
+            echo "  [no entries]"
+        fi
+        ;;
+    1) echo "  [file missing]" ;;
+    2) echo "  [file corrupted]" ;;
+esac
+echo ""
+
+# FEATURES DONE
+echo "FEATURES.DONE:"
+check_file "CONSCIOUSNESS/features/FEATURES-DONE.md" "id|status|location|tested|description" 5
+case $? in
+    0)
+        CONTENT=$(grep -E "^FEAT-" CONSCIOUSNESS/features/FEATURES-DONE.md 2>/dev/null | head -5)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id status location tested description; do
+                echo "  [$id] $(truncate "$description" 100)"
+            done
+        else
+            echo "  [no entries]"
+        fi
+        ;;
+    1) echo "  [file missing]" ;;
+    2) echo "  [file corrupted]" ;;
+esac
+echo ""
+
+# FEATURES BACKLOG
+echo "FEATURES.BACKLOG:"
+check_file "CONSCIOUSNESS/features/FEATURES-BACKLOG.md" "id|status|location|tested|description" 5
+case $? in
+    0)
+        CONTENT=$(grep -E "^FEAT-" CONSCIOUSNESS/features/FEATURES-BACKLOG.md 2>/dev/null | head -10)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id status location tested description; do
+                echo "  [$id] [$status] $(truncate "$description" 100)"
+            done
+        else
+            echo "  [no entries]"
+        fi
+        ;;
+    1) echo "  [file missing]" ;;
+    2) echo "  [file corrupted]" ;;
+esac
+echo ""
+
+# CURRENT TASK - first in-review, then in-progress
+echo "CURRENT:"
+if [ -f CONSCIOUSNESS/tasks/TASKS.md ]; then
+    # Check in-review first, then in-progress
+    CURRENT=$(tail -n +4 CONSCIOUSNESS/tasks/TASKS.md 2>/dev/null | grep -E "\|in-review\|" | head -1)
+    if [ -z "$CURRENT" ]; then
+        CURRENT=$(tail -n +4 CONSCIOUSNESS/tasks/TASKS.md 2>/dev/null | grep -E "\|in-progress\||\|in_progress\|" | head -1)
+    fi
+    if [ -n "$CURRENT" ]; then
+        echo "$CURRENT" | while IFS='|' read -r id story status title; do
+            echo "  [$id] $title"
+        done
+    else
+        echo "  [no active task]"
+    fi
+else
+    echo "  [file missing]"
+fi
+
+exit 0

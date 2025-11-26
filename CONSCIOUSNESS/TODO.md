@@ -76,27 +76,6 @@
 
 ---
 
-## Session: consciousness-main-e69f48ce (Active (This Session) - 01:25:35)
-**Started:** 2025-11-23 01:24:14 GMT
-**Last Active:** 2025-11-23 01:25:35 GMT
-**Working On:** Fix corrupted files in jabjab and ebay-programm...
-
-### Tasks
-- Fix corrupted files in jabjab and ebay-programmatic
-  **Story:** STORY-CC051
-  **Success:** All files pass bracket format validation
-- Install consciousness in voice-to-text-linux
-  **Story:** STORY-CC051
-  **Success:** CONSCIOUSNESS directory exists with all files
-- Validate all 11 projects pass totem
-  **Story:** STORY-CC051
-  **Success:** All projects show VALID status
-- [IN_PROGRESS] Migrate 5 projects from flat to subdirectory structure
-  **Story:** STORY-CC051
-  **Success:** All CONSCIOUSNESS subdirectories exist
-
----
-
 ## Session: consciousness-main-f193f5be (Active - )
 **Started:** 
 **Last Active:** 
@@ -107,7 +86,32 @@
 
 ---
 
+## Session: voice-to-text-main-97d8f7e1 (Active (This Session) - 02:44:34)
+**Started:** 2025-11-26 02:43:43 GMT
+**Last Active:** 2025-11-26 02:44:34 GMT
+**Working On:** No active tasks
+
+### Tasks
+- None
+
+---
+
+## Session: consciousness-main-e69f48ce (Active - )
+**Started:** 
+**Last Active:** 
+**Working On:** Fix corrupted files in jabjab and ebay-programm...
+
+### Tasks
+- ⚠️ Fix corrupted files in jabjab and ebay-programmatic (Session expired - review before continuing)
+- ⚠️ Install consciousness in voice-to-text-linux (Session expired - review before continuing)
+- ⚠️ Validate all 11 projects pass totem (Session expired - review before continuing)
+- ⚠️ Migrate 5 projects from flat to subdirectory structure (Session expired - review before continuing)
+
+---
+
 ## Recently Completed (Last 24h)
+- [DONE] Move completed features from FEATURES.md to FEATURES-DONE.md | Story: STORY-VTT001 | Success: All done features in FEATURES-DONE.md (voice-to-text-main-97d8f7e1 @ 02:44)
+- [DONE] Review codebase to identify all implemented features | Story: STORY-VTT001 | Success: Complete feature inventory (voice-to-text-main-97d8f7e1 @ 02:44)
 - [DONE] Fix pgps PATH issue across all 11 projects | Story: STORY-CC051 | Success: pgps command found in totem validation (consciousness-main-e69f48ce @ 01:25)
 - [DONE] Rename docs/adr/README.md to CLAUDE.md | Story: STORY-KOI-001 | Success: ADR directory has CLAUDE.md instead of README.md (consciousness-main-f193f5be @ 16:31)
 - [DONE] Remove legacy TODO files from consciousness root | Story: STORY-KOI-001 | Success: Legacy TODO.md and TODO.version deleted (consciousness-main-f193f5be @ 16:17)
@@ -126,9 +130,7 @@
 - [DONE] Create implementation story for daily rotation | Story: REVIEW-001 | Success: STORY.md has new story for ADR-0027 implementation (consciousness-main-9e2cd5a9 @ 11:44)
 - [DONE] Update ADR-0027 status to Proposed (not yet implemented) | Story: REVIEW-001 | Success: ADR-0027 reflects actual implementation state (consciousness-main-9e2cd5a9 @ 11:44)
 - [DONE] Commit feature list updates to consciousness repo | Story: REVIEW-001 | Success: FEATURES.md and FEATURES-BACKLOG.md committed with proper message (consciousness-main-9e2cd5a9 @ 11:44)
-- [DONE] Update ADR-0027 status to Proposed (not yet implemented) | Story: REVIEW-001 | Success: ADR-0027 reflects actual implementation state (consciousness-main-9e2cd5a9 @ 11:43)
-- [DONE] Commit feature list updates to consciousness repo | Story: REVIEW-001 | Success: FEATURES.md and FEATURES-BACKLOG.md committed with proper message (consciousness-main-9e2cd5a9 @ 11:43)
 
 ---
 
-**Last Updated:** 2025-11-23 01:25:35 GMT
+**Last Updated:** 2025-11-26 02:44:34 GMT
