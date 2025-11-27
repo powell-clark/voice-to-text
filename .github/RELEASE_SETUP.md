@@ -1,45 +1,34 @@
-# Automated Release Setup
+# Release Process
 
-## One-time setup
+## Manual Release (Current - saves $5-6 per release)
 
-1. **Create GitHub Personal Access Token:**
-   - Go to: https://github.com/settings/tokens/new
-   - Token name: `homebrew-tap-updater`
-   - Expiration: No expiration (or 1 year)
-   - Scopes: Check `repo` (Full control of private repositories)
-   - Click "Generate token"
-   - Copy the token
+Auto-release via GitHub Actions is **disabled** to avoid macOS CI costs ($0.08/min).
 
-2. **Add token to repository secrets:**
-   - Go to: https://github.com/powell-clark/voice-to-text/settings/secrets/actions
-   - Click "New repository secret"
-   - Name: `TAP_GITHUB_TOKEN`
-   - Value: Paste the token you copied
-   - Click "Add secret"
+### How to release
 
-## How to release
-
-Once setup is complete, releasing is automatic:
+On your Mac:
 
 ```bash
 # 1. Make your changes and commit
 git add .
 git commit -m "feat: your changes"
+git push
 
-# 2. Create and push a version tag
-git tag v0.3.0
-git push origin v0.3.0
+# 2. Build the app
+make clean && make package
+
+# 3. Create GitHub release with the artifact
+git tag v0.4.0
+git push origin v0.4.0
+gh release create v0.4.0 VTT.app.tar.gz --generate-notes
+
+# 4. Update the Homebrew cask manually
+SHA256=$(shasum -a 256 VTT.app.tar.gz | awk '{print $1}')
+echo "SHA256: $SHA256"
+# Edit homebrew-voice-to-text/Casks/voice-to-text.rb with new version and SHA
 ```
 
-That's it! GitHub Actions will:
-- Build VTT.app
-- Create VTT.app.tar.gz
-- Calculate SHA256
-- Create GitHub release
-- Update homebrew-voice-to-text/Casks/voice-to-text.rb
-- Push the cask update
-
-Users can then install with:
+Users can then install/upgrade with:
 ```bash
 brew upgrade voice-to-text
 ```
@@ -56,3 +45,39 @@ For testing the build before releasing:
 make package
 # This creates VTT.app.tar.gz locally
 ```
+
+---
+
+## Optional: Re-enable Automated Releases
+
+To restore automated releases without CI costs, set up a self-hosted runner on your Mac:
+
+### 1. Get runner token
+- Go to: https://github.com/powell-clark/voice-to-text/settings/actions/runners
+- Click "New self-hosted runner" → macOS
+- Copy the token
+
+### 2. Set up runner on your Mac
+```bash
+./setup-runner.sh YOUR_TOKEN_HERE
+```
+
+### 3. Start the runner
+```bash
+# Run manually:
+cd ~/actions-runner && ./run.sh
+
+# Or install as service (runs on startup):
+cd ~/actions-runner && ./svc.sh install && ./svc.sh start
+```
+
+### 4. Re-enable the workflow
+Edit `.github/workflows/release.yml` and uncomment the tag trigger:
+```yaml
+on:
+  push:
+    tags:
+      - 'v*'
+```
+
+Then releasing is automatic again - just push a tag.
