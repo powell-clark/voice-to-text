@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "version": "2.0",
-  "updated": "2025-11-26",
-  "description": "Canonical schema for CONSCIOUSNESS tracking files - generic and reusable",
+  "version": "2.1",
+  "updated": "2025-11-27",
+  "description": "Canonical schema for CONSCIOUSNESS tracking files - backlog files have no status column per ADR-0030",
 
   "statuses": {
     "work": ["planned", "in-progress", "in-review", "blocked", "done", "cancelled", "duplicate"],
@@ -56,8 +56,8 @@
     },
     "STORY-BACKLOG.md": {
       "path": "CONSCIOUSNESS/stories/STORY-BACKLOG.md",
-      "header": "id|epic|tasks|status|title",
-      "columns": 5,
+      "header": "id|epic|tasks|title",
+      "columns": 4,
       "required": false,
       "id_prefix": "STORY",
       "empty_message": "[empty - file valid, no backlog stories]",
@@ -86,8 +86,8 @@
     },
     "TASK-BACKLOG.md": {
       "path": "CONSCIOUSNESS/tasks/TASK-BACKLOG.md",
-      "header": "id|story|status|title",
-      "columns": 4,
+      "header": "id|story|title",
+      "columns": 3,
       "required": false,
       "id_prefix": "TASK",
       "empty_message": "[empty - file valid, no backlog tasks]",
@@ -116,8 +116,8 @@
     },
     "FEATURES-BACKLOG.md": {
       "path": "CONSCIOUSNESS/features/FEATURES-BACKLOG.md",
-      "header": "id|status|location|tested|description",
-      "columns": 5,
+      "header": "id|location|tested|description",
+      "columns": 4,
       "required": false,
       "id_prefix": "FEAT",
       "empty_message": "[empty - file valid, no backlog features]",
@@ -151,13 +151,13 @@
     "EPIC-BACKLOG.md": "# Epics - Backlog\n\nid|quarter|stories|category|priority|title|completion|created|started|expected_end|actual_end",
     "EPIC-DONE.md": "# Epics - Done\n\nid|quarter|stories|category|priority|title|completion|created|started|expected_end|actual_end",
     "STORY.md": "# Stories\n\nid|epic|tasks|status|title",
-    "STORY-BACKLOG.md": "# Stories - Backlog\n\nid|epic|tasks|status|title",
+    "STORY-BACKLOG.md": "# Stories - Backlog\n\nid|epic|tasks|title",
     "STORY-DONE.md": "# Stories - Done\n\nid|epic|tasks|status|title",
     "TASKS.md": "# Tasks\n\nid|story|status|title",
-    "TASK-BACKLOG.md": "# Tasks - Backlog\n\nid|story|status|title",
+    "TASK-BACKLOG.md": "# Tasks - Backlog\n\nid|story|title",
     "TASK-DONE.md": "# Tasks - Done\n\nid|story|status|title",
     "FEATURES.md": "# Features\n\nid|status|location|tested|description",
-    "FEATURES-BACKLOG.md": "# Features - Backlog\n\nid|status|location|tested|description",
+    "FEATURES-BACKLOG.md": "# Features - Backlog\n\nid|location|tested|description",
     "FEATURES-DONE.md": "# Features - Done\n\nid|status|location|tested|description",
     "TODO.md": "# TODO\n\nNo tasks yet."
   },
@@ -191,21 +191,20 @@
 
   "pgps": {
     "sections": [
-      "ROADMAP",
       "EPICS",
-      "EPICS.BACKLOG",
       "EPICS.DONE",
+      "EPICS.BACKLOG",
       "STORY",
-      "STORY.BACKLOG",
       "STORY.DONE",
+      "STORY.BACKLOG",
       "TASKS",
-      "TASKS.BACKLOG",
       "TASKS.DONE",
+      "TASKS.BACKLOG",
       "TODO",
-      "GIT",
       "FEATURES",
       "FEATURES.DONE",
       "FEATURES.BACKLOG",
+      "GIT",
       "CURRENT"
     ],
     "status_display_order": ["in-review", "in-progress", "planned", "blocked"]

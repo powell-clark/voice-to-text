@@ -1,5 +1,5 @@
-# Consciousness - Task Backlog
+# Tasks - Backlog
 
-Tasks identified but not yet linked to active stories.
-
-id|story|status|title
+id|story|title
+||
+id|story|title

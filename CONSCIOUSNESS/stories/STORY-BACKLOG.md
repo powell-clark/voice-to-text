@@ -1,3 +1,3 @@
-# Voice-to-Text - Story Backlog
+# CONSCIOUSNESS/stories/STORY-BACKLOG.md - Story Backlog
 
-id|epic|tasks|status|title
+id|epic|tasks|title
