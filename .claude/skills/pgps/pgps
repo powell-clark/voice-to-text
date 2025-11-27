@@ -163,25 +163,6 @@ echo ""
 echo "SESSION: $(basename $(pwd))-$(git branch --show-current 2>/dev/null || echo 'main')-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 echo ""
 
-# ROADMAP.PROJECT - derived from EPICS.md (active epics with quarters)
-echo "ROADMAP.$PROJECT_NAME:"
-check_file "CONSCIOUSNESS/epics/EPICS.md" "EPICS.md"
-case $? in
-    0)
-        CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPICS.md 2>/dev/null | grep -E "^EPIC-" | head -7)
-        if [ -n "$CONTENT" ]; then
-            echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
-                echo "  $quarter|$id|$priority|$category|$(truncate "$title" 100)|$completion"
-            done
-        else
-            echo "  $(get_file_message "EPICS.md" "empty")"
-        fi
-        ;;
-    1) echo "  $(get_file_message "EPICS.md" "missing")" ;;
-    2) echo "  $(get_file_message "EPICS.md" "corrupted")" ;;
-esac
-echo ""
-
 # EPICS.PROJECT
 echo "EPICS.$PROJECT_NAME:"
 check_file "CONSCIOUSNESS/epics/EPICS.md" "EPICS.md"
@@ -202,25 +183,6 @@ case $? in
 esac
 echo ""
 
-# EPICS.BACKLOG.PROJECT - from EPIC-BACKLOG.md
-echo "EPICS.BACKLOG.$PROJECT_NAME:"
-check_file "CONSCIOUSNESS/epics/EPIC-BACKLOG.md" "EPIC-BACKLOG.md"
-case $? in
-    0)
-        CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPIC-BACKLOG.md 2>/dev/null | grep -E "^EPIC-" | head -7)
-        if [ -n "$CONTENT" ]; then
-            echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
-                echo "  [$id] [$quarter] [$category] [$priority] $(truncate "$title" 100)"
-            done
-        else
-            echo "  $(get_file_message "EPIC-BACKLOG.md" "empty")"
-        fi
-        ;;
-    1) echo "  $(get_file_message "EPIC-BACKLOG.md" "missing")" ;;
-    2) echo "  $(get_file_message "EPIC-BACKLOG.md" "corrupted")" ;;
-esac
-echo ""
-
 # EPICS.DONE.PROJECT
 echo "EPICS.DONE.$PROJECT_NAME:"
 check_file "CONSCIOUSNESS/epics/EPIC-DONE.md" "EPIC-DONE.md"
@@ -237,6 +199,25 @@ case $? in
         ;;
     1) echo "  $(get_file_message "EPIC-DONE.md" "missing")" ;;
     2) echo "  $(get_file_message "EPIC-DONE.md" "corrupted")" ;;
+esac
+echo ""
+
+# EPICS.BACKLOG.PROJECT - from EPIC-BACKLOG.md
+echo "EPICS.BACKLOG.$PROJECT_NAME:"
+check_file "CONSCIOUSNESS/epics/EPIC-BACKLOG.md" "EPIC-BACKLOG.md"
+case $? in
+    0)
+        CONTENT=$(tail -n +4 CONSCIOUSNESS/epics/EPIC-BACKLOG.md 2>/dev/null | grep -E "^EPIC-" | head -7)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id quarter stories category priority title completion created started expected_end actual_end; do
+                echo "  [$id] [$quarter] [$category] [$priority] $(truncate "$title" 100)"
+            done
+        else
+            echo "  $(get_file_message "EPIC-BACKLOG.md" "empty")"
+        fi
+        ;;
+    1) echo "  $(get_file_message "EPIC-BACKLOG.md" "missing")" ;;
+    2) echo "  $(get_file_message "EPIC-BACKLOG.md" "corrupted")" ;;
 esac
 echo ""
 
@@ -265,25 +246,6 @@ case $? in
 esac
 echo ""
 
-# STORY.BACKLOG.PROJECT
-echo "STORY.BACKLOG.$PROJECT_NAME:"
-check_file "CONSCIOUSNESS/stories/STORY-BACKLOG.md" "STORY-BACKLOG.md"
-case $? in
-    0)
-        CONTENT=$(tail -n +4 CONSCIOUSNESS/stories/STORY-BACKLOG.md 2>/dev/null | grep -E "^STORY-" | head -5)
-        if [ -n "$CONTENT" ]; then
-            echo "$CONTENT" | while IFS='|' read -r id epic tasks status title; do
-                echo "  [$id] [$epic] [$status] $(truncate "$title" 100)"
-            done
-        else
-            echo "  $(get_file_message "STORY-BACKLOG.md" "empty")"
-        fi
-        ;;
-    1) echo "  $(get_file_message "STORY-BACKLOG.md" "missing")" ;;
-    2) echo "  $(get_file_message "STORY-BACKLOG.md" "corrupted")" ;;
-esac
-echo ""
-
 # STORY.DONE.PROJECT
 echo "STORY.DONE.$PROJECT_NAME:"
 check_file "CONSCIOUSNESS/stories/STORY-DONE.md" "STORY-DONE.md"
@@ -300,6 +262,25 @@ case $? in
         ;;
     1) echo "  $(get_file_message "STORY-DONE.md" "missing")" ;;
     2) echo "  $(get_file_message "STORY-DONE.md" "corrupted")" ;;
+esac
+echo ""
+
+# STORY.BACKLOG.PROJECT
+echo "STORY.BACKLOG.$PROJECT_NAME:"
+check_file "CONSCIOUSNESS/stories/STORY-BACKLOG.md" "STORY-BACKLOG.md"
+case $? in
+    0)
+        CONTENT=$(tail -n +4 CONSCIOUSNESS/stories/STORY-BACKLOG.md 2>/dev/null | grep -E "^STORY-" | head -5)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id epic tasks status title; do
+                echo "  [$id] [$epic] [$status] $(truncate "$title" 100)"
+            done
+        else
+            echo "  $(get_file_message "STORY-BACKLOG.md" "empty")"
+        fi
+        ;;
+    1) echo "  $(get_file_message "STORY-BACKLOG.md" "missing")" ;;
+    2) echo "  $(get_file_message "STORY-BACKLOG.md" "corrupted")" ;;
 esac
 echo ""
 
@@ -328,25 +309,6 @@ case $? in
 esac
 echo ""
 
-# TASKS.BACKLOG.PROJECT - ordered by Kano: must-have, performance, delighter, nice-to-have
-echo "TASKS.BACKLOG.$PROJECT_NAME:"
-check_file "CONSCIOUSNESS/tasks/TASK-BACKLOG.md" "TASK-BACKLOG.md"
-case $? in
-    0)
-        CONTENT=$(tail -n +4 CONSCIOUSNESS/tasks/TASK-BACKLOG.md 2>/dev/null | grep -E "^TASK-" | head -7)
-        if [ -n "$CONTENT" ]; then
-            echo "$CONTENT" | while IFS='|' read -r id story status title; do
-                echo "  [$id] [$story] $(truncate "$title" 100)"
-            done
-        else
-            echo "  $(get_file_message "TASK-BACKLOG.md" "empty")"
-        fi
-        ;;
-    1) echo "  $(get_file_message "TASK-BACKLOG.md" "missing")" ;;
-    2) echo "  $(get_file_message "TASK-BACKLOG.md" "corrupted")" ;;
-esac
-echo ""
-
 # TASKS.DONE.PROJECT
 echo "TASKS.DONE.$PROJECT_NAME:"
 check_file "CONSCIOUSNESS/tasks/TASK-DONE.md" "TASK-DONE.md"
@@ -363,6 +325,25 @@ case $? in
         ;;
     1) echo "  $(get_file_message "TASK-DONE.md" "missing")" ;;
     2) echo "  $(get_file_message "TASK-DONE.md" "corrupted")" ;;
+esac
+echo ""
+
+# TASKS.BACKLOG.PROJECT - ordered by Kano: must-have, performance, delighter, nice-to-have
+echo "TASKS.BACKLOG.$PROJECT_NAME:"
+check_file "CONSCIOUSNESS/tasks/TASK-BACKLOG.md" "TASK-BACKLOG.md"
+case $? in
+    0)
+        CONTENT=$(tail -n +4 CONSCIOUSNESS/tasks/TASK-BACKLOG.md 2>/dev/null | grep -E "^TASK-" | head -7)
+        if [ -n "$CONTENT" ]; then
+            echo "$CONTENT" | while IFS='|' read -r id story status title; do
+                echo "  [$id] [$story] $(truncate "$title" 100)"
+            done
+        else
+            echo "  $(get_file_message "TASK-BACKLOG.md" "empty")"
+        fi
+        ;;
+    1) echo "  $(get_file_message "TASK-BACKLOG.md" "missing")" ;;
+    2) echo "  $(get_file_message "TASK-BACKLOG.md" "corrupted")" ;;
 esac
 echo ""
 
@@ -430,7 +411,7 @@ esac
 echo ""
 
 # FEATURES DONE
-echo "FEATURES.DONE:"
+echo "FEATURES.DONE.$PROJECT_NAME:"
 check_file "CONSCIOUSNESS/features/FEATURES-DONE.md" "FEATURES-DONE.md"
 case $? in
     0)
@@ -449,7 +430,7 @@ esac
 echo ""
 
 # FEATURES BACKLOG
-echo "FEATURES.BACKLOG:"
+echo "FEATURES.BACKLOG.$PROJECT_NAME:"
 check_file "CONSCIOUSNESS/features/FEATURES-BACKLOG.md" "FEATURES-BACKLOG.md"
 case $? in
     0)
