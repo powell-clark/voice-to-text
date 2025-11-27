@@ -6,7 +6,7 @@
 
   "statuses": {
     "work": ["planned", "in-progress", "in-review", "blocked", "done", "cancelled", "duplicate"],
-    "features": ["planned", "implementing", "implemented", "deprecated"]
+    "features": ["planned", "in-progress", "in-review", "done", "deprecated"]
   },
 
   "categories": ["must-have", "should-have", "nice-to-have", "performance", "delighter", "future"],
