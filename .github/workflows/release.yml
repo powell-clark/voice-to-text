@@ -1,13 +1,19 @@
 name: Release
 
+# DISABLED - Build locally: make package && gh release create vX.X.X VTT.app.tar.gz
+# Re-enable when self-hosted runner is configured on Mac
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:  # Manual trigger only
+  # push:
+  #   tags:
+  #     - 'v*'
 
 jobs:
   build-and-release:
-    runs-on: macos-latest
+    # Use self-hosted macOS runner (free) or comment out to disable CI builds
+    # Build locally instead: make package && gh release create vX.X.X VTT.app.tar.gz
+    runs-on: self-hosted
+    # runs-on: macos-latest  # $0.08/min - EXPENSIVE
 
     steps:
       - name: Checkout code
