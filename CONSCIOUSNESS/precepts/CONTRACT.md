@@ -1,6 +1,6 @@
 # PGPS Contract
 
-**Version:** 2.1 | **Updated:** 2025-11-27
+**Version:** 2.2 | **Updated:** 2025-11-29
 
 This file is the single source of truth. pgps validates against this contract.
 Every repo with consciousness has this file. Edit here, propagate everywhere.
@@ -53,7 +53,7 @@ R16. FEATURES-DONE.md: id|location|tested|description [4 cols, NO status]
 ### Required Files
 
 R17. Required files: EPICS.md, EPIC-BACKLOG.md, EPIC-DONE.md, STORY.md, STORY-BACKLOG.md, STORY-DONE.md, TASKS.md, TASK-BACKLOG.md, TASK-DONE.md, FEATURES.md, FEATURES-BACKLOG.md, FEATURES-DONE.md, TODO.md
-R18. Missing files auto-created by: neurologist --fix
+R18. Missing files are auto-created when needed
 
 ### SMART Patterns
 
@@ -76,7 +76,7 @@ R25. IDs must match: ^(EPIC|STORY|TASK|FEAT)-[A-Z]{2}\d{3}$
 
 ### Display Order
 
-R26. Sections: EPICS,EPICS.DONE,EPICS.BACKLOG,STORY,STORY.DONE,STORY.BACKLOG,TASKS,TASKS.DONE,TASKS.BACKLOG,TODO,FEATURES,FEATURES.DONE,FEATURES.BACKLOG,GIT,CURRENT
+R26. Sections: CURRENT,TODO,GIT,TASKS,STORY,EPICS,FEATURES,TASKS.DONE,STORY.DONE,FEATURES.DONE,TASKS.BACKLOG,STORY.BACKLOG,EPICS.BACKLOG
 R27. Status sort: in-review,in-progress,blocked
 
 ### Section Behaviour

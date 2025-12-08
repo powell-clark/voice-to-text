@@ -23,7 +23,7 @@
       "required": true,
       "id_prefix": "EPIC",
       "empty_message": "[empty - file valid, no epics defined]",
-      "missing_message": "[file missing - run: neurologist --fix]",
+      "missing_message": "[file missing]",
       "corrupted_message": "[file corrupted - check header]"
     },
     "EPIC-BACKLOG.md": {
@@ -33,7 +33,7 @@
       "required": true,
       "id_prefix": "EPIC",
       "empty_message": "[empty - file valid, no backlog epics]",
-      "missing_message": "[file missing - run: neurologist --fix]",
+      "missing_message": "[file missing]",
       "corrupted_message": "[file corrupted - check header]"
     },
     "EPIC-DONE.md": {
@@ -43,7 +43,7 @@
       "required": true,
       "id_prefix": "EPIC",
       "empty_message": "[empty - file valid, no completed epics]",
-      "missing_message": "[file missing - run: neurologist --fix]",
+      "missing_message": "[file missing]",
       "corrupted_message": "[file corrupted - check header]"
     },
     "STORY.md": {
@@ -53,7 +53,7 @@
       "required": true,
       "id_prefix": "STORY",
       "empty_message": "[empty - file valid, no stories defined]",
-      "missing_message": "[file missing - run: neurologist --fix]",
+      "missing_message": "[file missing]",
       "corrupted_message": "[file corrupted - check header]"
     },
     "STORY-BACKLOG.md": {
@@ -63,7 +63,7 @@
       "required": true,
       "id_prefix": "STORY",
       "empty_message": "[empty - file valid, no backlog stories]",
-      "missing_message": "[file missing - run: neurologist --fix]",
+      "missing_message": "[file missing]",
       "corrupted_message": "[file corrupted - check header]"
     },
     "STORY-DONE.md": {
@@ -73,7 +73,7 @@
       "required": true,
       "id_prefix": "STORY",
       "empty_message": "[empty - file valid, no completed stories]",
-      "missing_message": "[file missing - run: neurologist --fix]",
+      "missing_message": "[file missing]",
       "corrupted_message": "[file corrupted - check header]"
     },
     "TASKS.md": {
@@ -83,7 +83,7 @@
       "required": true,
       "id_prefix": "TASK",
       "empty_message": "[empty - file valid, no tasks defined]",
-      "missing_message": "[file missing - run: neurologist --fix]",
+      "missing_message": "[file missing]",
       "corrupted_message": "[file corrupted - check header]"
     },
     "TASK-BACKLOG.md": {
@@ -93,7 +93,7 @@
       "required": true,
       "id_prefix": "TASK",
       "empty_message": "[empty - file valid, no backlog tasks]",
-      "missing_message": "[file missing - run: neurologist --fix]",
+      "missing_message": "[file missing]",
       "corrupted_message": "[file corrupted - check header]"
     },
     "TASK-DONE.md": {
@@ -103,7 +103,7 @@
       "required": true,
       "id_prefix": "TASK",
       "empty_message": "[empty - file valid, no completed tasks]",
-      "missing_message": "[file missing - run: neurologist --fix]",
+      "missing_message": "[file missing]",
       "corrupted_message": "[file corrupted - check header]"
     },
     "FEATURES.md": {
@@ -113,7 +113,7 @@
       "required": true,
       "id_prefix": "FEAT",
       "empty_message": "[empty - file valid, no features defined]",
-      "missing_message": "[file missing - run: neurologist --fix]",
+      "missing_message": "[file missing]",
       "corrupted_message": "[file corrupted - check header]"
     },
     "FEATURES-BACKLOG.md": {
@@ -123,7 +123,7 @@
       "required": true,
       "id_prefix": "FEAT",
       "empty_message": "[empty - file valid, no backlog features]",
-      "missing_message": "[file missing - run: neurologist --fix]",
+      "missing_message": "[file missing]",
       "corrupted_message": "[file corrupted - check header]"
     },
     "FEATURES-DONE.md": {
@@ -133,11 +133,11 @@
       "required": true,
       "id_prefix": "FEAT",
       "empty_message": "[empty - file valid, no completed features]",
-      "missing_message": "[file missing - run: neurologist --fix]",
+      "missing_message": "[file missing]",
       "corrupted_message": "[file corrupted - check header]"
     },
     "TODO.md": {
-      "path": "CONSCIOUSNESS/TODO.md",
+      "path": "TODO.md",
       "header": null,
       "columns": null,
       "required": true,
