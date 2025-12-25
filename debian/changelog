@@ -1,3 +1,9 @@
+voice-to-text (1.0.9) noble; urgency=medium
+
+  * Add support for Ubuntu 22.04 (Jammy) and Ubuntu 24.04 (Noble)
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Wed, 25 Dec 2025 05:41:00 +0000
+
 voice-to-text (1.0.8) noble; urgency=medium
 
   * Fix Python shebang to use system Python instead of env Python
