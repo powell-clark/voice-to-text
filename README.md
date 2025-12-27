@@ -26,6 +26,8 @@ sudo add-apt-repository ppa:powellclark/voice-to-text
 sudo apt update && sudo apt install voice-to-text
 ```
 
+That's it. Hold **Scroll Lock** and speak.
+
 ---
 
 ## Usage
