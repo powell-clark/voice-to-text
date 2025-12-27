@@ -46,31 +46,44 @@ case "$1" in
             echo "whisper-cli is already installed"
         fi
 
-        # Reload systemd user daemon
-        echo "Reloading systemd user daemon..."
+        # Enable and start the service for logged-in desktop users
+        echo "Enabling voice-to-text service..."
 
-        # Note: We can't run systemctl --user commands as root during package installation
-        # Users need to enable/start the service themselves
+        # Find users with active graphical sessions and enable/start the service for them
+        started_for_users=""
+        if command -v loginctl >/dev/null 2>&1; then
+            for session in $(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}'); do
+                session_type=$(loginctl show-session "$session" -p Type --value 2>/dev/null)
+                if [ "$session_type" = "x11" ] || [ "$session_type" = "wayland" ]; then
+                    user=$(loginctl show-session "$session" -p Name --value 2>/dev/null)
+                    uid=$(id -u "$user" 2>/dev/null)
+                    if [ -n "$user" ] && [ -n "$uid" ] && [ "$uid" -ge 1000 ]; then
+                        export XDG_RUNTIME_DIR="/run/user/$uid"
+                        if runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid systemctl --user daemon-reload" 2>/dev/null; then
+                            runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid systemctl --user enable vtt.service" 2>/dev/null
+                            runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid systemctl --user start vtt.service" 2>/dev/null
+                            started_for_users="$started_for_users $user"
+                        fi
+                    fi
+                fi
+            done
+        fi
 
         echo ""
         echo "============================================"
-        echo "Voice to Text installation complete!"
+        echo "Voice to Text installed!"
         echo "============================================"
         echo ""
-        echo "To start the application:"
-        echo "  systemctl --user daemon-reload"
-        echo "  systemctl --user start vtt"
-        echo ""
-        echo "To enable auto-start on login:"
-        echo "  systemctl --user enable vtt"
-        echo ""
-        echo "For GPU acceleration (NVIDIA), install CUDA:"
-        echo "  sudo apt install cuda-toolkit-12-6 libcudnn9-cuda-12"
-        echo ""
-        echo "Check status and logs:"
-        echo "  systemctl --user status vtt"
-        echo "  journalctl --user -u vtt -f"
-        echo ""
+        if [ -n "$started_for_users" ]; then
+            echo "✓ Service started for:$started_for_users"
+            echo ""
+            echo "Hold Scroll Lock and speak - text appears where you type."
+            echo ""
+        else
+            echo "Log out and back in, or run:"
+            echo "  systemctl --user enable --now vtt"
+            echo ""
+        fi
         ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
