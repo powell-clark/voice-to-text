@@ -99,7 +99,8 @@ def transcribe_audio(
     model_size: str = "small.en",
     language: str = "en",
     device: Optional[str] = None,
-    compute_type: Optional[str] = None
+    compute_type: Optional[str] = None,
+    initial_prompt: Optional[str] = None
 ) -> str:
     """
     Transcribe audio file using faster-whisper
@@ -110,6 +111,7 @@ def transcribe_audio(
         language: Language code ("en" for English, "auto" for auto-detect)
         device: Device to use (cpu, cuda) - auto-detected if None
         compute_type: Compute type (int8, float16, float32) - auto-detected if None
+        initial_prompt: Vocabulary hint for Whisper decoder (None for no prompt)
 
     Returns:
         Transcribed text
@@ -140,14 +142,15 @@ def transcribe_audio(
         logger.info(f"✓ Model loaded: {model_size} on {device.upper()} with {compute_type}")
 
         # Transcribe with faster-whisper
-        segments, info = model.transcribe(
-            audio_path,
+        transcribe_kwargs = dict(
             language=lang_setting,
             beam_size=5,
             vad_filter=False,  # Disable VAD - too aggressive
             word_timestamps=True,  # Enable word-level timestamps
-            initial_prompt="Transcribe this voice command."
         )
+        if initial_prompt:
+            transcribe_kwargs["initial_prompt"] = initial_prompt
+        segments, info = model.transcribe(audio_path, **transcribe_kwargs)
 
         # Collect all segments
         text_segments = []
@@ -171,14 +174,15 @@ def transcribe_audio(
                 model = WhisperModel(model_size, device="cpu", compute_type="int8")
                 logger.info("✓ Fallback successful - using CPU with INT8")
 
-                segments, info = model.transcribe(
-                    audio_path,
+                transcribe_kwargs = dict(
                     language=lang_setting,
                     beam_size=5,
                     vad_filter=False,
                     word_timestamps=True,
-                    initial_prompt="Transcribe this voice command."
                 )
+                if initial_prompt:
+                    transcribe_kwargs["initial_prompt"] = initial_prompt
+                segments, info = model.transcribe(audio_path, **transcribe_kwargs)
 
                 text_segments = []
                 for segment in segments:
@@ -205,9 +209,10 @@ def main():
     audio_path = sys.argv[1]
     model_size = sys.argv[2] if len(sys.argv) > 2 else "small.en"
     language = sys.argv[3] if len(sys.argv) > 3 else "en"
+    initial_prompt = sys.argv[4] if len(sys.argv) > 4 else None
 
     # Transcribe
-    text = transcribe_audio(audio_path, model_size, language)
+    text = transcribe_audio(audio_path, model_size, language, initial_prompt=initial_prompt)
 
     # Output text to stdout (VTT app reads this)
     if text:
