@@ -272,7 +272,7 @@ static void audioInputCallback(void* userData,
     // Load initial prompt preference (default: British English, programming)
     self.initialPrompt = [defaults stringForKey:@"initialPrompt"];
     if (!self.initialPrompt) {
-        self.initialPrompt = @"Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
+        self.initialPrompt = @"British English, technical context. Git, GitHub, Claude, API, CLI, JSON, YAML, SSH, Docker, TypeScript, Python, Ubuntu, PPA, Launchpad. Powell-Clark, Emmanuel.";
         [defaults setObject:self.initialPrompt forKey:@"initialPrompt"];
     }
 
@@ -3347,7 +3347,7 @@ transcription_complete:
     }
 
     if (promptField) {
-        promptField.stringValue = @"Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
+        promptField.stringValue = @"British English, technical context. Git, GitHub, Claude, API, CLI, JSON, YAML, SSH, Docker, TypeScript, Python, Ubuntu, PPA, Launchpad. Powell-Clark, Emmanuel.";
         [[NSNotificationCenter defaultCenter] postNotificationName:NSControlTextDidChangeNotification object:promptField];
     }
     if (prefixField) {

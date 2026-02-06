@@ -18,7 +18,30 @@ static int is_whisper_cpp_model(const char *model) {
     return 1;
 }
 
-char *vtt_transcribe_audio(const char *audio_path, const char *model, const char *language) {
+// Shell-escape a string: replace single quotes with '\'' for safe embedding in '...'
+static char *shell_escape(const char *str) {
+    if (!str) return strdup("");
+    size_t len = strlen(str);
+    // Worst case: every char is a single quote → 4x expansion + quotes + null
+    char *escaped = malloc(len * 4 + 3);
+    if (!escaped) return strdup("");
+    char *out = escaped;
+    for (const char *p = str; *p; p++) {
+        if (*p == '\'') {
+            // End quote, escaped quote, start quote: '\''
+            *out++ = '\'';
+            *out++ = '\\';
+            *out++ = '\'';
+            *out++ = '\'';
+        } else {
+            *out++ = *p;
+        }
+    }
+    *out = '\0';
+    return escaped;
+}
+
+char *vtt_transcribe_audio(const char *audio_path, const char *model, const char *language, const char *initial_prompt) {
     if (!audio_path) {
         return NULL;
     }
@@ -28,6 +51,9 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
 
     // Use provided language or default to "en" (English)
     const char *language_to_use = language ? language : "en";
+
+    // Use provided prompt or empty string
+    const char *prompt_to_use = (initial_prompt && initial_prompt[0]) ? initial_prompt : "";
 
     // Auto-append .en suffix for English when .en model exists
     // Menu shows "W tiny", but backend uses "W tiny.en" for English
@@ -128,12 +154,18 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
             return NULL;
         }
 
-        // Run whisper-cli with user-selected language
-        // If user selected "en", use --language en (faster)
-        // If user selected "auto", use --language auto (auto-detect, multilingual only)
-        snprintf(cmd, sizeof(cmd),
-                 "%s -m '%s' -f '%s' --no-timestamps --language %s --threads 4 2>/dev/null",
-                 whisper_cli, model_file, audio_path, language_to_use);
+        // Run whisper-cli with user-selected language and prompt
+        char *escaped_prompt = shell_escape(prompt_to_use);
+        if (escaped_prompt[0]) {
+            snprintf(cmd, sizeof(cmd),
+                     "%s -m '%s' -f '%s' --no-timestamps --language %s --threads 4 --prompt '%s' 2>/dev/null",
+                     whisper_cli, model_file, audio_path, language_to_use, escaped_prompt);
+        } else {
+            snprintf(cmd, sizeof(cmd),
+                     "%s -m '%s' -f '%s' --no-timestamps --language %s --threads 4 2>/dev/null",
+                     whisper_cli, model_file, audio_path, language_to_use);
+        }
+        free(escaped_prompt);
 
     } else {
         // ═══════════════════════════════════════════════════════════════
@@ -182,10 +214,16 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
             strncpy(ct2_model, "large-v3", sizeof(ct2_model));
         }
 
-        // Run Python faster-whisper script with model and language
-        // Pass language as additional parameter: "en" or "auto"
-        snprintf(cmd, sizeof(cmd), "%s '%s' '%s' %s %s 2>/dev/null",
-                 python_path, script_path, audio_path, ct2_model, language_to_use);
+        // Run Python faster-whisper script with model, language, and prompt
+        char *escaped_prompt = shell_escape(prompt_to_use);
+        if (escaped_prompt[0]) {
+            snprintf(cmd, sizeof(cmd), "%s '%s' '%s' %s %s '%s' 2>/dev/null",
+                     python_path, script_path, audio_path, ct2_model, language_to_use, escaped_prompt);
+        } else {
+            snprintf(cmd, sizeof(cmd), "%s '%s' '%s' %s %s 2>/dev/null",
+                     python_path, script_path, audio_path, ct2_model, language_to_use);
+        }
+        free(escaped_prompt);
     }
 
     FILE *fp = popen(cmd, "r");

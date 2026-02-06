@@ -817,7 +817,7 @@ static void on_prompt_reset(GtkButton *button, gpointer user_data) {
 
     gtk_entry_set_text(GTK_ENTRY(data->prefix_entry), "[Voice] ");
     gtk_text_buffer_set_text(data->text_buffer,
-        "Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.",
+        "British English, technical context. Git, GitHub, Claude, API, CLI, JSON, YAML, SSH, Docker, TypeScript, Python, Ubuntu, PPA, Launchpad. Powell-Clark, Emmanuel.",
         -1);
 
     if (data->newline_toggle) {

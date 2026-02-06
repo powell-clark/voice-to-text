@@ -12,7 +12,7 @@
 static const char *DEFAULT_MODEL = "small";
 static const char *DEFAULT_LANGUAGE = "en";  // Default to English
 static const char *DEFAULT_PREFIX = "[Voice] ";
-static const char *DEFAULT_PROMPT = "Male British English speaker. Programming, business and technical terminology with frequent acronyms and spelled letters.";
+static const char *DEFAULT_PROMPT = "British English, technical context. Git, GitHub, Claude, API, CLI, JSON, YAML, SSH, Docker, TypeScript, Python, Ubuntu, PPA, Launchpad. Powell-Clark, Emmanuel.";
 static const int DEFAULT_DEVICE = -1;
 static const bool DEFAULT_APPEND_NEWLINE = true;
 static const vtt_newline_type_t DEFAULT_NEWLINE_TYPE = NEWLINE_SHIFT_RETURN;

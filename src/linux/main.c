@@ -229,7 +229,7 @@ static void *transcription_worker(void *arg) {
         vtt_gui_set_icon(&app->gui, "processing");
 
         // Transcribe with selected model and language
-        char *text = vtt_transcribe_audio(actual_filename, app->gui.selected_model, app->gui.selected_language);
+        char *text = vtt_transcribe_audio(actual_filename, app->gui.selected_model, app->gui.selected_language, app->gui.initial_prompt);
 
         if (text && strlen(text) > 0) {
             char *trimmed = text;
