@@ -9,3 +9,4 @@ TASK-VTT005|Implement text injection via XTest (Linux) and Accessibility API (ma
 TASK-VTT006|Add multi-language support with auto-detection|STORY-VTT001|||
 TASK-VTT007|Create Homebrew cask formula for macOS distribution|STORY-VTT002|||
 TASK-VTT008|Create APT PPA for Linux distribution|STORY-VTT002|||
+TASK-VTT009|Wire initial_prompt setting through to both transcription backends with shell-escaping|STORY-VTT003||FEAT-VTT011|
