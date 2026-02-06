@@ -1,0 +1,58 @@
+PGPS START: 2025-12-25 05:48:41.188, SESSION ID: voice-to-text-main-b0fd9a7b
+
+ROADMAP:
+
+EPICS.ACTIVE:
+  [EPIC-VTT001] [Q4-2025] [VTT001,VTT002] [must-have] p0
+
+EPICS.DONE:
+  [Empty EPIC-DONE-INDEX.md - valid - ~/projects/voice-to-text/CONSCIOUSNE...]
+
+EPICS.BACKLOG:
+  [Empty EPIC-BACKLOG-INDEX.md - valid - ~/projects/voice-to-text/CONSCIOU...]
+
+STORIES.ACTIVE:
+  [Empty STORY-ACTIVE-INDEX.md - valid - ~/projects/voice-to-text/CONSCIOU...]
+
+STORIES.DONE:
+  [STORY-VTT001] VTT001 [VTT001,VTT002,VTT003,VTT004,VTT005,VTT006] [Core W...
+  [STORY-VTT002] VTT001 [VTT007,VTT008] [Distribution Packages - Homebrew c...
+
+STORIES.BACKLOG:
+  [Empty STORY-BACKLOG-INDEX.md - valid - ~/projects/voice-to-text/CONSCIO...]
+
+TASKS.ACTIVE:
+  [Empty TASK-ACTIVE-INDEX.md - valid - ~/projects/voice-to-text/CONSCIOUS...]
+
+TASKS.DONE:
+  [TASK-VTT001] VTT001 [Implement PortAudio recording with quality filters]
+  [TASK-VTT002] VTT001 [Integrate faster-whisper with CUDA GPU acceleration]
+  [TASK-VTT003] VTT001 [Create macOS menu bar app with Cocoa/Objective-C]
+  [TASK-VTT004] VTT001 [Create Linux system tray with GTK3]
+  [TASK-VTT005] VTT001 [Implement text injection via XTest (Linux) and Acce...
+  [TASK-VTT006] VTT001 [Add multi-language support with auto-detection]
+  [TASK-VTT007] VTT002 [Create Homebrew cask formula for macOS distribution]
+  [TASK-VTT008] VTT002 [Create APT PPA for Linux distribution]
+
+TASKS.BACKLOG:
+  [Empty TASK-BACKLOG-INDEX.md - valid - ~/projects/voice-to-text/CONSCIOU...]
+
+TODO:
+  [No todos - TODO.md missing - create at ~/projects/voice-to-text/TODO.md]
+
+FEATURES.ACTIVE:
+  [Empty FEATURE-ACTIVE-INDEX.md - valid - ~/projects/voice-to-text/CONSCI...]
+
+FEATURES.DONE:
+  [Empty FEATURE-DONE-INDEX.md - valid - ~/projects/voice-to-text/CONSCIOU...]
+
+FEATURES.BACKLOG:
+  [Empty FEATURE-BACKLOG-INDEX.md - valid - ~/projects/voice-to-text/CONSC...]
+
+GIT:
+  branch:main changes:34 ahead:0 behind:0 @48e145f
+
+CURRENT:
+  [no active task]
+
+ PGPS SCRIPT OUTPUT END: 2025-12-25 05:48:41.209, SESSION ID: voice-to-text-main-b0fd9a7b, Duration: 21ms

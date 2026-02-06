@@ -1,0 +1,58 @@
+PGPS START: 2025-12-25 05:50:02.669, SESSION ID: voice-to-text-main-b0fd9a7b
+
+ROADMAP:
+
+EPICS.ACTIVE:
+  [EPIC-VTT001] [Q4-2025] [p0] Cross-platform voice transcription with Whis...
+
+EPICS.DONE:
+  [Empty EPIC-DONE-INDEX.md - valid - ~/projects/voice-to-text/CONSCIOUSNE...]
+
+EPICS.BACKLOG:
+  [Empty EPIC-BACKLOG-INDEX.md - valid - ~/projects/voice-to-text/CONSCIOU...]
+
+STORIES.ACTIVE:
+  [Empty STORY-ACTIVE-INDEX.md - valid - ~/projects/voice-to-text/CONSCIOU...]
+
+STORIES.DONE:
+  [STORY-VTT001] Core Whisper Transcription - push-to-talk re... [EPIC-VTT001]
+  [STORY-VTT002] Distribution Packages - Homebrew cask for ma... [EPIC-VTT001]
+
+STORIES.BACKLOG:
+  [Empty STORY-BACKLOG-INDEX.md - valid - ~/projects/voice-to-text/CONSCIO...]
+
+TASKS.ACTIVE:
+  [Empty TASK-ACTIVE-INDEX.md - valid - ~/projects/voice-to-text/CONSCIOUS...]
+
+TASKS.DONE:
+  [TASK-VTT001] Implement PortAudio recording with quality f... [STORY-VTT001]
+  [TASK-VTT002] Integrate faster-whisper with CUDA GPU accel... [STORY-VTT001]
+  [TASK-VTT003] Create macOS menu bar app with Cocoa/Objecti... [STORY-VTT001]
+  [TASK-VTT004] Create Linux system tray with GTK3 [STORY-VTT001]
+  [TASK-VTT005] Implement text injection via XTest (Linux) a... [STORY-VTT001]
+  [TASK-VTT006] Add multi-language support with auto-detection [STORY-VTT001]
+  [TASK-VTT007] Create Homebrew cask formula for macOS distr... [STORY-VTT002]
+  [TASK-VTT008] Create APT PPA for Linux distribution [STORY-VTT002]
+
+TASKS.BACKLOG:
+  [Empty TASK-BACKLOG-INDEX.md - valid - ~/projects/voice-to-text/CONSCIOU...]
+
+TODO:
+  [No todos - TODO.md missing - create at ~/projects/voice-to-text/TODO.md]
+
+FEATURES.ACTIVE:
+  [Empty FEATURE-ACTIVE-INDEX.md - valid - ~/projects/voice-to-text/CONSCI...]
+
+FEATURES.DONE:
+  [Empty FEATURE-DONE-INDEX.md - valid - ~/projects/voice-to-text/CONSCIOU...]
+
+FEATURES.BACKLOG:
+  [Empty FEATURE-BACKLOG-INDEX.md - valid - ~/projects/voice-to-text/CONSC...]
+
+GIT:
+  branch:main changes:35 ahead:0 behind:0 @48e145f
+
+CURRENT:
+  [no active task]
+
+ PGPS SCRIPT OUTPUT END: 2025-12-25 05:50:02.691, SESSION ID: voice-to-text-main-b0fd9a7b, Duration: 21ms

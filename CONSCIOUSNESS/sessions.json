@@ -1,0 +1,59 @@
+{
+  "sessions": [
+    {
+      "id": "voice-to-text-main-b0fd9a7b",
+      "prev": null,
+      "started": "2025-12-25 05:40:34.499 gmt",
+      "ended": "2025-12-25 05:56:54.050 gmt",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0
+      }
+    },
+    {
+      "id": "voice-to-text-main-a5755be9",
+      "prev": "voice-to-text-main-b0fd9a7b",
+      "started": "2025-12-25 05:56:54.050 gmt",
+      "ended": "2026-02-03 02:56:44.315 gmt",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0
+      }
+    },
+    {
+      "id": "voice-to-text-main-b1595a9a",
+      "prev": "voice-to-text-main-a5755be9",
+      "started": "2026-02-03 02:56:44.315 gmt",
+      "ended": "2026-02-06 19:58:51.397 gmt",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0
+      }
+    },
+    {
+      "id": "voice-to-text-main-45586eb2",
+      "prev": "voice-to-text-main-b1595a9a",
+      "started": "2026-02-06 19:58:51.397 gmt",
+      "ended": "2026-02-06 20:11:09.963 gmt",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0
+      }
+    },
+    {
+      "id": "voice-to-text-main-7d3e3b31",
+      "prev": "voice-to-text-main-45586eb2",
+      "started": "2026-02-06 20:11:09.963 gmt",
+      "ended": null,
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0
+      }
+    }
+  ]
+}
