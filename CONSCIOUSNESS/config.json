@@ -1,0 +1,9 @@
+{
+  "project_code": "VTT",
+  "federation": {
+    "enabled": true,
+    "siblings": {
+      "EGLPK": "../../amalavijnana/eagle-peak/CONSCIOUSNESS"
+    }
+  }
+}
