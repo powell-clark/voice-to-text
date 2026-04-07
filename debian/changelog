@@ -1,3 +1,11 @@
+voice-to-text (1.0.15) noble; urgency=high
+
+  * HOTFIX: Revert systemd hardening that crashes user services
+    (CapabilityBoundingSet, ProtectSystem=strict not supported in
+    user services — caused "Failed to drop capabilities" on 1.0.13)
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Mon, 07 Apr 2026 16:07:00 +0000
+
 voice-to-text (1.0.14) noble; urgency=medium
 
   * Daily log files (vtt-YYYY-MM-DD.log) with auto-purge after 7 days
