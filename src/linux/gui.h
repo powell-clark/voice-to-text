@@ -19,7 +19,6 @@ typedef struct {
     void *prompt_item;
     void *logging_item;
     void *language_item;
-    void *recent_menu_item;
     void *prompt_dialog;
     vtt_model_callback_t model_callback;
     vtt_audio_t *audio;

@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <dirent.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -511,17 +512,87 @@ int vtt_gui_init(vtt_gui_t *gui,
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), logging_item);
     gui->logging_item = logging_item;
 
-    // Recent transcriptions submenu
-    GtkWidget *recent_item = gtk_menu_item_new_with_label("Recent Transcriptions");
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), recent_item);
-    gui->recent_menu_item = recent_item;
-    // Submenu populated dynamically on click
-    g_signal_connect(recent_item, "activate", G_CALLBACK(on_show_recent), gui);
+    // Logs submenu — dynamically lists daily log files
+    GtkWidget *logs_item = gtk_menu_item_new_with_label("Logs");
+    GtkWidget *logs_menu = gtk_menu_new();
 
-    // Show logs
-    GtkWidget *show_logs_item = gtk_menu_item_new_with_label("Show Logs");
-    g_signal_connect(show_logs_item, "activate", G_CALLBACK(on_show_logs), gui);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), show_logs_item);
+    // Scan log directory for vtt-*.log files
+    const char *log_dir = vtt_log_get_dir();
+    if (log_dir && *log_dir) {
+        DIR *dir = opendir(log_dir);
+        if (dir) {
+            // Collect filenames, sort newest first
+            char filenames[32][64];
+            int file_count = 0;
+
+            struct dirent *entry;
+            while ((entry = readdir(dir)) != NULL && file_count < 32) {
+                if (strncmp(entry->d_name, "vtt-", 4) != 0) continue;
+                if (!strstr(entry->d_name, ".log")) continue;
+                strncpy(filenames[file_count], entry->d_name, 63);
+                filenames[file_count][63] = '\0';
+                file_count++;
+            }
+            closedir(dir);
+
+            // Sort descending (newest first — filenames are date-sortable)
+            for (int i = 0; i < file_count - 1; i++) {
+                for (int j = i + 1; j < file_count; j++) {
+                    if (strcmp(filenames[i], filenames[j]) < 0) {
+                        char tmp[64];
+                        memcpy(tmp, filenames[i], 64);
+                        memcpy(filenames[i], filenames[j], 64);
+                        memcpy(filenames[j], tmp, 64);
+                    }
+                }
+            }
+
+            for (int i = 0; i < file_count; i++) {
+                // Format label: "Today (07 Apr)", "Yesterday (06 Apr)", or just "05 Apr"
+                char label[64];
+                char full_path[512];
+                snprintf(full_path, sizeof(full_path), "%s/%s", log_dir, filenames[i]);
+
+                // Extract date from filename: vtt-2026-04-07.log
+                int y, m, d;
+                if (sscanf(filenames[i], "vtt-%d-%d-%d.log", &y, &m, &d) == 3) {
+                    const char *months[] = {"", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+                    time_t now = time(NULL);
+                    struct tm *today = localtime(&now);
+                    int today_y = today->tm_year + 1900;
+                    int today_m = today->tm_mon + 1;
+                    int today_d = today->tm_mday;
+
+                    if (y == today_y && m == today_m && d == today_d) {
+                        snprintf(label, sizeof(label), "Today (%02d %s)", d, months[m]);
+                    } else if (y == today_y && m == today_m && d == today_d - 1) {
+                        snprintf(label, sizeof(label), "Yesterday (%02d %s)", d, months[m]);
+                    } else {
+                        snprintf(label, sizeof(label), "%02d %s %d", d, months[m], y);
+                    }
+                } else {
+                    strncpy(label, filenames[i], sizeof(label) - 1);
+                }
+
+                GtkWidget *log_entry = gtk_menu_item_new_with_label(label);
+                g_object_set_data_full(G_OBJECT(log_entry), "log_path",
+                    g_strdup(full_path), g_free);
+                g_signal_connect(log_entry, "activate",
+                    G_CALLBACK(on_log_file_selected), NULL);
+                gtk_menu_shell_append(GTK_MENU_SHELL(logs_menu), log_entry);
+            }
+
+            if (file_count == 0) {
+                GtkWidget *empty = gtk_menu_item_new_with_label("(no logs yet)");
+                gtk_widget_set_sensitive(empty, FALSE);
+                gtk_menu_shell_append(GTK_MENU_SHELL(logs_menu), empty);
+            }
+        }
+    }
+
+    gtk_menu_item_set_submenu(GTK_MENU_ITEM(logs_item), logs_menu);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), logs_item);
 
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
 
@@ -744,129 +815,25 @@ static void on_language_selected(GtkMenuItem *item, gpointer user_data) {
 
 
 
-// Copy transcription text to clipboard when row activated in recent dialog
-static void on_recent_row_activated(GtkListBox *box, GtkListBoxRow *row, gpointer data) {
-    (void)box; (void)data;
-    GtkWidget *label = gtk_bin_get_child(GTK_BIN(row));
-    const char *tooltip = gtk_widget_get_tooltip_text(label);
-    if (tooltip) {
-        GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
-        gtk_clipboard_set_text(clipboard, tooltip, -1);
-        vtt_log("Copied recent transcription to clipboard");
+// Open a log file via xdg-open (double-fork to avoid zombies)
+static void open_log_file(const char *path) {
+    pid_t pid = fork();
+    if (pid == 0) {
+        pid_t pid2 = fork();
+        if (pid2 > 0) _exit(0);
+        if (pid2 < 0) _exit(1);
+        execlp("xdg-open", "xdg-open", path, NULL);
+        _exit(1);
     }
+    if (pid > 0) waitpid(pid, NULL, 0);
+    vtt_log("Opening log file: %s", path);
 }
 
-// Show recent transcriptions dialog — parses today's log for "Transcription:" lines
-static void on_show_recent(GtkMenuItem *item, gpointer user_data) {
-    (void)item;
+// Callback for log submenu items — open the associated log file
+static void on_log_file_selected(GtkMenuItem *item, gpointer user_data) {
     (void)user_data;
-
-    const char *log_path = vtt_log_get_path();
-    if (!log_path || !*log_path) return;
-
-    FILE *f = fopen(log_path, "r");
-    if (!f) return;
-
-    // Collect last 20 transcriptions
-    #define MAX_RECENT 20
-    #define MAX_LINE_LEN 4096
-    char *recent[MAX_RECENT];
-    int count = 0;
-
-    char line[MAX_LINE_LEN];
-    while (fgets(line, sizeof(line), f)) {
-        char *match = strstr(line, "Transcription: ");
-        if (!match) continue;
-
-        char *text = match + 15;  // Skip "Transcription: "
-        // Trim trailing newline
-        char *nl = strchr(text, '\n');
-        if (nl) *nl = '\0';
-
-        if (strlen(text) == 0) continue;
-
-        // Ring buffer: overwrite oldest
-        if (count < MAX_RECENT) {
-            recent[count] = strdup(text);
-            count++;
-        } else {
-            free(recent[0]);
-            memmove(recent, recent + 1, (MAX_RECENT - 1) * sizeof(char *));
-            recent[MAX_RECENT - 1] = strdup(text);
-        }
-    }
-    fclose(f);
-
-    if (count == 0) {
-        // No transcriptions today
-        GtkWidget *dialog = gtk_message_dialog_new(NULL, 0, GTK_MESSAGE_INFO,
-            GTK_BUTTONS_OK, "No transcriptions yet today.");
-        gtk_dialog_run(GTK_DIALOG(dialog));
-        gtk_widget_destroy(dialog);
-        return;
-    }
-
-    // Build dialog with scrollable list
-    GtkWidget *dialog = gtk_dialog_new_with_buttons("Recent Transcriptions — click to copy",
-        NULL, GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE, NULL);
-    gtk_window_set_default_size(GTK_WINDOW(dialog), 600, 400);
-
-    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
-        GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    gtk_box_pack_start(GTK_BOX(content), scroll, TRUE, TRUE, 0);
-
-    GtkWidget *listbox = gtk_list_box_new();
-    gtk_container_add(GTK_CONTAINER(scroll), listbox);
-
-    // Add items newest-first
-    for (int i = count - 1; i >= 0; i--) {
-        // Truncate display to 120 chars
-        char display[128];
-        if (strlen(recent[i]) > 120) {
-            snprintf(display, sizeof(display), "%.117s...", recent[i]);
-        } else {
-            strncpy(display, recent[i], sizeof(display) - 1);
-            display[sizeof(display) - 1] = '\0';
-        }
-
-        GtkWidget *row = gtk_list_box_row_new();
-        GtkWidget *label = gtk_label_new(display);
-        gtk_label_set_xalign(GTK_LABEL(label), 0.0);
-        gtk_label_set_selectable(GTK_LABEL(label), TRUE);
-        gtk_widget_set_tooltip_text(label, recent[i]);
-        gtk_container_add(GTK_CONTAINER(row), label);
-        gtk_list_box_insert(GTK_LIST_BOX(listbox), row, -1);
-    }
-
-    // On row activate, copy full text to clipboard
-    g_signal_connect(listbox, "row-activated", G_CALLBACK(on_recent_row_activated), NULL);
-
-    gtk_widget_show_all(dialog);
-    gtk_dialog_run(GTK_DIALOG(dialog));
-    gtk_widget_destroy(dialog);
-
-    for (int i = 0; i < count; i++) free(recent[i]);
-}
-
-static void on_show_logs(GtkMenuItem *item, gpointer user_data) {
-    const char *log_path = vtt_log_get_path();
-
-    if (log_path && *log_path) {
-        // Double-fork to avoid zombies (same pattern as typing.c paste_text)
-        pid_t pid = fork();
-        if (pid == 0) {
-            pid_t pid2 = fork();
-            if (pid2 > 0) _exit(0);  // Middle process exits immediately
-            if (pid2 < 0) _exit(1);
-            // Grandchild: reparented to init, no zombie
-            execlp("xdg-open", "xdg-open", log_path, NULL);
-            _exit(1);
-        }
-        if (pid > 0) waitpid(pid, NULL, 0);  // Reap middle child instantly
-        vtt_log("Opening log file: %s", log_path);
-    }
+    const char *path = g_object_get_data(G_OBJECT(item), "log_path");
+    if (path) open_log_file(path);
 }
 
 static void on_toggle_logging(GtkMenuItem *item, gpointer user_data) {
