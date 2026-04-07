@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "consciousness-schema",
+  "title": "Consciousness Plugin File Schemas",
+  "description": "Unified schema for all CONSCIOUSNESS/ file formats - consumed by validators and PGPS",
+  "version": "1.1.0",
+  "updated": "2026-03-25T11:19:38.000Z",
+
+  "index_schemas": {
+    "directives": {
+      "columns": ["id", "quarter", "priority", "title", "created", "started", "expected_end", "actual_end", "story_ids", "task_ids", "feature_ids"],
+      "columns_active": ["id", "status", "quarter", "priority", "title", "created", "started", "expected_end", "actual_end", "story_ids", "task_ids", "feature_ids"],
+      "columns_done": ["id", "quarter", "priority", "title", "created", "started", "expected_end", "actual_end", "story_ids", "task_ids", "feature_ids"],
+      "required": ["id", "quarter", "priority", "title"],
+      "id_pattern": "^EPIC-[A-Z0-9]{2,6}\\d{1,5}$",
+      "quarter_pattern": "^Q[1-4]-\\d{4}$",
+      "priority_values": ["p0", "p1", "p2", "p3", "p4", "p5", "p6"],
+      "status_values": ["upcoming", "in_progress", "in_review", "blocked", "dropped", ""],
+      "fk_patterns": {
+        "story_ids": "^STORY-[A-Z0-9]{2,6}\\d{1,5}$",
+        "task_ids": "^TASK-[A-Z0-9]{2,6}\\d{1,5}$",
+        "feature_ids": "^FEAT-[A-Z0-9]{2,6}\\d{1,5}$"
+      }
+    },
+    "stories": {
+      "columns": ["id", "priority", "title", "epic_id", "task_ids", "feature_ids", "doc"],
+      "columns_active": ["id", "status", "priority", "title", "epic_id", "task_ids", "feature_ids", "doc"],
+      "columns_done": ["id", "title", "epic_id", "task_ids", "feature_ids", "doc"],
+      "required": ["id", "title"],
+      "id_pattern": "^STORY-[A-Z0-9]{2,6}\\d{1,5}$",
+      "priority_values": ["p0", "p1", "p2", "p3", "p4", "p5"],
+      "status_values": ["upcoming", "in_progress", "in_review", "blocked", "dropped", ""],
+      "fk_patterns": {
+        "epic_id": "^EPIC-[A-Z0-9]{2,6}\\d{1,5}$",
+        "feature_ids": "^FEAT-[A-Z0-9]{2,6}\\d{1,5}$",
+        "task_ids": "^TASK-[A-Z0-9]{2,6}\\d{1,5}$"
+      }
+    },
+    "tasks": {
+      "columns": ["id", "priority", "title", "story_ids", "epic_id", "feature_ids", "doc", "blocked_by", "blocks", "assignee", "parent_task_id", "sequence"],
+      "columns_active": ["id", "status", "priority", "title", "story_ids", "epic_id", "feature_ids", "doc", "blocked_by", "blocks", "assignee", "parent_task_id", "sequence"],
+      "columns_done": ["id", "title", "story_ids", "epic_id", "feature_ids", "doc"],
+      "required": ["id", "title"],
+      "id_pattern": "^TASK-[A-Z0-9]{2,6}\\d{1,5}$",
+      "priority_values": ["p0", "p1", "p2", "p3", "p4", "p5"],
+      "status_values": ["upcoming", "in_progress", "in_review", "blocked", "dropped", ""],
+      "fk_patterns": {
+        "story_ids": "^STORY-[A-Z0-9]{2,6}\\d{1,5}$",
+        "epic_id": "^EPIC-[A-Z0-9]{2,6}\\d{1,5}$",
+        "feature_ids": "^FEAT-[A-Z0-9]{2,6}\\d{1,5}$",
+        "blocked_by": "^([A-Z]{2,6}:)?(EPIC|STORY|TASK|FEAT)-[A-Z0-9]{2,6}\\d{1,5}$",
+        "blocks": "^([A-Z]{2,6}:)?(EPIC|STORY|TASK|FEAT)-[A-Z0-9]{2,6}\\d{1,5}$",
+        "parent_task_id": "^TASK-[A-Z0-9]{2,6}\\d{1,5}$"
+      }
+    },
+    "features": {
+      "columns": ["id", "priority", "kano", "description", "story_ids", "task_ids", "doc"],
+      "columns_active": ["id", "status", "priority", "kano", "description", "story_ids", "task_ids", "doc"],
+      "columns_done": ["id", "kano", "description", "story_ids", "task_ids", "doc"],
+      "required": ["id", "kano", "description"],
+      "id_pattern": "^FEAT-[A-Z0-9]{2,6}\\d{1,5}$",
+      "priority_values": ["p0", "p1", "p2", "p3", "p4", "p5", "p6"],
+      "kano_values": ["must-have", "performance", "delighter", "nice-to-have", "in-discussion"],
+      "status_values": ["upcoming", "in_progress", "in_review", "blocked", "dropped", ""],
+      "fk_patterns": {
+        "story_ids": "^STORY-[A-Z0-9]{2,6}\\d{1,5}$",
+        "task_ids": "^TASK-[A-Z0-9]{2,6}\\d{1,5}$"
+      }
+    }
+  },
+
+  "config_schemas": {
+    "config.json": {
+      "type": "object",
+      "required": ["project_code", "schema_version"],
+      "properties": {
+        "project_code": {
+          "type": "string",
+          "pattern": "^[A-Z]{2,6}$",
+          "description": "2-6 letter project code used in IDs"
+        },
+        "schema_version": {
+          "type": "string",
+          "pattern": "^\\d{14}$",
+          "description": "14-digit timestamp of schema version"
+        }
+      }
+    },
+    "sessions.json": {
+      "type": "object",
+      "properties": {
+        "sessions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "started"],
+            "properties": {
+              "id": { "type": "string" },
+              "started": { "type": "string", "format": "date-time" },
+              "ended": { "type": "string", "format": "date-time" },
+              "prev": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "active-sessions.json": {
+      "type": "object",
+      "properties": {
+        "sessions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "started", "last_activity"],
+            "properties": {
+              "id": { "type": "string" },
+              "started": { "type": "string", "format": "date-time" },
+              "last_activity": { "type": "string", "format": "date-time" },
+              "conscious_mode": { "type": "boolean" },
+              "current_task": { "type": ["string", "null"] },
+              "current_activity": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "yaml_schemas": {
+    "adr": {
+      "type": "object",
+      "required": ["id", "title", "status", "context", "decision"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "enum": ["active", "superseded", "deprecated"] },
+        "context": { "type": "string" },
+        "decision": { "type": "string" },
+        "consequences": { "type": "array", "items": { "type": "string" } },
+        "references": { "type": "object" }
+      }
+    },
+    "feature_doc": {
+      "type": "object",
+      "required": ["id", "title", "status", "description", "acceptance_criteria"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^FEAT-[A-Z0-9]{2,6}\\d{1,5}$" },
+        "title": { "type": "string" },
+        "status": { "enum": ["in-progress", "in-review", "done", "blocked"] },
+        "priority": { "enum": ["p0", "p1", "p2", "p3", "p4", "p5", "p6"] },
+        "kano": { "enum": ["must-have", "performance", "delighter", "nice-to-have", "in-discussion"] },
+        "description": { "type": "string" },
+        "acceptance_criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["criterion"],
+            "properties": {
+              "criterion": { "type": "string" },
+              "passed": { "type": ["string", "null"] },
+              "commit": { "type": ["string", "null"] },
+              "evidence": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "story_id": { "type": ["string", "null"] },
+        "task_id": { "type": ["string", "null"] }
+      }
+    },
+    "precept": {
+      "type": "object",
+      "description": "Precept files defining behavioral rules",
+      "additionalProperties": true
+    }
+  },
+
+  "file_locations": {
+    "directives": {
+      "active": "directives/DIRECT-ACTIVE-INDEX.md",
+      "done": "directives/DIRECT-DONE-INDEX.md",
+      "backlog": "directives/DIRECT-BACKLOG-INDEX.md"
+    },
+    "stories": {
+      "active": "stories/STORY-ACTIVE-INDEX.md",
+      "done": "stories/STORY-DONE-INDEX.md",
+      "backlog": "stories/STORY-BACKLOG-INDEX.md"
+    },
+    "tasks": {
+      "active": "tasks/TASK-ACTIVE-INDEX.md",
+      "done": "tasks/TASK-DONE-INDEX.md",
+      "backlog": "tasks/TASK-BACKLOG-INDEX.md"
+    },
+    "features": {
+      "active": "features/FEATURE-ACTIVE-INDEX.md",
+      "done": "features/FEATURE-DONE-INDEX.md",
+      "backlog": "features/FEATURE-BACKLOG-INDEX.md"
+    }
+  }
+}

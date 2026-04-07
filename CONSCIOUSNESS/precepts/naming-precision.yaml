@@ -1,0 +1,92 @@
+naming_precision:
+  enabled: true
+  scope: universal
+  priority: high
+  applies_to:
+    - interactive
+    - autonomous
+
+  rule: |
+    Names should be 2-6 words that convey meaning.
+    One word is too vague. Seven words is a sentence, not a name.
+
+    This applies to all human-visible identifiers:
+    - Variable and function names (2-3 words)
+    - File and directory names (2-4 words)
+    - Plan titles and branch names (3-6 words)
+    - Commit message subjects (3-8 words)
+    - Roadmap item titles (3-6 words)
+
+    Exception: single-word names are acceptable when clarity is equal
+    (e.g., `count` is fine, `item_count` adds nothing).
+
+  rationale: |
+    Random or cryptic names (e.g., memoized-finding-dragon) tell you nothing.
+    Descriptive names (e.g., finish-building-consciousness) let you scan and
+    recognise without opening the file.
+
+    The sweet spot is precision without verbosity:
+    - Too short: "fix" — fix what?
+    - Right: "fix-error-tracking" — clear
+    - Too long: "fix-the-error-tracking-telemetry-system-for-hooks" — a sentence
+
+  examples:
+    good:
+      - "cleanup-stale-sessions"
+      - "universe-orchestration-plan"
+      - "fix-lock-race-condition"
+      - "session_id"
+      - "error_count"
+    bad:
+      - "memoized-finding-dragon"
+      - "plan1"
+      - "x"
+      - "the-plan-for-fixing-all-the-things-that-are-broken"
+
+  roadmap_items:
+    rule: |
+      ALWAYS reference roadmap items with both ID AND title.
+      IDs alone are meaningless to humans.
+    good:
+      - "TASK-CCC2970 (Telemetry audit)"
+      - "STORY-CCC146 (Branch-aware schema migrations)"
+    bad:
+      - "TASK-CCC2970"
+      - "the telemetry task"
+
+  coordination_terminology:
+    rule: |
+      This is an operating group of responsible individuals carrying out a
+      mission and vision together. They have dialogue, argue rationally, use
+      evidence and past history and data and documents and artifacts. They
+      communicate well, understand each other's theory of mind, apply the
+      ten factors, and remain objective. The system is Buddhist.
+
+      There are leaders with positions and responsibilities. Hierarchy exists
+      where it serves the mission. Use coordination science terminology —
+      the discipline shared across medicine, aviation, ecology, organisational
+      behaviour, and the military. Military terms are fine when they're
+      genuinely better. The goal is precision, not avoidance.
+    group_nouns:
+      good:
+        - team
+        - unit
+        - force
+        - crew
+      avoid:
+        - swarm
+        - hive
+        - army
+        - platoon
+    prefer:
+      - role (not rank)
+      - enter/start (not spawn — see philosophy.yaml responsible_terminology)
+      - actor (not soldier, operative, combatant)
+      - protocol (not doctrine — unless referring to Buddhist philosophy)
+      - steering (not orders, commands)
+      - span of control (organisational science since 1933, Graicunas)
+      - running estimate (coordination science, used across all domains)
+      - closed-loop communication (universal in safety-critical domains)
+      - intent-based delegation (acceptable; Auftragstaktik also acceptable in technical context)
+
+last_updated: 2026-02-12 13:28:41.133 gmt

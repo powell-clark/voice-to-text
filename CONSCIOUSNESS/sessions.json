@@ -48,11 +48,77 @@
       "id": "voice-to-text-main-7d3e3b31",
       "prev": "voice-to-text-main-45586eb2",
       "started": "2026-02-06 20:11:09.963 gmt",
+      "ended": "2026-03-25 11:12:56.207 gmt",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 0,
+        "human_prompts": 0,
+        "errors": 0,
+        "compactions": 0,
+        "hooks_latency_ms": {
+          "session-end": 555
+        }
+      }
+    },
+    {
+      "id": "vtt-main-200914a6",
+      "prev": "voice-to-text-main-7d3e3b31",
+      "started": "2026-03-25 11:12:56.207 gmt",
+      "ended": "2026-03-26 11:25:08.430 gmt",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 11,
+        "human_prompts": 16,
+        "errors": 0,
+        "compactions": 0,
+        "hooks_latency_ms": {
+          "session-init": 45,
+          "message-end": 20,
+          "session-end": 84
+        }
+      }
+    },
+    {
+      "id": "vtt-main-4fcbec16",
+      "prev": "vtt-main-200914a6",
+      "started": "2026-03-26 11:25:08.430 gmt",
+      "ended": "2026-04-06 13:02:23.524 gmt+1",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 9,
+        "human_prompts": 8,
+        "errors": 0,
+        "compactions": 0,
+        "hooks_latency_ms": {
+          "session-init": 42,
+          "message-end": 9
+        }
+      }
+    },
+    {
+      "id": "vtt-main-31df8595",
+      "prev": "vtt-main-4fcbec16",
+      "started": "2026-04-06 13:02:23.524 gmt+1",
       "ended": null,
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
-        "commits": 0
+        "commits": 6,
+        "turns": 63,
+        "human_prompts": 70,
+        "errors": 0,
+        "compactions": 0,
+        "hooks_latency_ms": {
+          "session-init": 49,
+          "message-end": 10
+        },
+        "ralph_loops": null
       }
     }
   ]

@@ -1,0 +1,21 @@
+project:
+  name: voice-to-text
+  prefix: VTT
+  mode: full
+  description: "Free, open-source, cross-platform voice-to-text that outperforms paid alternatives on Windows, Mac, and Linux."
+  vision: "Free, open-source, cross-platform voice-to-text that outperforms paid alternatives on Windows, Mac, and Linux."
+  mission: "Provide world-class voice-to-text for all humanity on the majority of machines, not just for the elite."
+
+modules:
+  pgps: true
+  steering: true
+  review_gates: false
+  telemetry: false
+
+id_format:
+  pattern: "^{TYPE}-VTT\\d{1,5}$"
+
+terminal:
+  notifications:
+    enabled: false
+    type: notify-send

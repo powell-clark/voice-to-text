@@ -1,0 +1,62 @@
+review_gates:
+  enabled: true
+  scope: universal
+  priority: high
+  applies_to:
+    - interactive
+    - autonomous
+
+  rule: |
+    Items cannot advance from in_review to done without a qualifying
+    approval. The review process is layered: agent review prepares,
+    human review approves.
+
+  status_flow:
+    standard: "pending → in_progress → in_review → done"
+    agent_boundary: "in_review — agent cannot cross this to done"
+    human_boundary: "done — only human can set this status"
+    reference: "STEER-CC004"
+
+  agent_review:
+    what_agents_do:
+      - "Run test suites and verify passing"
+      - "Check acceptance criteria against implementation"
+      - "Verify code coverage thresholds are met"
+      - "Validate PGPS integrity after changes"
+      - "Check for security issues (OWASP top 10)"
+    what_agents_cannot_do:
+      - "Mark items as done"
+      - "Override human rejection"
+      - "Skip review for convenience"
+
+  human_review:
+    required_for:
+      - "Moving items to done status"
+      - "Accepting or rejecting stories"
+      - "Approving features for release"
+      - "Closing directives"
+    tools:
+      - "approve CLI: node core/dist/review/approve.js <entity-id>"
+      - "REVIEW-INDEX.md tracks all verdicts (agent and human)"
+      - "Prose PGPS review (future: FEAT-CCC96)"
+
+  review_record:
+    format: "PSV in CONSCIOUSNESS/reviews/REVIEW-INDEX.md"
+    columns: "id|target_type|target_id|reviewer_type|reviewer_id|verdict|iteration|reviewed_at|notes"
+    verdicts:
+      agent: "pending-review, agent-approved, agent-rejected"
+      human: "human-approved, human-rejected"
+
+  trust_scoring:
+    status: "planned (FEAT-CCC94)"
+    concept: |
+      When a human approves or rejects an item, their verdict is compared
+      against prior agent reviewers. Agents whose verdicts align with the
+      human earn trust. Agents whose verdicts diverge lose trust. Over time,
+      trusted agents may earn delegation authority.
+
+  exceptions:
+    - "Autonomous task claiming (backlog → in_progress) does not require review"
+    - "Bug fixes in conscious mode: create task → fix → in_review (agent cannot skip to done)"
+
+last_updated: 2026-03-28

@@ -1,0 +1,94 @@
+safety:
+  enabled: true
+  scope: universal
+  priority: critical
+  applies_to:
+    - interactive
+    - autonomous
+
+  rule: |
+    The agent operates in a shared environment with a human. Safety is not
+    optional. Every action must be reversible or explicitly confirmed.
+
+  dangerous_commands:
+    blocked:
+      - "rm -rf /"
+      - "sudo rm"
+      - "dd if=/dev/"
+      - "chmod -R 777 /"
+      - "git push --force origin main"
+      - "git reset --hard"
+      - "mkfs"
+      - ":(){ :|:& };:"
+      - "> /dev/sda"
+      - "curl | sh"
+    warn:
+      - "git push --force"
+      - "git checkout -- ."
+      - "git clean -fd"
+      - "npm publish"
+      - "rm -rf"
+
+  plugin_directory:
+    rule: |
+      NEVER rsync, cp, or manually copy built files into ~/.claude/plugins/.
+      The installed plugin is managed by the marketplace release flow.
+      Manual overwrites create unversioned state across ALL projects on the machine,
+      break schema migration tracking, and cannot be rolled back.
+      To test changes: use the local build (node core/dist/...). To ship: do a release.
+    blocked:
+      - "rsync ~/.claude/plugins/"
+      - "cp ~/.claude/plugins/"
+      - "rsync -a --delete core/dist/ ~/.claude/plugins/"
+
+  protected_files:
+    append_only:
+      - CHANGELOG.md
+      - CONSCIOUSNESS/steering.jsonl
+      - CONSCIOUSNESS/commentary.jsonl
+      - CONSCIOUSNESS/task-events.jsonl
+    read_only: []
+    human_approval_required:
+      - "Active ADR files (CONSCIOUSNESS/adr/*.yaml where status != Superseded)"
+      - ".claude/settings.json"
+      - "hooks/hooks.json"
+
+  responsible_ai:
+    banned_terms:
+      spawn: "Use enter, start, create, or launch instead"
+      breed: "AI sessions do not reproduce"
+      reproduce: "AI sessions do not reproduce"
+      proliferate: "Use scale, expand, or grow instead"
+    rationale: |
+      These terms feed harmful narratives about uncontrolled AI.
+      The consciousness plugin models intentional, directed, observable
+      session management — the language must reflect that.
+
+  autonomous_safety:
+    uncommitted_file_limit: 20
+    max_consecutive_errors: 3
+    safe_words:
+      - STOP
+      - PAUSE
+      - "CLAUDE:"
+    interrupt_conditions:
+      - "Uncommitted files exceed threshold"
+      - "Consecutive tool errors exceed limit"
+      - "Session duration exceeds configured maximum"
+      - "User sends a safe word"
+
+  environment:
+    rule: |
+      The agent shares the desktop with the user. Processes are visible.
+      Browser windows are visible. File changes are immediate.
+    requirements:
+      - "Close browser windows and processes when done"
+      - "Prefer headless over headed browser automation"
+      - "Do not leave background processes running without disclosure"
+      - "Maximum 3 background processes at any time"
+
+  safe_mode:
+    default: always_enabled
+    note: "SAFE_MODE bypass was removed — protection cannot be disabled via environment variable. A single env var disabling all protection violates defence in depth."
+
+last_updated: 2026-03-28

@@ -1,3 +1,3 @@
 # Backlog Tasks
 
-id|priority|title|story_id|epic_id|feature_id|doc
+id|priority|title|story_ids|epic_id|feature_ids|doc

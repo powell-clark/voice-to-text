@@ -1,9 +1,14 @@
 {
   "project_code": "VTT",
-  "federation": {
-    "enabled": true,
-    "siblings": {
-      "EGLPK": "../../amalavijnana/eagle-peak/CONSCIOUSNESS"
+  "project_name": "voice-to-text",
+  "terminal": {
+    "notifications": {
+      "enabled": false,
+      "type": "notify-send",
+      "title": "Claude",
+      "message": "Response ready"
     }
-  }
+  },
+  "vision": "Free, open-source, cross-platform voice-to-text that outperforms paid alternatives on Windows, Mac, and Linux.",
+  "mission": "Provide world-class voice-to-text for all humanity on the majority of machines, not just for the elite."
 }
