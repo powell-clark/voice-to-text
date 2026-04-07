@@ -852,17 +852,27 @@ static void on_about(GtkMenuItem *item, gpointer user_data) {
     (void)item;
     (void)user_data;
 
-    GtkWidget *dialog = gtk_message_dialog_new(
-        NULL,
-        GTK_DIALOG_MODAL,
-        GTK_MESSAGE_INFO,
-        GTK_BUTTONS_OK,
+    GtkWidget *dialog = gtk_dialog_new_with_buttons("About Voice to Text",
+        NULL, GTK_DIALOG_MODAL, "_Close", GTK_RESPONSE_CLOSE, NULL);
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 400, 200);
+
+    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    GtkWidget *label = gtk_label_new(
         "Voice to Text Linux\n\n"
-        "Version 1.0\n"
-        "Voice-to-text transcription for Linux\n\n"
+        "Version 1.0.15\n"
+        "Free, open-source voice-to-text transcription\n"
+        "https://github.com/powell-clark/voice-to-text\n\n"
         "Press Scroll Lock to start/stop recording"
     );
+    gtk_label_set_selectable(GTK_LABEL(label), TRUE);
+    gtk_label_set_justify(GTK_LABEL(label), GTK_JUSTIFY_CENTER);
+    gtk_widget_set_margin_top(label, 20);
+    gtk_widget_set_margin_bottom(label, 20);
+    gtk_widget_set_margin_start(label, 20);
+    gtk_widget_set_margin_end(label, 20);
+    gtk_container_add(GTK_CONTAINER(content), label);
 
+    gtk_widget_show_all(dialog);
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
 }
@@ -1379,7 +1389,7 @@ static void rebuild_model_menu(vtt_gui_t *gui) {
     gtk_menu_shell_append(GTK_MENU_SHELL(model_menu), gtk_separator_menu_item_new());
 
     // CTranslate2 models (continue the same radio group)
-    const char *ct2_models[] = {"CT2 tiny", "CT2 base", "CT2 small", "CT2 medium", "CT2 large-v3", NULL};
+    const char *ct2_models[] = {"CT2 tiny", "CT2 base", "CT2 small", "CT2 distil-large-v3", "CT2 large-v3-turbo", NULL};
     for (int i = 0; ct2_models[i]; i++) {
         GtkWidget *item = gtk_radio_menu_item_new_with_label(model_group, ct2_models[i]);
         model_group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
