@@ -1,3 +1,17 @@
+voice-to-text (1.0.11) noble; urgency=medium
+
+  * Fix clipboard paste crashing Chrome/Firefox (use xclip instead of
+    broken XSetSelectionOwner)
+  * Fix key auto-repeat triggering spurious recordings
+  * Increase max recording duration from 2 minutes to 5 minutes
+  * Wire initial_prompt setting through to both transcription backends
+  * Update default prompt with specific vocabulary hints
+  * Fix strcat to strncat in model name adjustment
+  * Fix systemd service to inherit DISPLAY from user session (Wayland-ready)
+  * Improve postinst error messaging when Python backend install fails
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Mon, 07 Apr 2026 10:05:00 +0000
+
 voice-to-text (1.0.10~jammy1) jammy; urgency=medium
 
   * Auto-start service after apt install (no manual systemctl needed)

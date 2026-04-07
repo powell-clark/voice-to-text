@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <sys/wait.h>
 
 int vtt_typing_init(vtt_typing_t *typing) {
     Display *display = XOpenDisplay(NULL);
@@ -109,21 +111,62 @@ static unsigned int decode_utf8(const unsigned char *text, size_t len, size_t *p
 }
 
 // Paste text using clipboard (fallback for non-ASCII characters)
+// Uses xclip/xsel to properly handle the X selection protocol.
+// The old approach set root window as selection owner without handling
+// SelectionRequest events, which crashed Chrome and Firefox.
 static void paste_text(Display *display, const char *text) {
-    Window root = DefaultRootWindow(display);
-    Atom clipboard = XInternAtom(display, "CLIPBOARD", False);
-    Atom utf8 = XInternAtom(display, "UTF8_STRING", False);
-    Atom targets = XInternAtom(display, "TARGETS", False);
+    size_t text_len = strlen(text);
+    int pipefd[2];
+    if (pipe(pipefd) < 0) {
+        vtt_log("Clipboard paste failed: pipe creation error");
+        return;
+    }
 
-    // Store text in clipboard
-    XSetSelectionOwner(display, clipboard, root, CurrentTime);
-    XChangeProperty(display, root, clipboard, utf8, 8, PropModeReplace,
-                   (unsigned char *)text, (int)strlen(text));
-    XFlush(display);
+    // Double-fork so xclip can stay alive (to serve selection requests)
+    // without becoming a zombie process
+    pid_t pid = fork();
+    if (pid < 0) {
+        vtt_log("Clipboard paste failed: fork error");
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return;
+    }
 
-    usleep(10000); // 10ms delay for clipboard to be set
+    if (pid == 0) {
+        // First child: fork again and exit immediately
+        pid_t pid2 = fork();
+        if (pid2 > 0) {
+            _exit(0);  // Middle process exits — grandchild is reparented to init
+        }
+        if (pid2 < 0) {
+            _exit(1);
+        }
 
-    // Simulate Ctrl+V
+        // Grandchild: redirect stdin from pipe, exec xclip
+        close(pipefd[1]);
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[0]);
+        freopen("/dev/null", "w", stdout);
+        freopen("/dev/null", "w", stderr);
+
+        execlp("xclip", "xclip", "-selection", "clipboard", "-i", NULL);
+        execlp("xsel", "xsel", "--clipboard", "--input", NULL);
+        _exit(1);
+    }
+
+    // Parent: write text to pipe, reap middle child
+    close(pipefd[0]);
+    ssize_t written = write(pipefd[1], text, text_len);
+    close(pipefd[1]);
+    waitpid(pid, NULL, 0);  // Reap middle child immediately (it already exited)
+
+    if (written < (ssize_t)text_len) {
+        vtt_log("Clipboard paste: incomplete write (%zd/%zu bytes)", written, text_len);
+    }
+
+    usleep(100000); // 100ms for xclip to claim the clipboard selection
+
+    // Simulate Ctrl+V to paste
     KeyCode ctrl_code = XKeysymToKeycode(display, XK_Control_L);
     KeyCode v_code = XKeysymToKeycode(display, XK_v);
 

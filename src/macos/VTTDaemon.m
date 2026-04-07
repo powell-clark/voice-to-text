@@ -61,7 +61,7 @@ static void VTTLogToFile(NSString *message) {
 #define CHANNELS 1
 // Smaller buffer = lower callback latency (at 48 kHz, 4096 bytes ~ 42 ms)
 #define BUFFER_SIZE 4096
-#define MAX_RECORDING_SECONDS 120  // Maximum recording duration (120 seconds / 2 minutes)
+#define MAX_RECORDING_SECONDS 300  // Maximum recording duration (5 minutes)
 
 // C struct for audio state (for performance)
 typedef struct {

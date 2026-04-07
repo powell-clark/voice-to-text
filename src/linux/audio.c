@@ -10,7 +10,7 @@
 #define SAMPLE_RATE 16000
 #define CHANNELS 1
 #define FRAMES_PER_BUFFER 1024
-#define MAX_RECORDING_SECONDS 120  // Maximum recording duration (2 minutes)
+#define MAX_RECORDING_SECONDS 300  // Maximum recording duration (5 minutes)
 
 static int audio_callback(const void *input, void *output,
                          unsigned long frameCount,

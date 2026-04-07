@@ -73,7 +73,7 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
             // Append .en to model name
             size_t len = strlen(adjusted_model);
             if (len + 3 < sizeof(adjusted_model)) {
-                strcat(adjusted_model, ".en");
+                strncat(adjusted_model, ".en", sizeof(adjusted_model) - len - 1);
                 model_to_use = adjusted_model;
                 vtt_log("Auto-selected .en model: %s (English mode)", model_to_use);
             }

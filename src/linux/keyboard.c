@@ -23,6 +23,19 @@ static void *monitor_thread(void *arg) {
             }
         } else if (event.type == KeyRelease) {
             if (event.xkey.keycode == keyboard->scroll_lock_keycode) {
+                // Filter auto-repeat: if a KeyPress for the same key follows
+                // immediately, this is an auto-repeat pair — skip both
+                if (XPending(display) > 0) {
+                    XEvent next;
+                    XPeekEvent(display, &next);
+                    if (next.type == KeyPress &&
+                        next.xkey.keycode == event.xkey.keycode &&
+                        (next.xkey.time - event.xkey.time) < 20) {
+                        // Consume the paired KeyPress and ignore this KeyRelease
+                        XNextEvent(display, &next);
+                        continue;
+                    }
+                }
                 keyboard->callback(VTT_KEY_UP);
             }
         }

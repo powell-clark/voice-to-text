@@ -12,8 +12,10 @@ case "$1" in
         if ! python3 -m pip list 2>/dev/null | grep -q faster-whisper; then
             echo "Installing Python transcription backend..."
             python3 -m pip install --break-system-packages faster-whisper ctranslate2 || {
-                echo "Warning: Failed to install Python packages. You may need to install manually:"
-                echo "  python3 -m pip install --break-system-packages faster-whisper ctranslate2"
+                echo "ERROR: Failed to install Python transcription backend."
+                echo "CTranslate2 models will not work without this. Install manually:"
+                echo "  sudo python3 -m pip install --break-system-packages faster-whisper ctranslate2"
+                echo "Whisper.cpp models will still work if whisper-cli is available."
             }
         else
             echo "faster-whisper is already installed"
