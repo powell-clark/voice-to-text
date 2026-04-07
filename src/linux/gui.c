@@ -859,7 +859,7 @@ static void on_about(GtkMenuItem *item, gpointer user_data) {
     GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
     GtkWidget *label = gtk_label_new(
         "Voice to Text Linux\n\n"
-        "Version 1.0.15\n"
+        "Version 1.0.16\n"
         "Free, open-source voice-to-text transcription\n"
         "https://github.com/powell-clark/voice-to-text\n\n"
         "Press Scroll Lock to start/stop recording"
