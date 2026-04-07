@@ -14,27 +14,13 @@
       "specialty": null,
       "started": "2026-04-07T10:47:35.409Z"
     },
-    "vtt-main-61d9bb68": {
-      "assignment_message_id": null,
-      "conscious_mode": false,
-      "current_activity": null,
-      "current_task": null,
-      "identity": null,
-      "last_activity": "2026-04-07T10:19:32.506Z",
-      "model": null,
-      "pane_id": "10",
-      "role": null,
-      "session_type": "cli",
-      "specialty": null,
-      "started": "2026-04-07T10:19:32.506Z"
-    },
     "vtt-main-e30f12e2": {
       "assignment_message_id": null,
       "conscious_mode": false,
       "current_activity": null,
       "current_task": null,
       "identity": null,
-      "last_activity": "2026-04-07T10:49:19.380Z",
+      "last_activity": "2026-04-07T10:54:36.901Z",
       "model": null,
       "pane_id": "10",
       "role": null,
