@@ -8,6 +8,8 @@
 #include <gdk/gdkx.h>
 #include <X11/Xlib.h>
 #include <ctype.h>
+#include <unistd.h>
+#include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -738,9 +740,11 @@ static void on_show_logs(GtkMenuItem *item, gpointer user_data) {
     const char *log_path = vtt_log_get_path();
 
     if (log_path && *log_path) {
-        char cmd[1024];
-        snprintf(cmd, sizeof(cmd), "xdg-open '%s' &", log_path);
-        system(cmd);
+        pid_t pid = fork();
+        if (pid == 0) {
+            execlp("xdg-open", "xdg-open", log_path, NULL);
+            _exit(1);
+        }
         vtt_log("Opening log file: %s", log_path);
     }
 }
@@ -816,9 +820,7 @@ static void on_prompt_reset(GtkButton *button, gpointer user_data) {
     prompt_dialog_data_t *data = (prompt_dialog_data_t *)user_data;
 
     gtk_entry_set_text(GTK_ENTRY(data->prefix_entry), "[Voice] ");
-    gtk_text_buffer_set_text(data->text_buffer,
-        "British English, technical context. Git, GitHub, Claude, API, CLI, JSON, YAML, SSH, Docker, TypeScript, Python, Ubuntu, PPA, Launchpad. Powell-Clark, Emmanuel.",
-        -1);
+    gtk_text_buffer_set_text(data->text_buffer, "", -1);
 
     if (data->newline_toggle) {
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->newline_toggle), TRUE);

@@ -2,6 +2,7 @@
 #define VTT_KEYBOARD_LINUX_H
 
 #include <stdbool.h>
+#include <stdatomic.h>
 
 typedef enum {
     VTT_KEY_DOWN,
@@ -12,7 +13,7 @@ typedef void (*vtt_keyboard_callback_t)(vtt_key_event_t event);
 
 typedef struct {
     void *display;
-    bool running;
+    atomic_bool running;    // Shared between monitor thread and main thread
     vtt_keyboard_callback_t callback;
     int scroll_lock_keycode;
 } vtt_keyboard_t;
