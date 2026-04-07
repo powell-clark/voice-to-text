@@ -1,3 +1,11 @@
+voice-to-text (1.0.12) noble; urgency=medium
+
+  * Add large-v3-turbo and distil-large-v3 models (faster, less VRAM)
+  * Remove medium and large-v3 from CT2 menu (replaced by turbo/distil)
+  * Remove medium.en from English-only menu (distil-large-v3 is better)
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Mon, 07 Apr 2026 11:19:00 +0000
+
 voice-to-text (1.0.11) noble; urgency=medium
 
   * Fix clipboard paste crashing Chrome/Firefox (use xclip instead of
