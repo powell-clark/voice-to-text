@@ -1,3 +1,22 @@
+voice-to-text (1.0.13) noble; urgency=high
+
+  * SECURITY: Replace popen()/shell with fork()/execvp() in transcribe.c
+    (eliminates all command injection vectors)
+  * SECURITY: Pin faster-whisper/ctranslate2 versions in postinst
+  * SECURITY: Pin whisper.cpp to tagged release in postinst
+  * SECURITY: Replace system() with fork()/execlp() in gui.c
+  * SECURITY: Add atomic types for thread-shared audio/keyboard state
+  * SECURITY: Use mkstemp() for temp WAV files (prevent symlink attacks)
+  * SECURITY: Add mutex to logging for thread safety
+  * SECURITY: Fix NULL deref if HOME is unset
+  * SECURITY: Lock file permissions 0600 instead of 0666
+  * SECURITY: Add systemd hardening (ProtectSystem, CapabilityBoundingSet)
+  * SECURITY: Add 30-second timeout to typing busy-wait
+  * SECURITY: Replace system(find) with opendir/unlink for temp cleanup
+  * Remove personal name from default prompt
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Mon, 07 Apr 2026 12:04:00 +0000
+
 voice-to-text (1.0.12) noble; urgency=medium
 
   * Add large-v3-turbo and distil-large-v3 models (faster, less VRAM)

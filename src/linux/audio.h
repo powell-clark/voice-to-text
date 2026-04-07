@@ -3,6 +3,7 @@
 
 #include <portaudio.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 
 typedef struct {
     char *name;
@@ -17,13 +18,13 @@ typedef struct {
     PaStream *stream;
     short *buffer;
     int buffer_size;
-    int buffer_pos;
-    bool recording;
+    atomic_int buffer_pos;        // Shared between audio callback and main thread
+    atomic_bool recording;        // Shared between audio callback and main thread
     int sample_rate;
-    int selected_device_index;  // -1 for default
-    bool buffer_full;  // Set when max recording length is reached
-    vtt_audio_buffer_full_callback_t buffer_full_callback;  // Called when buffer fills
-    void *callback_user_data;  // User data passed to callback
+    int selected_device_index;    // -1 for default
+    atomic_bool buffer_full;      // Shared between audio callback and main thread
+    vtt_audio_buffer_full_callback_t buffer_full_callback;
+    void *callback_user_data;
 } vtt_audio_t;
 
 // Initialize audio system

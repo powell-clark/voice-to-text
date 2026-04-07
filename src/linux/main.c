@@ -362,8 +362,10 @@ static void on_key_event(vtt_key_event_t event) {
     if (!g_app) return;
 
     if (event == VTT_KEY_DOWN && !g_app->recording) {
-        while (g_app->typing_active) {
+        int wait_count = 0;
+        while (g_app->typing_active && wait_count < 30000) {  // 30 second timeout
             usleep(1000);
+            wait_count++;
         }
 
         // Start recording
@@ -455,13 +457,31 @@ static void on_key_event(vtt_key_event_t event) {
     }
 }
 
-// Cleanup old WAV files from /tmp
+// Cleanup old WAV files from /tmp (no shell — uses opendir/unlink)
 static void cleanup_old_wav_files(void) {
-    char command[256];
-    snprintf(command, sizeof(command), "find /tmp -name 'vtt_recording_*.wav' -mmin +60 -delete 2>/dev/null");
-    int result = system(command);
-    if (result == 0) {
-        vtt_log("Cleaned up old WAV files from /tmp");
+    DIR *dir = opendir("/tmp");
+    if (!dir) return;
+
+    time_t cutoff = time(NULL) - 3600;  // 60 minutes ago
+    struct dirent *entry;
+    int cleaned = 0;
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strncmp(entry->d_name, "vtt_recording_", 14) != 0) continue;
+        if (!strstr(entry->d_name, ".wav")) continue;
+
+        char path[PATH_MAX];
+        snprintf(path, sizeof(path), "/tmp/%s", entry->d_name);
+
+        struct stat st;
+        if (stat(path, &st) == 0 && st.st_mtime < cutoff) {
+            if (unlink(path) == 0) cleaned++;
+        }
+    }
+    closedir(dir);
+
+    if (cleaned > 0) {
+        vtt_log("Cleaned up %d old WAV files from /tmp", cleaned);
     }
 }
 
@@ -481,9 +501,11 @@ int main(int argc, char *argv[]) {
 
     // Singleton lock: ensure only one instance runs
     char lockfile[512];
-    snprintf(lockfile, sizeof(lockfile), "%s/.local/share/voice-to-text/vtt-linux.lock", getenv("HOME"));
+    const char *home = getenv("HOME");
+    if (!home) home = "/tmp";
+    snprintf(lockfile, sizeof(lockfile), "%s/.local/share/voice-to-text/vtt-linux.lock", home);
 
-    int lockfd = open(lockfile, O_CREAT | O_RDWR, 0666);
+    int lockfd = open(lockfile, O_CREAT | O_RDWR, 0600);
     if (lockfd == -1) {
         fprintf(stderr, "Error: Cannot create lock file\n");
         return 1;

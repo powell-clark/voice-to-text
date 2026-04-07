@@ -4,41 +4,77 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 
 #define MAX_OUTPUT 8192
 
 // Detect if model is whisper.cpp (W models) or CTranslate2
-// W models: tiny, base, small, medium, large (not prefixed with CT2)
-// CT2 models: start with "CT2 " prefix
 static int is_whisper_cpp_model(const char *model) {
     if (!model) return 0;
-    // If it starts with "CT2 ", it's a CTranslate2 model
     if (strncmp(model, "CT2 ", 4) == 0) return 0;
-    // Otherwise it's a whisper.cpp model
     return 1;
 }
 
-// Shell-escape a string: replace single quotes with '\'' for safe embedding in '...'
-static char *shell_escape(const char *str) {
-    if (!str) return strdup("");
-    size_t len = strlen(str);
-    // Worst case: every char is a single quote → 4x expansion + quotes + null
-    char *escaped = malloc(len * 4 + 3);
-    if (!escaped) return strdup("");
-    char *out = escaped;
-    for (const char *p = str; *p; p++) {
-        if (*p == '\'') {
-            // End quote, escaped quote, start quote: '\''
-            *out++ = '\'';
-            *out++ = '\\';
-            *out++ = '\'';
-            *out++ = '\'';
-        } else {
-            *out++ = *p;
-        }
+// Execute a command with arguments, capture stdout, no shell involved.
+// Returns malloc'd output string or NULL on failure. Sets *exit_status.
+static char *exec_capture(char *const argv[], int *exit_status) {
+    int pipefd[2];
+    if (pipe(pipefd) < 0) {
+        vtt_log("exec_capture: pipe() failed");
+        return NULL;
     }
-    *out = '\0';
-    return escaped;
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        vtt_log("exec_capture: fork() failed");
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return NULL;
+    }
+
+    if (pid == 0) {
+        // Child: redirect stdout to pipe, suppress stderr
+        close(pipefd[0]);
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[1]);
+
+        int devnull = open("/dev/null", O_WRONLY);
+        if (devnull >= 0) {
+            dup2(devnull, STDERR_FILENO);
+            close(devnull);
+        }
+
+        execvp(argv[0], argv);
+        _exit(127);
+    }
+
+    // Parent: read from pipe
+    close(pipefd[1]);
+
+    char *output = malloc(MAX_OUTPUT);
+    if (!output) {
+        close(pipefd[0]);
+        waitpid(pid, NULL, 0);
+        return NULL;
+    }
+
+    size_t total = 0;
+    while (total < MAX_OUTPUT - 1) {
+        ssize_t n = read(pipefd[0], output + total, MAX_OUTPUT - total - 1);
+        if (n <= 0) break;
+        total += n;
+    }
+    output[total] = '\0';
+    close(pipefd[0]);
+
+    int status;
+    waitpid(pid, &status, 0);
+    if (exit_status) {
+        *exit_status = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    }
+
+    return output;
 }
 
 char *vtt_transcribe_audio(const char *audio_path, const char *model, const char *language, const char *initial_prompt) {
@@ -52,17 +88,15 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
     // Use provided language or default to "en" (English)
     const char *language_to_use = language ? language : "en";
 
-    // Use provided prompt or empty string
-    const char *prompt_to_use = (initial_prompt && initial_prompt[0]) ? initial_prompt : "";
+    // Use provided prompt or NULL
+    const char *prompt_to_use = (initial_prompt && initial_prompt[0]) ? initial_prompt : NULL;
 
     // Auto-append .en suffix for English when .en model exists
-    // Menu shows "W tiny", but backend uses "W tiny.en" for English
     char adjusted_model[128];
     strncpy(adjusted_model, model_to_use, sizeof(adjusted_model) - 1);
     adjusted_model[sizeof(adjusted_model) - 1] = '\0';
 
     if (strcmp(language_to_use, "en") == 0 && strstr(adjusted_model, ".en") == NULL) {
-        // Check if this model has an .en version (tiny, base, small, medium do, large doesn't)
         int has_en_version = 0;
         if (strstr(adjusted_model, "tiny") || strstr(adjusted_model, "base") ||
             strstr(adjusted_model, "small") || strstr(adjusted_model, "medium")) {
@@ -70,7 +104,6 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
         }
 
         if (has_en_version) {
-            // Append .en to model name
             size_t len = strlen(adjusted_model);
             if (len + 3 < sizeof(adjusted_model)) {
                 strncat(adjusted_model, ".en", sizeof(adjusted_model) - len - 1);
@@ -80,19 +113,18 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
         }
     }
 
-    char cmd[1024];
+    char *output = NULL;
+    int exit_status = -1;
 
-    // Detect backend based on model name
     if (is_whisper_cpp_model(model_to_use)) {
         // ═══════════════════════════════════════════════════════════════
-        // WHISPER.CPP BACKEND (W models: tiny, base, small, medium, large)
+        // WHISPER.CPP BACKEND
         // ═══════════════════════════════════════════════════════════════
 
-        // Try multiple locations for whisper-cli (PPA install, manual install, dev mode)
         const char *whisper_cli_paths[] = {
-            "/usr/bin/whisper-cli",                          // PPA/system install
-            "/usr/local/bin/whisper-cli",                    // Manual install
-            "./third_party/whisper.cpp/build/bin/whisper-cli",  // Relative (dev)
+            "/usr/bin/whisper-cli",
+            "/usr/local/bin/whisper-cli",
+            "./third_party/whisper.cpp/build/bin/whisper-cli",
             NULL
         };
 
@@ -105,78 +137,82 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
         }
 
         if (!whisper_cli) {
-            vtt_log("ERROR: whisper-cli not found. Try installing whisper.cpp or use CT2 models.");
-            vtt_log("Searched: /usr/bin, /usr/local/bin, ./third_party/whisper.cpp/build/bin");
+            vtt_log("ERROR: whisper-cli not found.");
             return NULL;
         }
 
         vtt_log("Using whisper-cli: %s", whisper_cli);
 
-        // Extract base model name (strip "W " prefix if present)
+        // Extract base model name (strip "W " prefix)
         const char *base_model = model_to_use;
         if (strncmp(model_to_use, "W ", 2) == 0) {
-            base_model = model_to_use + 2; // Skip "W "
+            base_model = model_to_use + 2;
         }
 
-        // Determine if model is English-only (.en suffix) or multilingual
         int is_english_only = (strstr(base_model, ".en") != NULL);
-
-        // Map model names and determine file extension
         const char *model_file_name = base_model;
         const char *extension = is_english_only ? ".en.bin" : ".bin";
 
-        // Remove .en suffix from model name for file lookup
         char clean_model_name[64];
         if (is_english_only) {
-            // Copy model name without .en suffix
-            size_t len = strlen(base_model) - 3; // Remove ".en"
+            size_t len = strlen(base_model) - 3;
             if (len < sizeof(clean_model_name)) {
-                strncpy(clean_model_name, base_model, len);
+                memcpy(clean_model_name, base_model, len);
                 clean_model_name[len] = '\0';
                 model_file_name = clean_model_name;
             }
         }
 
-        // Special case: large → large-v3
         if (strcmp(model_file_name, "large") == 0) {
             model_file_name = "large-v3";
         }
 
-        // Model file path: ~/.cache/whisper/ggml-{model}{extension}
         char model_file[512];
         const char *home = getenv("HOME");
+        if (!home) home = "/tmp";
         snprintf(model_file, sizeof(model_file), "%s/.cache/whisper/ggml-%s%s",
                  home, model_file_name, extension);
 
         if (access(model_file, R_OK) != 0) {
             vtt_log("ERROR: Model file not found: %s", model_file);
-            vtt_log("Download with: bash third_party/whisper.cpp/models/download-ggml-model.sh %s", model_file_name);
             return NULL;
         }
 
-        // Run whisper-cli with user-selected language and prompt
-        char *escaped_prompt = shell_escape(prompt_to_use);
-        if (escaped_prompt[0]) {
-            snprintf(cmd, sizeof(cmd),
-                     "%s -m '%s' -f '%s' --no-timestamps --language %s --threads 4 --prompt '%s' 2>/dev/null",
-                     whisper_cli, model_file, audio_path, language_to_use, escaped_prompt);
+        // Build argv — no shell, no escaping needed
+        if (prompt_to_use) {
+            char *argv[] = {
+                (char *)whisper_cli,
+                "-m", model_file,
+                "-f", (char *)audio_path,
+                "--no-timestamps",
+                "--language", (char *)language_to_use,
+                "--threads", "4",
+                "--prompt", (char *)prompt_to_use,
+                NULL
+            };
+            output = exec_capture(argv, &exit_status);
         } else {
-            snprintf(cmd, sizeof(cmd),
-                     "%s -m '%s' -f '%s' --no-timestamps --language %s --threads 4 2>/dev/null",
-                     whisper_cli, model_file, audio_path, language_to_use);
+            char *argv[] = {
+                (char *)whisper_cli,
+                "-m", model_file,
+                "-f", (char *)audio_path,
+                "--no-timestamps",
+                "--language", (char *)language_to_use,
+                "--threads", "4",
+                NULL
+            };
+            output = exec_capture(argv, &exit_status);
         }
-        free(escaped_prompt);
 
     } else {
         // ═══════════════════════════════════════════════════════════════
-        // CTRANSLATE2 BACKEND (CT2 models: tiny, base, small, medium, large-v3)
+        // CTRANSLATE2 BACKEND
         // ═══════════════════════════════════════════════════════════════
 
-        // Try multiple locations for transcribe.py (PPA install, dev mode)
         const char *script_paths[] = {
-            "/usr/share/voice-to-text/transcribe.py",       // PPA/system install
-            "./src/common/transcribe.py",                   // Relative (dev)
-            "src/common/transcribe.py",                     // Relative alt
+            "/usr/share/voice-to-text/transcribe.py",
+            "./src/common/transcribe.py",
+            "src/common/transcribe.py",
             NULL
         };
 
@@ -190,80 +226,73 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
 
         if (!script_path) {
             vtt_log("ERROR: transcribe.py not found.");
-            vtt_log("Searched: /usr/share/voice-to-text, ./src/common, src/common");
             return NULL;
         }
 
         vtt_log("Using transcribe.py: %s", script_path);
-        const char *python_path = "python3";
 
-        // Extract base model name (strip "CT2 " prefix if present)
         const char *base_model = model_to_use;
         if (strncmp(model_to_use, "CT2 ", 4) == 0) {
-            base_model = model_to_use + 4; // Skip "CT2 " prefix
+            base_model = model_to_use + 4;
         }
 
-        // Map model names for CT2 (large → large-v3)
-        // Preserve .en suffix if present (e.g., "small.en" → "small.en")
         char ct2_model[64];
         strncpy(ct2_model, base_model, sizeof(ct2_model) - 1);
         ct2_model[sizeof(ct2_model) - 1] = '\0';
 
-        // Replace "large" with "large-v3" (unless it's "large.en")
         if (strcmp(base_model, "large") == 0) {
             strncpy(ct2_model, "large-v3", sizeof(ct2_model));
         }
-
-        // Map distil-large-v3 to HuggingFace model path
         if (strcmp(base_model, "distil-large-v3") == 0) {
             strncpy(ct2_model, "distil-whisper/distil-large-v3", sizeof(ct2_model));
             ct2_model[sizeof(ct2_model) - 1] = '\0';
         }
 
-        // Run Python faster-whisper script with model, language, and prompt
-        char *escaped_prompt = shell_escape(prompt_to_use);
-        if (escaped_prompt[0]) {
-            snprintf(cmd, sizeof(cmd), "%s '%s' '%s' %s %s '%s' 2>/dev/null",
-                     python_path, script_path, audio_path, ct2_model, language_to_use, escaped_prompt);
+        // Build argv — no shell, no escaping needed
+        if (prompt_to_use) {
+            char *argv[] = {
+                "python3",
+                (char *)script_path,
+                (char *)audio_path,
+                ct2_model,
+                (char *)language_to_use,
+                (char *)prompt_to_use,
+                NULL
+            };
+            output = exec_capture(argv, &exit_status);
         } else {
-            snprintf(cmd, sizeof(cmd), "%s '%s' '%s' %s %s 2>/dev/null",
-                     python_path, script_path, audio_path, ct2_model, language_to_use);
+            char *argv[] = {
+                "python3",
+                (char *)script_path,
+                (char *)audio_path,
+                ct2_model,
+                (char *)language_to_use,
+                NULL
+            };
+            output = exec_capture(argv, &exit_status);
         }
-        free(escaped_prompt);
     }
 
-    FILE *fp = popen(cmd, "r");
-    if (!fp) {
+    if (!output) {
         vtt_log("Failed to run transcription");
         return NULL;
     }
 
-    // Read output
-    char buffer[MAX_OUTPUT] = {0};
-    size_t total_read = 0;
-
-    while (total_read < MAX_OUTPUT - 1) {
-        size_t read = fread(buffer + total_read, 1, MAX_OUTPUT - total_read - 1, fp);
-        if (read == 0) break;
-        total_read += read;
-    }
-    buffer[total_read] = '\0';
-
-    int status = pclose(fp);
-
-    if (status != 0) {
-        vtt_log("Transcription failed with status %d", status);
+    if (exit_status != 0) {
+        vtt_log("Transcription failed with status %d", exit_status);
+        free(output);
         return NULL;
     }
 
     // Trim whitespace
-    char *start = buffer;
+    char *start = output;
     while (*start == ' ' || *start == '\n' || *start == '\r' || *start == '\t') {
         start++;
     }
 
     if (*start == '\0') {
         vtt_log("Empty transcription result");
+        free(output);
         return NULL;
     }
 
@@ -273,5 +302,7 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
         end--;
     }
 
-    return strdup(start);
+    char *result = strdup(start);
+    free(output);
+    return result;
 }

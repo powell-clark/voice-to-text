@@ -114,15 +114,18 @@ char *vtt_audio_stop_recording(vtt_audio_t *audio) {
     vtt_log("Recording stopped: %.2fs%s, amplitude: %d", duration,
             was_buffer_full ? " (MAX LENGTH REACHED)" : "", max_amp);
 
-    // Save to WAV file with microsecond precision to prevent collisions
+    // Save to WAV file with mkstemp to prevent symlink attacks
     char *filename = malloc(256);
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    snprintf(filename, 256, "/tmp/vtt_recording_%ld_%06ld.wav",
-             (long)tv.tv_sec, (long)tv.tv_usec);
-
-    FILE *f = fopen(filename, "wb");
+    snprintf(filename, 256, "/tmp/vtt_recording_XXXXXX.wav");
+    // mkstemp needs the template without .wav suffix, so use mkstemps
+    int fd = mkstemps(filename, 4);  // 4 = length of ".wav"
+    if (fd < 0) {
+        free(filename);
+        return NULL;
+    }
+    FILE *f = fdopen(fd, "wb");
     if (!f) {
+        close(fd);
         free(filename);
         return NULL;
     }

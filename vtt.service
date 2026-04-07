@@ -9,7 +9,7 @@ ExecStart=/usr/bin/vtt-linux
 Restart=on-failure
 RestartSec=5
 
-# Environment - import DISPLAY and XAUTHORITY from user session
+# Environment - inherit from user session
 PassEnvironment=DISPLAY XAUTHORITY WAYLAND_DISPLAY
 Environment=PYTHONPATH=/usr/share/voice-to-text
 
@@ -21,6 +21,12 @@ SyslogIdentifier=vtt
 # Security hardening
 PrivateTmp=yes
 NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=%h/.local/share/voice-to-text %h/.cache/whisper %h/.cache/huggingface
+CapabilityBoundingSet=
+RestrictNamespaces=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=no
 
 [Install]
 WantedBy=graphical-session.target

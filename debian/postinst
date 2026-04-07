@@ -11,7 +11,7 @@ case "$1" in
         # Use --break-system-packages for Python 3.12+
         if ! python3 -m pip list 2>/dev/null | grep -q faster-whisper; then
             echo "Installing Python transcription backend..."
-            python3 -m pip install --break-system-packages faster-whisper ctranslate2 || {
+            python3 -m pip install --break-system-packages 'faster-whisper>=1.0.0,<2.0.0' 'ctranslate2>=4.0.0,<5.0.0' || {
                 echo "ERROR: Failed to install Python transcription backend."
                 echo "CTranslate2 models will not work without this. Install manually:"
                 echo "  sudo python3 -m pip install --break-system-packages faster-whisper ctranslate2"
@@ -28,7 +28,7 @@ case "$1" in
 
             if [ ! -d "$WHISPER_DIR" ]; then
                 echo "Downloading whisper.cpp..."
-                git clone https://github.com/ggerganov/whisper.cpp "$WHISPER_DIR" || {
+                git clone --depth 1 --branch v1.7.3 https://github.com/ggerganov/whisper.cpp "$WHISPER_DIR" || {
                     echo "Warning: Failed to download whisper.cpp"
                     echo "You can install manually: sudo git clone https://github.com/ggerganov/whisper.cpp /opt/whisper.cpp"
                 }
