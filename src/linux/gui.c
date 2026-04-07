@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -740,11 +741,17 @@ static void on_show_logs(GtkMenuItem *item, gpointer user_data) {
     const char *log_path = vtt_log_get_path();
 
     if (log_path && *log_path) {
+        // Double-fork to avoid zombies (same pattern as typing.c paste_text)
         pid_t pid = fork();
         if (pid == 0) {
+            pid_t pid2 = fork();
+            if (pid2 > 0) _exit(0);  // Middle process exits immediately
+            if (pid2 < 0) _exit(1);
+            // Grandchild: reparented to init, no zombie
             execlp("xdg-open", "xdg-open", log_path, NULL);
             _exit(1);
         }
+        if (pid > 0) waitpid(pid, NULL, 0);  // Reap middle child instantly
         vtt_log("Opening log file: %s", log_path);
     }
 }
