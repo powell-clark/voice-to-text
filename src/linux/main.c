@@ -38,6 +38,7 @@ typedef struct {
     bool recording;
     volatile bool typing_active;
     bool typing_has_output;
+    struct timespec recording_start_ts;  // Wall-clock time recording started
 } vtt_app_t;
 
 static vtt_app_t *g_app = NULL;
@@ -203,7 +204,7 @@ static void on_buffer_full(void *user_data) {
     // Post notification to main GTK thread using g_idle_add
     notification_data_t *data = malloc(sizeof(notification_data_t));
     snprintf(data->message, sizeof(data->message),
-             "Recording limit reached (%ds) - release key to transcribe", 120);
+             "Recording limit reached - release key to transcribe");
 
     g_idle_add(show_notification_idle, data);
 }
@@ -276,7 +277,7 @@ static void *transcription_worker(void *arg) {
 
                 if (is_truncated) {
                     // Add truncation indicator before voice prefix
-                    snprintf(final_text, sizeof(final_text), "[Truncated - 120s limit] %s%s", prefix, trimmed);
+                    snprintf(final_text, sizeof(final_text), "[Truncated] %s%s", prefix, trimmed);
                 } else if (!has_prefix) {
                     snprintf(final_text, sizeof(final_text), "%s%s", prefix, trimmed);
                 } else {
@@ -367,6 +368,7 @@ static void on_key_event(vtt_key_event_t event) {
 
         // Start recording
         vtt_log("Key pressed - starting recording");
+        clock_gettime(CLOCK_MONOTONIC, &g_app->recording_start_ts);
         g_app->recording = true;
         vtt_gui_set_status(&g_app->gui, "Recording...");
         vtt_gui_set_icon(&g_app->gui, "recording");
@@ -379,6 +381,18 @@ static void on_key_event(vtt_key_event_t event) {
         }
 
     } else if (event == VTT_KEY_UP && g_app->recording) {
+        // Guard against stale KeyRelease events that queued while we were
+        // busy-waiting on typing_active. If the recording just started
+        // (< 150ms ago), this is almost certainly a stale event — ignore it.
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        long elapsed_ms = (now.tv_sec - g_app->recording_start_ts.tv_sec) * 1000 +
+                          (now.tv_nsec - g_app->recording_start_ts.tv_nsec) / 1000000;
+        if (elapsed_ms < 150) {
+            vtt_log("Ignoring stale KeyRelease (%ldms after recording start)", elapsed_ms);
+            return;
+        }
+
         // Stop recording
         vtt_log("Key released - stopping recording");
         g_app->recording = false;
