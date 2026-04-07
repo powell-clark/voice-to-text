@@ -18,15 +18,9 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=vtt
 
-# Security hardening
+# Security hardening (user service compatible)
 PrivateTmp=yes
 NoNewPrivileges=yes
-ProtectSystem=strict
-ReadWritePaths=%h/.local/share/voice-to-text %h/.cache/whisper %h/.cache/huggingface
-CapabilityBoundingSet=
-RestrictNamespaces=yes
-RestrictRealtime=yes
-MemoryDenyWriteExecute=no
 
 [Install]
 WantedBy=graphical-session.target
