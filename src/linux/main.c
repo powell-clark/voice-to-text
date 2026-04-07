@@ -487,12 +487,15 @@ static void cleanup_old_wav_files(void) {
 
 // Signal handler
 static void signal_handler(int sig) {
+    // Only async-signal-safe operations here — no vtt_log (holds mutex)
+    const char msg[] = "Signal received, shutting down\n";
+    (void)write(STDERR_FILENO, msg, sizeof(msg) - 1);
+    (void)sig;
     if (g_app) {
-        vtt_log("Signal %d received, shutting down", sig);
         g_app->running = false;
         vtt_queue_shutdown(&g_app->queue);
     }
-    exit(0);
+    _exit(0);
 }
 
 int main(int argc, char *argv[]) {
@@ -525,7 +528,7 @@ int main(int argc, char *argv[]) {
 
     // Initialize logging
     char log_dir[512];
-    snprintf(log_dir, sizeof(log_dir), "%s/.local/share/voice-to-text", getenv("HOME"));
+    snprintf(log_dir, sizeof(log_dir), "%s/.local/share/voice-to-text", home);
     vtt_log_init(log_dir);
 
     vtt_log("===========================================");
