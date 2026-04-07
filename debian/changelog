@@ -1,3 +1,11 @@
+voice-to-text (1.0.14) noble; urgency=medium
+
+  * Daily log files (vtt-YYYY-MM-DD.log) with auto-purge after 7 days
+  * Add "Recent Transcriptions" menu — click to copy any recent dictation
+  * Remove legacy vtt.log rotation in favour of daily files
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Mon, 07 Apr 2026 12:55:00 +0000
+
 voice-to-text (1.0.13) noble; urgency=high
 
   * SECURITY: Replace popen()/shell with fork()/execvp() in transcribe.c

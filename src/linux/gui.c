@@ -511,6 +511,13 @@ int vtt_gui_init(vtt_gui_t *gui,
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), logging_item);
     gui->logging_item = logging_item;
 
+    // Recent transcriptions submenu
+    GtkWidget *recent_item = gtk_menu_item_new_with_label("Recent Transcriptions");
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), recent_item);
+    gui->recent_menu_item = recent_item;
+    // Submenu populated dynamically on click
+    g_signal_connect(recent_item, "activate", G_CALLBACK(on_show_recent), gui);
+
     // Show logs
     GtkWidget *show_logs_item = gtk_menu_item_new_with_label("Show Logs");
     g_signal_connect(show_logs_item, "activate", G_CALLBACK(on_show_logs), gui);
@@ -736,6 +743,112 @@ static void on_language_selected(GtkMenuItem *item, gpointer user_data) {
 }
 
 
+
+// Copy transcription text to clipboard when row activated in recent dialog
+static void on_recent_row_activated(GtkListBox *box, GtkListBoxRow *row, gpointer data) {
+    (void)box; (void)data;
+    GtkWidget *label = gtk_bin_get_child(GTK_BIN(row));
+    const char *tooltip = gtk_widget_get_tooltip_text(label);
+    if (tooltip) {
+        GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+        gtk_clipboard_set_text(clipboard, tooltip, -1);
+        vtt_log("Copied recent transcription to clipboard");
+    }
+}
+
+// Show recent transcriptions dialog — parses today's log for "Transcription:" lines
+static void on_show_recent(GtkMenuItem *item, gpointer user_data) {
+    (void)item;
+    (void)user_data;
+
+    const char *log_path = vtt_log_get_path();
+    if (!log_path || !*log_path) return;
+
+    FILE *f = fopen(log_path, "r");
+    if (!f) return;
+
+    // Collect last 20 transcriptions
+    #define MAX_RECENT 20
+    #define MAX_LINE_LEN 4096
+    char *recent[MAX_RECENT];
+    int count = 0;
+
+    char line[MAX_LINE_LEN];
+    while (fgets(line, sizeof(line), f)) {
+        char *match = strstr(line, "Transcription: ");
+        if (!match) continue;
+
+        char *text = match + 15;  // Skip "Transcription: "
+        // Trim trailing newline
+        char *nl = strchr(text, '\n');
+        if (nl) *nl = '\0';
+
+        if (strlen(text) == 0) continue;
+
+        // Ring buffer: overwrite oldest
+        if (count < MAX_RECENT) {
+            recent[count] = strdup(text);
+            count++;
+        } else {
+            free(recent[0]);
+            memmove(recent, recent + 1, (MAX_RECENT - 1) * sizeof(char *));
+            recent[MAX_RECENT - 1] = strdup(text);
+        }
+    }
+    fclose(f);
+
+    if (count == 0) {
+        // No transcriptions today
+        GtkWidget *dialog = gtk_message_dialog_new(NULL, 0, GTK_MESSAGE_INFO,
+            GTK_BUTTONS_OK, "No transcriptions yet today.");
+        gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_widget_destroy(dialog);
+        return;
+    }
+
+    // Build dialog with scrollable list
+    GtkWidget *dialog = gtk_dialog_new_with_buttons("Recent Transcriptions — click to copy",
+        NULL, GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE, NULL);
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 600, 400);
+
+    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+        GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_box_pack_start(GTK_BOX(content), scroll, TRUE, TRUE, 0);
+
+    GtkWidget *listbox = gtk_list_box_new();
+    gtk_container_add(GTK_CONTAINER(scroll), listbox);
+
+    // Add items newest-first
+    for (int i = count - 1; i >= 0; i--) {
+        // Truncate display to 120 chars
+        char display[128];
+        if (strlen(recent[i]) > 120) {
+            snprintf(display, sizeof(display), "%.117s...", recent[i]);
+        } else {
+            strncpy(display, recent[i], sizeof(display) - 1);
+            display[sizeof(display) - 1] = '\0';
+        }
+
+        GtkWidget *row = gtk_list_box_row_new();
+        GtkWidget *label = gtk_label_new(display);
+        gtk_label_set_xalign(GTK_LABEL(label), 0.0);
+        gtk_label_set_selectable(GTK_LABEL(label), TRUE);
+        gtk_widget_set_tooltip_text(label, recent[i]);
+        gtk_container_add(GTK_CONTAINER(row), label);
+        gtk_list_box_insert(GTK_LIST_BOX(listbox), row, -1);
+    }
+
+    // On row activate, copy full text to clipboard
+    g_signal_connect(listbox, "row-activated", G_CALLBACK(on_recent_row_activated), NULL);
+
+    gtk_widget_show_all(dialog);
+    gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+
+    for (int i = 0; i < count; i++) free(recent[i]);
+}
 
 static void on_show_logs(GtkMenuItem *item, gpointer user_data) {
     const char *log_path = vtt_log_get_path();
