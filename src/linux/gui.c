@@ -19,7 +19,7 @@
 static void on_quit(GtkMenuItem *item, gpointer user_data);
 static void on_model_selected(GtkMenuItem *item, gpointer user_data);
 static void on_language_selected(GtkMenuItem *item, gpointer user_data);
-static void on_show_logs(GtkMenuItem *item, gpointer user_data);
+static void on_log_file_selected(GtkMenuItem *item, gpointer user_data);
 static void on_toggle_logging(GtkMenuItem *item, gpointer user_data);
 static void on_about(GtkMenuItem *item, gpointer user_data);
 static void on_customize_prompt(GtkMenuItem *item, gpointer user_data);
