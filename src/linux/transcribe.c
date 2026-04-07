@@ -214,6 +214,12 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
             strncpy(ct2_model, "large-v3", sizeof(ct2_model));
         }
 
+        // Map distil-large-v3 to HuggingFace model path
+        if (strcmp(base_model, "distil-large-v3") == 0) {
+            strncpy(ct2_model, "distil-whisper/distil-large-v3", sizeof(ct2_model));
+            ct2_model[sizeof(ct2_model) - 1] = '\0';
+        }
+
         // Run Python faster-whisper script with model, language, and prompt
         char *escaped_prompt = shell_escape(prompt_to_use);
         if (escaped_prompt[0]) {

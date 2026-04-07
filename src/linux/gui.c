@@ -434,7 +434,7 @@ int vtt_gui_init(vtt_gui_t *gui,
     gtk_menu_shell_append(GTK_MENU_SHELL(model_menu), gtk_separator_menu_item_new());
 
     // CTranslate2 multilingual models
-    const char *ct2_multilingual[] = {"CT2 tiny", "CT2 base", "CT2 small", "CT2 medium", "CT2 large-v3", NULL};
+    const char *ct2_multilingual[] = {"CT2 tiny", "CT2 base", "CT2 small", "CT2 medium", "CT2 large-v3", "CT2 large-v3-turbo", "CT2 distil-large-v3", NULL};
     for (int i = 0; ct2_multilingual[i]; i++) {
         GtkWidget *item = gtk_check_menu_item_new_with_label(ct2_multilingual[i]);
         char *model_name = g_strdup(ct2_multilingual[i]);

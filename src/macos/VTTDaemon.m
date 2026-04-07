@@ -346,13 +346,13 @@ static void audioInputCallback(void* userData,
     [modelMenu addItem:[NSMenuItem separatorItem]];
 
     // CTranslate2 models
-    for (NSString *model in baseModels) {
-        NSString *ct2Model = [NSString stringWithFormat:@"CT2 %@", model];
+    NSArray *ct2Models = @[@"CT2 tiny", @"CT2 base", @"CT2 small", @"CT2 medium", @"CT2 large-v3", @"CT2 large-v3-turbo", @"CT2 distil-large-v3"];
+    for (NSString *ct2Model in ct2Models) {
         NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:ct2Model
                                                        action:@selector(selectModel:)
                                                 keyEquivalent:@""];
         item.target = self;
-        item.representedObject = [NSString stringWithFormat:@"CT2 %@", model]; // Store full name with CT2 prefix
+        item.representedObject = ct2Model;
         if ([ct2Model isEqualToString:self.selectedModel]) {
             item.state = NSControlStateValueOn;
         }
@@ -1372,6 +1372,7 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         } else if ([baseModel isEqualToString:@"large"]) {
             ct2Model = @"large-v3"; // large-v3 is multilingual, no .en version
         }
+        // large-v3-turbo and distil-large-v3 have no .en variants
     } else {
         // Multilingual mode - use base models without .en suffix
         if ([baseModel isEqualToString:@"large"]) {
@@ -1379,6 +1380,11 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
         } else {
             ct2Model = baseModel; // tiny, base, small, medium (multilingual versions)
         }
+    }
+
+    // Map distil-large-v3 to HuggingFace model path
+    if ([baseModel isEqualToString:@"distil-large-v3"]) {
+        ct2Model = @"distil-whisper/distil-large-v3";
     }
 
     // whisper-ctranslate2 writes output to a file, not stdout
