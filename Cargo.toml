@@ -1,0 +1,56 @@
+[package]
+name = "voice-to-text"
+version = "2.0.0"
+edition = "2021"
+description = "Free, open-source, cross-platform voice-to-text transcription"
+license = "MIT"
+repository = "https://github.com/powell-clark/voice-to-text"
+
+[[bin]]
+name = "vtt-linux"
+path = "src/main.rs"
+
+[dependencies]
+# Audio capture (cross-platform)
+cpal = "0.15"
+hound = "3.5"
+tempfile = "3"
+
+# Clipboard (cross-platform)
+arboard = "3"
+
+# Notifications (cross-platform)
+notify-rust = "4"
+
+# Date/time
+chrono = "0.4"
+
+# Error handling
+anyhow = "1"
+
+# XDG/platform directories
+dirs = "5"
+
+# System FFI
+libc = "0.2"
+
+# ─── Linux-specific ─────────────────────────────────────────────
+[target.'cfg(target_os = "linux")'.dependencies]
+enigo = { version = "0.2", features = ["x11rb"] }
+x11 = { version = "2.21", features = ["xlib"] }
+libappindicator = "0.9"
+gtk = "0.18"
+glib = "0.18"
+gdk = "0.18"
+
+# ─── macOS + Windows (portable tray + hotkey) ───────────────────
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+enigo = "0.2"
+tray-icon = "0.19"
+muda = "0.15"
+rdev = "0.5"
+
+[profile.release]
+opt-level = 2
+strip = true
+lto = true
