@@ -61,8 +61,8 @@ impl Tray {
         let model_sub = Submenu::new(&format!("Model: {}", current_model), true);
         let model_names = [
             "W base", "W small", "W medium", "W large",
-            "CT2 base", "CT2 small", "CT2 medium",
-            "CT2 distil-large-v3", "CT2 large-v3-turbo",
+            "CT2 base", "CT2 small",
+            "CT2 distil-large-v3.5", "CT2 large-v3-turbo",
         ];
         let mut models = Vec::new();
         for &name in &model_names {

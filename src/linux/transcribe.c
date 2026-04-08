@@ -247,6 +247,10 @@ char *vtt_transcribe_audio(const char *audio_path, const char *model, const char
             strncpy(ct2_model, "distil-whisper/distil-large-v3", sizeof(ct2_model));
             ct2_model[sizeof(ct2_model) - 1] = '\0';
         }
+        if (strcmp(base_model, "distil-large-v3.5") == 0) {
+            strncpy(ct2_model, "distil-whisper/distil-large-v3.5-ct2", sizeof(ct2_model));
+            ct2_model[sizeof(ct2_model) - 1] = '\0';
+        }
 
         // Build argv — no shell, no escaping needed
         if (prompt_to_use) {

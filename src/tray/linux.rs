@@ -349,8 +349,7 @@ fn rebuild_model_menu(state: &Rc<RefCell<TrayState>>) {
     let ct2_models = [
         "CT2 base",
         "CT2 small",
-        "CT2 medium",
-        "CT2 distil-large-v3",
+        "CT2 distil-large-v3.5",
         "CT2 large-v3-turbo",
     ];
 

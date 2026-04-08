@@ -346,7 +346,7 @@ static void audioInputCallback(void* userData,
     [modelMenu addItem:[NSMenuItem separatorItem]];
 
     // CTranslate2 models
-    NSArray *ct2Models = @[@"CT2 tiny", @"CT2 base", @"CT2 small", @"CT2 distil-large-v3", @"CT2 large-v3-turbo"];
+    NSArray *ct2Models = @[@"CT2 base", @"CT2 small", @"CT2 distil-large-v3.5", @"CT2 large-v3-turbo"];
     for (NSString *ct2Model in ct2Models) {
         NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:ct2Model
                                                        action:@selector(selectModel:)
@@ -1385,6 +1385,9 @@ static CGEventRef keyboardCallback(CGEventTapProxy proxy,
     // Map distil-large-v3 to HuggingFace model path
     if ([baseModel isEqualToString:@"distil-large-v3"]) {
         ct2Model = @"distil-whisper/distil-large-v3";
+    }
+    if ([baseModel isEqualToString:@"distil-large-v3.5"]) {
+        ct2Model = @"distil-whisper/distil-large-v3.5-ct2";
     }
 
     // whisper-ctranslate2 writes output to a file, not stdout
