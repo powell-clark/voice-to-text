@@ -532,13 +532,15 @@ fn show_about_dialog() {
     dialog.set_default_size(400, 200);
 
     let content = dialog.content_area();
-    let label = gtk::Label::new(Some(
+    let about_text = format!(
         "Voice to Text Linux\n\n\
-         Version 1.0.16\n\
+         Version {}\n\
          Free, open-source voice-to-text transcription\n\
          https://github.com/powell-clark/voice-to-text\n\n\
          Press Scroll Lock to start/stop recording",
-    ));
+        env!("CARGO_PKG_VERSION")
+    );
+    let label = gtk::Label::new(Some(&about_text));
     label.set_selectable(true);
     label.set_justify(gtk::Justification::Center);
     label.set_margin_top(20);
