@@ -438,7 +438,7 @@ int vtt_gui_init(vtt_gui_t *gui,
     gtk_menu_shell_append(GTK_MENU_SHELL(model_menu), gtk_separator_menu_item_new());
 
     // CTranslate2 multilingual models
-    const char *ct2_multilingual[] = {"CT2 tiny", "CT2 base", "CT2 small", "CT2 distil-large-v3", "CT2 large-v3-turbo", NULL};
+    const char *ct2_multilingual[] = {"CT2 base", "CT2 small", "CT2 distil-large-v3.5", "CT2 large-v3-turbo", NULL};
     for (int i = 0; ct2_multilingual[i]; i++) {
         GtkWidget *item = gtk_check_menu_item_new_with_label(ct2_multilingual[i]);
         char *model_name = g_strdup(ct2_multilingual[i]);
@@ -1389,7 +1389,7 @@ static void rebuild_model_menu(vtt_gui_t *gui) {
     gtk_menu_shell_append(GTK_MENU_SHELL(model_menu), gtk_separator_menu_item_new());
 
     // CTranslate2 models (continue the same radio group)
-    const char *ct2_models[] = {"CT2 tiny", "CT2 base", "CT2 small", "CT2 distil-large-v3", "CT2 large-v3-turbo", NULL};
+    const char *ct2_models[] = {"CT2 base", "CT2 small", "CT2 distil-large-v3.5", "CT2 large-v3-turbo", NULL};
     for (int i = 0; ct2_models[i]; i++) {
         GtkWidget *item = gtk_radio_menu_item_new_with_label(model_group, ct2_models[i]);
         model_group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));

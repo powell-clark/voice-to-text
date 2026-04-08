@@ -146,6 +146,7 @@ fn transcribe_ct2(
     let ct2_model = match base_model {
         "large" => "large-v3".to_string(),
         "distil-large-v3" => "distil-whisper/distil-large-v3".to_string(),
+        "distil-large-v3.5" => "distil-whisper/distil-large-v3.5-ct2".to_string(),
         other => other.to_string(),
     };
 
