@@ -534,7 +534,7 @@ fn show_about_dialog() {
     let content = dialog.content_area();
     let label = gtk::Label::new(Some(
         "Voice to Text Linux\n\n\
-         Version 2.0.0 (Rust)\n\
+         Version 1.0.16\n\
          Free, open-source voice-to-text transcription\n\
          https://github.com/powell-clark/voice-to-text\n\n\
          Press Scroll Lock to start/stop recording",
