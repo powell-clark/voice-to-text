@@ -1,5 +1,37 @@
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Output};
+use std::time::{Duration, Instant};
+
+/// Spawn a command and kill it if it exceeds the timeout.
+fn run_with_timeout(mut cmd: Command, timeout: Duration) -> anyhow::Result<Output> {
+    let mut child = cmd.spawn()?;
+    let start = Instant::now();
+
+    loop {
+        match child.try_wait()? {
+            Some(status) => {
+                let stdout = child.stdout.take().map_or_else(Vec::new, |mut r| {
+                    let mut buf = Vec::new();
+                    std::io::Read::read_to_end(&mut r, &mut buf).ok();
+                    buf
+                });
+                let stderr = child.stderr.take().map_or_else(Vec::new, |mut r| {
+                    let mut buf = Vec::new();
+                    std::io::Read::read_to_end(&mut r, &mut buf).ok();
+                    buf
+                });
+                return Ok(Output { status, stdout, stderr });
+            }
+            None if start.elapsed() > timeout => {
+                crate::vtt_log!("Transcription timed out after {}s — killing process", timeout.as_secs());
+                child.kill().ok();
+                child.wait().ok();
+                anyhow::bail!("Transcription timed out after {}s", timeout.as_secs());
+            }
+            None => std::thread::sleep(Duration::from_millis(100)),
+        }
+    }
+}
 
 /// Detect if model uses whisper.cpp backend (W prefix) vs CTranslate2 (CT2 prefix)
 fn is_whisper_cpp(model: &str) -> bool {
@@ -104,14 +136,19 @@ fn transcribe_whisper_cpp(
         .args(["--no-timestamps"])
         .args(["--language", language])
         .args(["--threads", "4"])
-        .stderr(std::process::Stdio::null());
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
 
     if !initial_prompt.is_empty() {
         cmd.args(["--prompt", initial_prompt]);
     }
 
-    let output = cmd.output()?;
+    let output = run_with_timeout(cmd, Duration::from_secs(90))?;
     if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !stderr.is_empty() {
+            crate::vtt_log!("whisper-cli stderr: {}", stderr.trim());
+        }
         anyhow::bail!(
             "whisper-cli exited with status {}",
             output.status.code().unwrap_or(-1)
@@ -142,9 +179,10 @@ fn transcribe_ct2(
     // Strip "CT2 " prefix
     let base_model = model.strip_prefix("CT2 ").unwrap_or(model);
 
-    // Map model names
+    // Map menu names to HuggingFace repo IDs (must match cached models)
     let ct2_model = match base_model {
         "large" => "large-v3".to_string(),
+        "large-v3-turbo" => "mobiuslabsgmbh/faster-whisper-large-v3-turbo".to_string(),
         "distil-large-v3" => "distil-whisper/distil-large-v3".to_string(),
         "distil-large-v3.5" => "distil-whisper/distil-large-v3.5-ct2".to_string(),
         other => other.to_string(),
@@ -155,14 +193,19 @@ fn transcribe_ct2(
         .arg(audio_path.to_string_lossy().as_ref())
         .arg(&ct2_model)
         .arg(language)
-        .stderr(std::process::Stdio::null());
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
 
     if !initial_prompt.is_empty() {
         cmd.arg(initial_prompt);
     }
 
-    let output = cmd.output()?;
+    let output = run_with_timeout(cmd, Duration::from_secs(90))?;
     if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !stderr.is_empty() {
+            crate::vtt_log!("transcribe.py stderr: {}", stderr.trim());
+        }
         anyhow::bail!(
             "transcribe.py exited with status {}",
             output.status.code().unwrap_or(-1)

@@ -1,7 +1,7 @@
 [package]
 name = "voice-to-text"
-version = "1.0.16"
-edition = "2024"
+version = "2.0.0"
+edition = "2021"
 description = "Free, world-class voice-to-text for Ubuntu, macOS and Windows"
 license = "MIT"
 repository = "https://github.com/powell-clark/voice-to-text"
@@ -34,6 +34,12 @@ dirs = "5"
 # System FFI
 libc = "0.2"
 
+# Hashing for model integrity
+sha2 = "0.10"
+
+# HTTP downloads (rustls, no OpenSSL system dep)
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls", "stream"] }
+
 # ─── Linux-specific ─────────────────────────────────────────────
 [target.'cfg(target_os = "linux")'.dependencies]
 enigo = { version = "0.2", features = ["x11rb"] }
@@ -42,13 +48,23 @@ libappindicator = "0.9"
 gtk = "0.18"
 glib = "0.18"
 gdk = "0.18"
+whisper-rs = { version = "0.16", default-features = false, features = ["vulkan"] }
 
-# ─── macOS + Windows (portable tray + hotkey) ───────────────────
-[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+# ─── Windows ────────────────────────────────────────────────────
+[target.'cfg(target_os = "windows")'.dependencies]
 enigo = "0.2"
 tray-icon = "0.19"
 muda = "0.15"
 rdev = "0.5"
+whisper-rs = { version = "0.16", default-features = false, features = ["vulkan"] }
+
+# ─── macOS ──────────────────────────────────────────────────────
+[target.'cfg(target_os = "macos")'.dependencies]
+enigo = "0.2"
+tray-icon = "0.19"
+muda = "0.15"
+rdev = "0.5"
+whisper-rs = { version = "0.16", default-features = false, features = ["metal"] }
 
 [profile.release]
 opt-level = 2

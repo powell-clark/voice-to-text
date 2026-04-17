@@ -276,9 +276,13 @@ fn transcription_worker(
         drop(s);
 
         // Transcribe
+        vtt_log!("Transcribing: model={}, lang={}", model, language);
+        let t0 = Instant::now();
         let text = transcribe::transcribe_audio(&audio_path, &model, &language, &prompt);
+        let elapsed = t0.elapsed();
 
         if let Some(text) = text {
+            vtt_log!("Transcribed in {:.1}s", elapsed.as_secs_f64());
             let trimmed = text.trim();
 
             // Skip blank/music markers
@@ -310,6 +314,8 @@ fn transcription_worker(
             } else {
                 vtt_log!("Skipping punctuation-only transcription: {}", trimmed);
             }
+        } else {
+            vtt_log!("Transcription failed after {:.1}s", elapsed.as_secs_f64());
         }
 
         // Save recording backup and clean up
