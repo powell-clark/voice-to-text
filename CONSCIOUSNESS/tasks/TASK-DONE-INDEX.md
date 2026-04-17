@@ -14,3 +14,10 @@ TASK-VTT010|Add large-v3-turbo and distil-large-v3 models, trim obsolete models 
 TASK-VTT011|Create hardened PPA release script with pre-flight checks and git tagging|STORY-VTT004||FEAT-VTT016|
 TASK-VTT012|Fix clipboard paste via xclip subprocess replacing broken XSetSelectionOwner|STORY-VTT006||FEAT-VTT012|
 TASK-VTT013|Add X11 key auto-repeat filtering and increase max recording to 5 minutes|STORY-VTT006||FEAT-VTT013,FEAT-VTT014|
+TASK-VTT014|Architecture decision (ADR-0003): whisper-rs in-process replaces CT2-Python subprocess|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
+TASK-VTT015|Scaffold Rust project with cross-platform build (cargo, CI)|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
+TASK-VTT016|Port audio capture to Rust (cpal crate)|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
+TASK-VTT017|Port transcription to Rust (initial port via Python subprocess; replaced by TASK-VTT026 in STORY-VTT010)|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
+TASK-VTT018|Port keyboard simulation to Rust (enigo/rdev)|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
+TASK-VTT019|Port Linux GTK tray to Rust|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
+TASK-VTT020|Port macOS menu bar to Rust (skeleton)|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|

@@ -1,4 +1,4 @@
 # Active Directives
 
 id|status|quarter|priority|title|created|started|expected_end|actual_end|story_ids|task_ids|feature_ids
-EPIC-VTT002|in_progress|Q2-2026|p0|Free, open-source, cross-platform voice-to-text that outperforms paid alternatives|2026-04-07|2026-04-07|Q4-2026||STORY-VTT004,STORY-VTT005||
+EPIC-VTT002|in_progress|Q2-2026|p0|Free, open-source, cross-platform voice-to-text that outperforms paid alternatives|2026-04-07|2026-04-07|Q4-2026||STORY-VTT010,STORY-VTT011|TASK-VTT024,TASK-VTT025,TASK-VTT026,TASK-VTT027,TASK-VTT028,TASK-VTT029,TASK-VTT030,TASK-VTT031,TASK-VTT032,TASK-VTT033,TASK-VTT034,TASK-VTT035,TASK-VTT036,TASK-VTT037,TASK-VTT038,TASK-VTT039|FEAT-VTT022,FEAT-VTT023,FEAT-VTT024,FEAT-VTT025,FEAT-VTT026,FEAT-VTT027,FEAT-VTT028
