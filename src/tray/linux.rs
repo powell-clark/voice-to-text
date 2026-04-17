@@ -107,10 +107,18 @@ impl Tray {
         });
         menu.append(&logging_item);
 
-        // --- Logs submenu ---
+        // --- Logs submenu (rebuilt each time menu opens) ---
         let logs_item = gtk::MenuItem::with_label("Logs");
-        let logs_menu = build_logs_menu();
-        logs_item.set_submenu(Some(&logs_menu));
+        logs_item.set_submenu(Some(&build_logs_menu()));
+        {
+            let logs_item_ref = logs_item.clone();
+            logs_item.connect_activate(move |_| {
+                logs_item_ref.set_submenu(Some(&build_logs_menu()));
+                if let Some(sub) = logs_item_ref.submenu() {
+                    sub.show_all();
+                }
+            });
+        }
         menu.append(&logs_item);
 
         menu.append(&gtk::SeparatorMenuItem::new());
