@@ -43,6 +43,11 @@ fn main() -> anyhow::Result<()> {
     vtt_log!("Voice to Text - Starting (Rust 2.0)");
     vtt_log!("===========================================");
 
+    // Silence whisper.cpp and ggml internal C-level stdout/stderr chatter.
+    // Without `log_backend` / `tracing_backend` features, these hooks discard
+    // the noisy model-init and per-transcription log lines whisper.cpp emits.
+    whisper_rs::install_logging_hooks();
+
     // Singleton lock (Unix only — Windows needs CreateMutexW, see TASK-VTT044)
     #[cfg(unix)]
     let _lock_fd = singleton_lock(&config_dir)?;
