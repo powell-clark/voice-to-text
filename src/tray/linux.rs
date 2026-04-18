@@ -320,64 +320,39 @@ fn rebuild_model_menu(state: &Rc<RefCell<TrayState>>) {
     let current = s.settings.read().unwrap().selected_model.clone();
     let current_base = current.replace(".en", "");
 
-    // Whisper.cpp models
-    let w_models = ["W base", "W small", "W medium", "W large"];
+    // Flat model list. Language toggle (English vs Multilingual) auto-swaps
+    // .en variants for small/medium; large-v3-turbo and large-v3 are multilingual-only.
+    let models = [
+        ("Small", "small"),
+        ("Medium", "medium"),
+        ("Large-v3-turbo", "large-v3-turbo"),
+        ("Large-v3", "large-v3"),
+    ];
     let mut group: Option<gtk::RadioMenuItem> = None;
 
-    for &name in &w_models {
+    // Normalise current selection down to a menu key, handling legacy values
+    let legacy = ["CT2 ", "W "];
+    let cleaned = legacy
+        .iter()
+        .fold(current_base.clone(), |acc, p| acc.trim_start_matches(*p).to_string());
+    let base_key = cleaned.trim_end_matches(".en");
+
+    for &(label, key) in &models {
         let item = match &group {
-            None => gtk::RadioMenuItem::with_label(name),
-            Some(g) => gtk::RadioMenuItem::with_label_from_widget(g, Some(name)),
+            None => gtk::RadioMenuItem::with_label(label),
+            Some(g) => gtk::RadioMenuItem::with_label_from_widget(g, Some(label)),
         };
         if group.is_none() {
             group = Some(item.clone());
         }
 
-        let is_selected = name == current_base;
-        item.set_active(is_selected);
-
-        let is_tiny_or_base = name.contains("tiny") || name.contains("base");
-        item.set_sensitive(is_english || !is_tiny_or_base);
-
-        let st = state.clone();
-        let model_name = name.to_string();
-        item.connect_activate(move |item| {
-            if !item.is_active() {
-                return;
-            }
-            on_model_selected(&st, &model_name);
-        });
-
-        s.model_menu.append(&item);
-    }
-
-    s.model_menu.append(&gtk::SeparatorMenuItem::new());
-
-    // CTranslate2 models
-    let ct2_models = [
-        "CT2 base",
-        "CT2 small",
-        "CT2 distil-large-v3.5",
-        "CT2 large-v3-turbo",
-    ];
-
-    for &name in &ct2_models {
-        let item = match &group {
-            None => gtk::RadioMenuItem::with_label(name),
-            Some(g) => gtk::RadioMenuItem::with_label_from_widget(g, Some(name)),
-        };
-        if group.is_none() {
-            group = Some(item.clone());
-        }
-
-        let is_selected = name == current_base;
-        item.set_active(is_selected);
-
-        let is_tiny_or_base = name.contains("tiny") || name.contains("base");
-        item.set_sensitive(is_english || !is_tiny_or_base);
+        // Match on the base key so english/multilingual mode doesn't affect selection visuals
+        item.set_active(key == base_key);
+        item.set_sensitive(true);
+        let _ = is_english; // suppressed — all models work in both modes
 
         let st = state.clone();
-        let model_name = name.to_string();
+        let model_name = key.to_string();
         item.connect_activate(move |item| {
             if !item.is_active() {
                 return;

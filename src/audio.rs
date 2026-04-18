@@ -10,10 +10,10 @@ const MIN_DURATION_SECS: f32 = 0.5;
 const MIN_AMPLITUDE: i16 = 500;
 
 pub enum RecordingResult {
-    Audio(PathBuf),
+    Audio { samples: Vec<f32>, path: PathBuf },
     TooShort(f32),
     TooQuiet(i16),
-    MaxLength(PathBuf),
+    MaxLength { samples: Vec<f32>, path: PathBuf },
 }
 
 pub struct Audio {
@@ -160,20 +160,26 @@ impl Audio {
             max_amp
         );
 
-        // Write WAV to temp file
-        match write_wav(&buf) {
-            Ok(path) => {
-                crate::vtt_log!("Saved recording to {}", path.display());
-                if was_full {
-                    Some(RecordingResult::MaxLength(path))
-                } else {
-                    Some(RecordingResult::Audio(path))
-                }
+        // Snapshot samples for in-process transcription; also write WAV for the
+        // debug recordings archive. If WAV write fails, transcription still proceeds
+        // because samples are already in memory.
+        let samples: Vec<f32> = buf.clone();
+        drop(buf);
+        let path = match write_wav(&samples) {
+            Ok(p) => {
+                crate::vtt_log!("Saved recording to {}", p.display());
+                p
             }
             Err(e) => {
-                crate::vtt_log!("Failed to write WAV: {}", e);
-                None
+                crate::vtt_log!("Failed to write WAV (transcription continues): {}", e);
+                PathBuf::new()
             }
+        };
+
+        if was_full {
+            Some(RecordingResult::MaxLength { samples, path })
+        } else {
+            Some(RecordingResult::Audio { samples, path })
         }
     }
 }
