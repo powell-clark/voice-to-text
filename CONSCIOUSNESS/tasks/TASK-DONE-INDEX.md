@@ -21,3 +21,17 @@ TASK-VTT017|Port transcription to Rust (initial port via Python subprocess; repl
 TASK-VTT018|Port keyboard simulation to Rust (enigo/rdev)|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
 TASK-VTT019|Port Linux GTK tray to Rust|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
 TASK-VTT020|Port macOS menu bar to Rust (skeleton)|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
+TASK-VTT024|ADR-0003 approved and committed|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT024.md
+TASK-VTT025|Add whisper-rs 0.16 to Cargo.toml with vulkan (Linux+Windows) and metal (macOS) features; bump crate version to 2.0.0|STORY-VTT010|EPIC-VTT002|FEAT-VTT023,FEAT-VTT024,FEAT-VTT025|TASK-VTT025.md
+TASK-VTT026|Write src/whisper.rs — WhisperEngine owns WhisperContext and WhisperState with load_model, transcribe, switch_model|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT026.md
+TASK-VTT027|Rewrite transcription worker in src/main.rs — owns WhisperEngine, receives samples via channel, produces text via channel|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT027.md
+TASK-VTT028|Route raw f32 samples from audio.rs to worker without WAV round-trip; keep WAV write only for debug recordings archive|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT028.md
+TASK-VTT029|Write src/models.rs — GGML download from huggingface.co with sha256 verify and progress notifications|STORY-VTT010|EPIC-VTT002|FEAT-VTT026|TASK-VTT029.md
+TASK-VTT030|Simplify model menu — flat list small, medium, large-v3-turbo, large-v3; tray shows Loading model / Ready / Transcribing|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT030.md
+TASK-VTT031|Delete Python backend — transcribe.py, python3 from debian/control, transcribe_ct2 and transcribe_whisper_cpp from Rust|STORY-VTT010|EPIC-VTT002|FEAT-VTT023|TASK-VTT031.md
+TASK-VTT032|Delete dead C/ObjC — src/linux/*.c, src/common/*.c, src/macos/*.m (7638 lines); retire Makefile.linux|STORY-VTT010|EPIC-VTT002|FEAT-VTT023|TASK-VTT032.md
+TASK-VTT033|Add #[cfg(unix)] guards to singleton_lock and ctrlc_handler so Windows build compiles|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT033.md
+TASK-VTT035|Rewrite debian/rules — replace Makefile.linux invocation with cargo build --release|STORY-VTT011|EPIC-VTT002|FEAT-VTT027|TASK-VTT035.md
+TASK-VTT036|Update debian/control — drop python3/pip/cmake/g++/make from Depends; add rustc/cargo/libclang-dev/libssl-dev to Build-Depends|STORY-VTT011|EPIC-VTT002|FEAT-VTT027|TASK-VTT036.md
+TASK-VTT037|Write postinst script that downloads ggml-small.en.bin to /usr/share/voice-to-text/models on first install|STORY-VTT011|EPIC-VTT002|FEAT-VTT028|TASK-VTT037.md
+TASK-VTT038|Bump debian/changelog to 2.0.0 with explicit note that the PPA now ships the Rust binary|STORY-VTT011|EPIC-VTT002|FEAT-VTT027|TASK-VTT038.md
