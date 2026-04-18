@@ -1,58 +1,31 @@
-#!/bin/bash
+#!/bin/sh
+# Post-install script for voice-to-text 2.0.0.
+# Downloads the default small.en GGML model if not already present so that
+# the first run works offline. Also enables the user systemd service for
+# any logged-in graphical user.
+
 set -e
 
-# postinst script for voice-to-text
+MODEL_DIR=/usr/share/voice-to-text/models
+MODEL_FILE="$MODEL_DIR/ggml-small.en.bin"
+MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin"
 
 case "$1" in
     configure)
-        echo "Installing dependencies for voice-to-text..."
-
-        # Install faster-whisper and ctranslate2 for transcription
-        # Use --break-system-packages for Python 3.12+
-        if ! python3 -m pip list 2>/dev/null | grep -q faster-whisper; then
-            echo "Installing Python transcription backend..."
-            python3 -m pip install --break-system-packages 'faster-whisper>=1.0.0,<2.0.0' 'ctranslate2>=4.0.0,<5.0.0' || {
-                echo "ERROR: Failed to install Python transcription backend."
-                echo "CTranslate2 models will not work without this. Install manually:"
-                echo "  sudo python3 -m pip install --break-system-packages faster-whisper ctranslate2"
-                echo "Whisper.cpp models will still work if whisper-cli is available."
-            }
-        else
-            echo "faster-whisper is already installed"
+        mkdir -p "$MODEL_DIR"
+        if [ ! -f "$MODEL_FILE" ]; then
+            echo "voice-to-text: downloading default Whisper model (ggml-small.en.bin, ~488 MB)..."
+            if curl --fail --silent --show-error -L --max-time 600 \
+                    -o "$MODEL_FILE.tmp" "$MODEL_URL"; then
+                mv "$MODEL_FILE.tmp" "$MODEL_FILE"
+                echo "voice-to-text: default model installed at $MODEL_FILE"
+            else
+                rm -f "$MODEL_FILE.tmp"
+                echo "voice-to-text: model download failed (offline?). Use the tray menu to retry later."
+            fi
         fi
 
-        # Install whisper.cpp for W model support
-        if ! command -v whisper-cli >/dev/null 2>&1; then
-            echo "Installing whisper.cpp for whisper.cpp model support..."
-            WHISPER_DIR="/opt/whisper.cpp"
-
-            if [ ! -d "$WHISPER_DIR" ]; then
-                echo "Downloading whisper.cpp..."
-                git clone --depth 1 --branch v1.7.3 https://github.com/ggerganov/whisper.cpp "$WHISPER_DIR" || {
-                    echo "Warning: Failed to download whisper.cpp"
-                    echo "You can install manually: sudo git clone https://github.com/ggerganov/whisper.cpp /opt/whisper.cpp"
-                }
-            fi
-
-            if [ -d "$WHISPER_DIR" ]; then
-                echo "Building whisper.cpp (this may take a few minutes)..."
-                cd "$WHISPER_DIR" && make -j$(nproc) && {
-                    ln -sf "$WHISPER_DIR/main" /usr/local/bin/whisper-cli
-                    echo "whisper-cli installed successfully"
-                } || {
-                    echo "Warning: Failed to build whisper.cpp"
-                    echo "You can build manually: cd /opt/whisper.cpp && sudo make"
-                }
-            fi
-        else
-            echo "whisper-cli is already installed"
-        fi
-
-        # Enable and start the service for logged-in desktop users
-        echo "Enabling voice-to-text service..."
-
-        # Find users with active graphical sessions and enable/start the service for them
-        started_for_users=""
+        # Enable the user systemd service for any logged-in graphical users
         if command -v loginctl >/dev/null 2>&1; then
             for session in $(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}'); do
                 session_type=$(loginctl show-session "$session" -p Type --value 2>/dev/null)
@@ -60,12 +33,9 @@ case "$1" in
                     user=$(loginctl show-session "$session" -p Name --value 2>/dev/null)
                     uid=$(id -u "$user" 2>/dev/null)
                     if [ -n "$user" ] && [ -n "$uid" ] && [ "$uid" -ge 1000 ]; then
-                        export XDG_RUNTIME_DIR="/run/user/$uid"
-                        if runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid systemctl --user daemon-reload" 2>/dev/null; then
-                            runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid systemctl --user enable vtt.service" 2>/dev/null
-                            runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid systemctl --user start vtt.service" 2>/dev/null
-                            started_for_users="$started_for_users $user"
-                        fi
+                        runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid systemctl --user daemon-reload" 2>/dev/null || true
+                        runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid systemctl --user enable vtt.service" 2>/dev/null || true
+                        runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid systemctl --user start vtt.service" 2>/dev/null || true
                     fi
                 fi
             done
@@ -73,26 +43,17 @@ case "$1" in
 
         echo ""
         echo "============================================"
-        echo "Voice to Text installed!"
+        echo "Voice to Text 2.0.0 installed"
         echo "============================================"
+        echo "Hold Scroll Lock and speak — text appears where you type."
         echo ""
-        if [ -n "$started_for_users" ]; then
-            echo "✓ Service started for:$started_for_users"
-            echo ""
-            echo "Hold Scroll Lock and speak - text appears where you type."
-            echo ""
-        else
-            echo "Log out and back in, or run:"
-            echo "  systemctl --user enable --now vtt"
-            echo ""
-        fi
         ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
         ;;
 
     *)
-        echo "postinst called with unknown argument \`$1'" >&2
+        echo "postinst called with unknown argument '$1'" >&2
         exit 1
         ;;
 esac
