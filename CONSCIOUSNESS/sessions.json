@@ -105,18 +105,59 @@
       "id": "vtt-main-31df8595",
       "prev": "vtt-main-4fcbec16",
       "started": "2026-04-06 13:02:23.524 gmt+1",
-      "ended": null,
+      "ended": "2026-04-14 20:10:30.059 gmt+1",
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
-        "commits": 7,
-        "turns": 66,
-        "human_prompts": 73,
+        "commits": 29,
+        "turns": 133,
+        "human_prompts": 141,
+        "errors": 0,
+        "compactions": 1,
+        "hooks_latency_ms": {
+          "session-init": 49,
+          "message-end": 11,
+          "pre-compact": 3,
+          "post-compact": 1
+        }
+      }
+    },
+    {
+      "id": "vtt-main-0997d4d0",
+      "prev": "vtt-main-31df8595",
+      "started": "2026-04-14 20:10:30.059 gmt+1",
+      "ended": "2026-04-17 22:50:20.740 gmt+1",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 18,
+        "human_prompts": 19,
         "errors": 0,
         "compactions": 0,
         "hooks_latency_ms": {
           "session-init": 49,
           "message-end": 10
+        }
+      }
+    },
+    {
+      "id": "vtt-main-aa2717d9",
+      "prev": "vtt-main-0997d4d0",
+      "started": "2026-04-17 22:50:20.740 gmt+1",
+      "ended": null,
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 2,
+        "turns": 22,
+        "human_prompts": 28,
+        "errors": 0,
+        "compactions": 0,
+        "hooks_latency_ms": {
+          "session-init": 92,
+          "message-end": 10,
+          "task-completed": 1
         },
         "ralph_loops": null
       }

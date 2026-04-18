@@ -1,10 +1,12 @@
 mod audio;
 mod hotkey;
 mod logging;
+mod models;
 mod settings;
 mod transcribe;
 mod tray;
 mod typing;
+mod whisper;
 
 use audio::RecordingResult;
 use std::path::PathBuf;
@@ -13,10 +15,13 @@ use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-/// Audio file sent to the transcription worker
+/// Work units sent to the transcription worker.
+/// v2.0 uses in-memory f32 samples; Truncated marks buffer-full recordings so
+/// the user sees `[Truncated]` prefix on the typed output.
 enum WorkItem {
-    Audio(PathBuf),
-    Truncated(PathBuf),
+    Audio { samples: Vec<f32>, archive_path: PathBuf },
+    Truncated { samples: Vec<f32>, archive_path: PathBuf },
+    SwitchModel { model_name: String, language: String },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -38,11 +43,13 @@ fn main() -> anyhow::Result<()> {
     vtt_log!("Voice to Text - Starting (Rust 2.0)");
     vtt_log!("===========================================");
 
-    // Singleton lock
+    // Singleton lock (Unix only — Windows needs CreateMutexW, see TASK-VTT044)
+    #[cfg(unix)]
     let _lock_fd = singleton_lock(&config_dir)?;
 
-    // Signal handler
+    // Signal handler (Unix only — Windows needs SetConsoleCtrlHandler, see TASK-VTT045)
     let running = Arc::new(AtomicBool::new(true));
+    #[cfg(unix)]
     {
         let r = running.clone();
         ctrlc_handler(move || {
@@ -162,17 +169,17 @@ fn main() -> anyhow::Result<()> {
                 hk_recording.store(false, Ordering::SeqCst);
 
                 match hk_audio.stop_recording() {
-                    Some(RecordingResult::Audio(path)) => {
+                    Some(RecordingResult::Audio { samples, path }) => {
                         vtt_log!("Recording saved: {}", path.display());
-                        hk_ui_tx.send(tray::UiMessage::SetStatus("Loading model...".into())).ok();
+                        hk_ui_tx.send(tray::UiMessage::SetStatus("Transcribing...".into())).ok();
                         hk_ui_tx.send(tray::UiMessage::SetIcon("processing".into())).ok();
-                        hk_work_tx.send(WorkItem::Audio(path)).ok();
+                        hk_work_tx.send(WorkItem::Audio { samples, archive_path: path }).ok();
                     }
-                    Some(RecordingResult::MaxLength(path)) => {
+                    Some(RecordingResult::MaxLength { samples, path }) => {
                         vtt_log!("Max recording length reached");
-                        hk_ui_tx.send(tray::UiMessage::SetStatus("Loading model...".into())).ok();
+                        hk_ui_tx.send(tray::UiMessage::SetStatus("Transcribing...".into())).ok();
                         hk_ui_tx.send(tray::UiMessage::SetIcon("processing".into())).ok();
-                        hk_work_tx.send(WorkItem::Truncated(path)).ok();
+                        hk_work_tx.send(WorkItem::Truncated { samples, archive_path: path }).ok();
                     }
                     Some(RecordingResult::TooShort(_)) => {
                         hk_ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
@@ -246,28 +253,74 @@ fn transcription_worker(
         }
     };
 
+    // Load initial engine at startup. Model comes from settings; language switches
+    // to .en variant for multilingual-capable models.
+    let (init_model, init_lang) = {
+        let s = settings.read().unwrap();
+        (s.selected_model.clone(), s.selected_language.clone())
+    };
+    let mut engine = match load_engine(&init_model, &init_lang, &ui_tx) {
+        Some(e) => {
+            ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
+            ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
+            Some(e)
+        }
+        None => {
+            ui_tx.send(tray::UiMessage::SetStatus("No model — select one in the menu".into())).ok();
+            None
+        }
+    };
+
     while running.load(Ordering::Relaxed) {
         let item = match rx.recv() {
             Ok(item) => item,
             Err(_) => break, // Channel closed
         };
 
-        let (audio_path, is_truncated) = match &item {
-            WorkItem::Audio(p) => (p.clone(), false),
-            WorkItem::Truncated(p) => (p.clone(), true),
+        let (samples, archive_path, is_truncated) = match item {
+            WorkItem::Audio { samples, archive_path } => (samples, archive_path, false),
+            WorkItem::Truncated { samples, archive_path } => (samples, archive_path, true),
+            WorkItem::SwitchModel { model_name, language } => {
+                engine = None;
+                engine = load_engine(&model_name, &language, &ui_tx);
+                if engine.is_some() {
+                    ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
+                    ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
+                }
+                continue;
+            }
         };
 
-        vtt_log!(
-            "Processing: {}{}",
-            audio_path.display(),
-            if is_truncated { " (TRUNCATED)" } else { "" }
-        );
+        // Detect tray-driven settings changes: if the selected model or language
+        // no longer matches the loaded engine, reload transparently.
+        let (want_model_raw, want_lang) = {
+            let s = settings.read().unwrap();
+            (s.selected_model.clone(), s.selected_language.clone())
+        };
+        let want_model = models::resolve_variant(&migrate_legacy_model_name(&want_model_raw), &want_lang);
+        let needs_reload = engine
+            .as_ref()
+            .map(|e| e.model_name() != want_model)
+            .unwrap_or(true);
+        if needs_reload {
+            engine = None;
+            engine = load_engine(&want_model_raw, &want_lang, &ui_tx);
+        }
+
+        let engine_ref = match engine.as_ref() {
+            Some(e) => e,
+            None => {
+                vtt_log!("Transcription skipped — no model loaded");
+                ui_tx.send(tray::UiMessage::SetStatus("No model loaded".into())).ok();
+                continue;
+            }
+        };
+
         ui_tx.send(tray::UiMessage::SetStatus("Transcribing...".into())).ok();
         ui_tx.send(tray::UiMessage::SetIcon("processing".into())).ok();
 
         // Read settings snapshot
         let s = settings.read().unwrap();
-        let model = s.selected_model.clone();
         let language = s.selected_language.clone();
         let prompt = s.initial_prompt.clone();
         let prefix = s.voice_prefix.clone();
@@ -275,17 +328,21 @@ fn transcription_worker(
         let newline_type = s.newline_type;
         drop(s);
 
-        // Transcribe
-        vtt_log!("Transcribing: model={}, lang={}", model, language);
+        vtt_log!(
+            "Transcribing: model={}, lang={}, samples={}{}",
+            engine_ref.model_name(),
+            language,
+            samples.len(),
+            if is_truncated { " (TRUNCATED)" } else { "" }
+        );
         let t0 = Instant::now();
-        let text = transcribe::transcribe_audio(&audio_path, &model, &language, &prompt);
+        let text = transcribe::transcribe_samples(engine_ref, &samples, &language, &prompt);
         let elapsed = t0.elapsed();
 
         if let Some(text) = text {
-            vtt_log!("Transcribed in {:.1}s", elapsed.as_secs_f64());
+            vtt_log!("Transcribed in {:.2}s", elapsed.as_secs_f64());
             let trimmed = text.trim();
 
-            // Skip blank/music markers
             if trimmed.is_empty()
                 || trimmed.eq_ignore_ascii_case("[BLANK_AUDIO]")
                 || trimmed.eq_ignore_ascii_case("[MUSIC PLAYING]")
@@ -294,7 +351,6 @@ fn transcription_worker(
             } else if trimmed.chars().any(|c| c.is_alphanumeric()) {
                 vtt_log!("Transcription: {}", trimmed);
 
-                // Build final text with prefix
                 let final_text = if is_truncated {
                     format!("[Truncated] {}{}", prefix, trimmed)
                 } else if !trimmed.starts_with(&prefix) {
@@ -303,7 +359,6 @@ fn transcription_worker(
                     trimmed.to_string()
                 };
 
-                // Type the result
                 typing_active.store(true, Ordering::SeqCst);
                 if append_newline && typing_has_output.load(Ordering::Relaxed) {
                     typer.type_text("\n", newline_type);
@@ -315,17 +370,86 @@ fn transcription_worker(
                 vtt_log!("Skipping punctuation-only transcription: {}", trimmed);
             }
         } else {
-            vtt_log!("Transcription failed after {:.1}s", elapsed.as_secs_f64());
+            vtt_log!("Transcription failed after {:.2}s", elapsed.as_secs_f64());
         }
 
-        // Save recording backup and clean up
-        save_and_cleanup(&audio_path, &config_dir);
+        if !archive_path.as_os_str().is_empty() {
+            save_and_cleanup(&archive_path, &config_dir);
+        }
 
         ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
         ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
     }
 
     vtt_log!("Transcription worker stopped");
+}
+
+/// Load the GGML model identified by `menu_name` + `language`. Downloads the
+/// file on first use and emits progress to the tray. Returns None on failure so
+/// the caller can surface an explanatory status.
+fn load_engine(
+    menu_name: &str,
+    language: &str,
+    ui_tx: &tray::UiSender,
+) -> Option<whisper::WhisperEngine> {
+    let migrated = migrate_legacy_model_name(menu_name);
+    let resolved = models::resolve_variant(&migrated, language);
+    let info = match models::find(&resolved).or_else(|| models::find(&migrated)) {
+        Some(i) => i,
+        None => {
+            vtt_log!("Unknown model '{}'; falling back to small.en", menu_name);
+            models::find("small.en")?
+        }
+    };
+
+    ui_tx.send(tray::UiMessage::SetStatus(format!("Loading {}...", info.name))).ok();
+    ui_tx.send(tray::UiMessage::SetIcon("processing".into())).ok();
+
+    let ui_tx_clone = ui_tx.clone();
+    let name_for_progress = info.name.to_string();
+    let path = match models::ensure(info, move |done, total| {
+        let pct = if total > 0 { done * 100 / total } else { 0 };
+        ui_tx_clone
+            .send(tray::UiMessage::SetStatus(format!(
+                "Downloading {}... {}%",
+                name_for_progress, pct
+            )))
+            .ok();
+    }) {
+        Ok(p) => p,
+        Err(e) => {
+            vtt_log!("Model ensure failed for {}: {}", info.name, e);
+            ui_tx.send(tray::UiMessage::SetStatus("Model download failed".into())).ok();
+            return None;
+        }
+    };
+
+    match whisper::WhisperEngine::new(&path, info.name) {
+        Ok(engine) => Some(engine),
+        Err(e) => {
+            vtt_log!("Engine load failed: {}", e);
+            ui_tx.send(tray::UiMessage::SetStatus("Model load failed".into())).ok();
+            None
+        }
+    }
+}
+
+/// Translate legacy settings.conf model names ("CT2 large-v3-turbo", "W medium")
+/// into the v2.0.0 flat namespace. Unknown values fall through unchanged so
+/// `load_engine` can apply its default-to-small.en fallback.
+fn migrate_legacy_model_name(raw: &str) -> String {
+    let stripped = raw
+        .strip_prefix("CT2 ")
+        .or_else(|| raw.strip_prefix("W "))
+        .unwrap_or(raw)
+        .trim()
+        .to_string();
+    match stripped.as_str() {
+        "" | "tiny" | "tiny.en" | "base" | "base.en" => "small.en".to_string(),
+        "distil-large-v3" | "distil-large-v3.5" => "large-v3-turbo".to_string(),
+        "large" => "large-v3".to_string(),
+        _ => stripped,
+    }
 }
 
 fn save_and_cleanup(audio_path: &std::path::Path, config_dir: &std::path::Path) {
@@ -375,6 +499,7 @@ fn prune_recordings(dir: &std::path::Path, max: usize) {
 
 // ─── Utilities ──────────────────────────────────────────────────
 
+#[cfg(unix)]
 fn singleton_lock(config_dir: &std::path::Path) -> anyhow::Result<std::fs::File> {
     use std::os::unix::io::AsRawFd;
     std::fs::create_dir_all(config_dir)?;
@@ -420,6 +545,7 @@ fn cleanup_old_wavs() {
     }
 }
 
+#[cfg(unix)]
 fn ctrlc_handler<F: Fn() + Send + 'static>(f: F) {
     unsafe {
         libc::signal(libc::SIGINT, libc::SIG_DFL);

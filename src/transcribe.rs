@@ -1,77 +1,20 @@
+//! Thin bridge between the worker and the WhisperEngine. No subprocess, no Python.
+//! v2.0.0 replaces the pre-2.0 transcribe_ct2 / transcribe_whisper_cpp subprocess
+//! paths with in-process whisper-rs inference via WhisperEngine.
+
 use std::path::Path;
-use std::process::{Command, Output};
-use std::time::{Duration, Instant};
 
-/// Spawn a command and kill it if it exceeds the timeout.
-fn run_with_timeout(mut cmd: Command, timeout: Duration) -> anyhow::Result<Output> {
-    let mut child = cmd.spawn()?;
-    let start = Instant::now();
+use crate::whisper::WhisperEngine;
 
-    loop {
-        match child.try_wait()? {
-            Some(status) => {
-                let stdout = child.stdout.take().map_or_else(Vec::new, |mut r| {
-                    let mut buf = Vec::new();
-                    std::io::Read::read_to_end(&mut r, &mut buf).ok();
-                    buf
-                });
-                let stderr = child.stderr.take().map_or_else(Vec::new, |mut r| {
-                    let mut buf = Vec::new();
-                    std::io::Read::read_to_end(&mut r, &mut buf).ok();
-                    buf
-                });
-                return Ok(Output { status, stdout, stderr });
-            }
-            None if start.elapsed() > timeout => {
-                crate::vtt_log!("Transcription timed out after {}s — killing process", timeout.as_secs());
-                child.kill().ok();
-                child.wait().ok();
-                anyhow::bail!("Transcription timed out after {}s", timeout.as_secs());
-            }
-            None => std::thread::sleep(Duration::from_millis(100)),
-        }
-    }
-}
-
-/// Detect if model uses whisper.cpp backend (W prefix) vs CTranslate2 (CT2 prefix)
-fn is_whisper_cpp(model: &str) -> bool {
-    !model.starts_with("CT2 ")
-}
-
-/// Auto-append .en suffix for English models that have an English-only variant
-fn adjust_model_for_language(model: &str, language: &str) -> String {
-    if language != "en" || model.contains(".en") {
-        return model.to_string();
-    }
-    let has_en = ["tiny", "base", "small", "medium"]
-        .iter()
-        .any(|m| model.contains(m));
-    if has_en {
-        let adjusted = format!("{}.en", model);
-        crate::vtt_log!("Auto-selected .en model: {} (English mode)", adjusted);
-        adjusted
-    } else {
-        model.to_string()
-    }
-}
-
-pub fn transcribe_audio(
-    audio_path: &Path,
-    model: &str,
+/// Transcribe f32 PCM samples using the engine. Returns None on empty/error.
+pub fn transcribe_samples(
+    engine: &WhisperEngine,
+    samples: &[f32],
     language: &str,
-    initial_prompt: &str,
+    prompt: &str,
 ) -> Option<String> {
-    let model = if model.is_empty() { "CT2 small" } else { model };
-    let language = if language.is_empty() { "en" } else { language };
-    let adjusted = adjust_model_for_language(model, language);
-
-    let output = if is_whisper_cpp(&adjusted) {
-        transcribe_whisper_cpp(audio_path, &adjusted, language, initial_prompt)
-    } else {
-        transcribe_ct2(audio_path, &adjusted, language, initial_prompt)
-    };
-
-    match output {
+    let prompt_opt = if prompt.is_empty() { None } else { Some(prompt) };
+    match engine.transcribe(samples, language, prompt_opt) {
         Ok(text) => {
             let trimmed = text.trim().to_string();
             if trimmed.is_empty() {
@@ -88,129 +31,28 @@ pub fn transcribe_audio(
     }
 }
 
-fn transcribe_whisper_cpp(
-    audio_path: &Path,
-    model: &str,
-    language: &str,
-    initial_prompt: &str,
-) -> anyhow::Result<String> {
-    // Find whisper-cli binary
-    let whisper_cli = [
-        "/usr/bin/whisper-cli",
-        "/usr/local/bin/whisper-cli",
-        "./third_party/whisper.cpp/build/bin/whisper-cli",
-    ]
-    .iter()
-    .find(|p| Path::new(p).exists())
-    .ok_or_else(|| anyhow::anyhow!("whisper-cli not found"))?;
-
-    crate::vtt_log!("Using whisper-cli: {}", whisper_cli);
-
-    // Strip "W " prefix
-    let base_model = model.strip_prefix("W ").unwrap_or(model);
-    let is_english_only = base_model.contains(".en");
-
-    // Get clean model name (without .en suffix for file path)
-    let clean_name = if is_english_only {
-        base_model.strip_suffix(".en").unwrap_or(base_model)
-    } else {
-        base_model
-    };
-    let file_model = if clean_name == "large" {
-        "large-v3"
-    } else {
-        clean_name
-    };
-    let extension = if is_english_only { ".en.bin" } else { ".bin" };
-
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-    let model_file = format!("{}/.cache/whisper/ggml-{}{}", home, file_model, extension);
-
-    if !Path::new(&model_file).exists() {
-        anyhow::bail!("Model file not found: {}", model_file);
-    }
-
-    let mut cmd = Command::new(whisper_cli);
-    cmd.args(["-m", &model_file])
-        .args(["-f", &audio_path.to_string_lossy()])
-        .args(["--no-timestamps"])
-        .args(["--language", language])
-        .args(["--threads", "4"])
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-
-    if !initial_prompt.is_empty() {
-        cmd.args(["--prompt", initial_prompt]);
-    }
-
-    let output = run_with_timeout(cmd, Duration::from_secs(90))?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if !stderr.is_empty() {
-            crate::vtt_log!("whisper-cli stderr: {}", stderr.trim());
-        }
+/// Read a 16kHz mono WAV file into a Vec<f32>. Used when the worker receives a
+/// path-based WorkItem (from the debug recordings archive or a --file mode).
+pub fn load_wav(path: &Path) -> anyhow::Result<Vec<f32>> {
+    let mut reader = hound::WavReader::open(path)?;
+    let spec = reader.spec();
+    if spec.sample_rate != 16000 || spec.channels != 1 {
         anyhow::bail!(
-            "whisper-cli exited with status {}",
-            output.status.code().unwrap_or(-1)
+            "WAV must be 16kHz mono, got {}Hz {}ch",
+            spec.sample_rate,
+            spec.channels
         );
     }
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
-}
-
-fn transcribe_ct2(
-    audio_path: &Path,
-    model: &str,
-    language: &str,
-    initial_prompt: &str,
-) -> anyhow::Result<String> {
-    // Find transcribe.py script
-    let script = [
-        "/usr/share/voice-to-text/transcribe.py",
-        "./src/common/transcribe.py",
-        "src/common/transcribe.py",
-    ]
-    .iter()
-    .find(|p| Path::new(p).exists())
-    .ok_or_else(|| anyhow::anyhow!("transcribe.py not found"))?;
-
-    crate::vtt_log!("Using transcribe.py: {}", script);
-
-    // Strip "CT2 " prefix
-    let base_model = model.strip_prefix("CT2 ").unwrap_or(model);
-
-    // Map menu names to HuggingFace repo IDs (must match cached models)
-    let ct2_model = match base_model {
-        "large" => "large-v3".to_string(),
-        "large-v3-turbo" => "mobiuslabsgmbh/faster-whisper-large-v3-turbo".to_string(),
-        "distil-large-v3" => "distil-whisper/distil-large-v3".to_string(),
-        "distil-large-v3.5" => "distil-whisper/distil-large-v3.5-ct2".to_string(),
-        other => other.to_string(),
+    let samples: Vec<f32> = match spec.sample_format {
+        hound::SampleFormat::Int => reader
+            .samples::<i16>()
+            .filter_map(Result::ok)
+            .map(|s| s as f32 / 32768.0)
+            .collect(),
+        hound::SampleFormat::Float => reader
+            .samples::<f32>()
+            .filter_map(Result::ok)
+            .collect(),
     };
-
-    let mut cmd = Command::new("python3");
-    cmd.arg(script)
-        .arg(audio_path.to_string_lossy().as_ref())
-        .arg(&ct2_model)
-        .arg(language)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-
-    if !initial_prompt.is_empty() {
-        cmd.arg(initial_prompt);
-    }
-
-    let output = run_with_timeout(cmd, Duration::from_secs(90))?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if !stderr.is_empty() {
-            crate::vtt_log!("transcribe.py stderr: {}", stderr.trim());
-        }
-        anyhow::bail!(
-            "transcribe.py exited with status {}",
-            output.status.code().unwrap_or(-1)
-        );
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    Ok(samples)
 }
