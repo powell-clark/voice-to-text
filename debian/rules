@@ -1,37 +1,31 @@
 #!/usr/bin/make -f
 
-# Debian rules file for voice-to-text
-# See debhelper(7) (uncomment to enable)
+# voice-to-text 2.0.0 — pure Rust build via cargo.
+# The 1.0.x releases invoked Makefile.linux which compiled the legacy C binary;
+# that implementation was removed in 2.0.0 and this rules file now drives the
+# Rust toolchain directly.
 
-# Output every command that modifies files on the build system
-#export DH_VERBOSE = 1
+export RUST_BACKTRACE := 1
+export CARGO_TERM_COLOR := never
 
 %:
 	dh $@
 
 override_dh_auto_build:
-	# Build using the Linux Makefile
-	$(MAKE) -f Makefile.linux
+	cargo build --release --locked
 
 override_dh_auto_install:
-	# Install binary
-	install -D -m 0755 vtt-linux debian/voice-to-text/usr/bin/vtt-linux
-
-	# Install source files for Python backend
-	install -D -m 0755 src/common/transcribe.py debian/voice-to-text/usr/share/voice-to-text/transcribe.py
-
-	# Install systemd user service
-	install -D -m 0644 vtt.service debian/voice-to-text/usr/lib/systemd/user/vtt.service
-
-	# Install desktop entry
-	install -D -m 0644 debian/voice-to-text.desktop debian/voice-to-text/usr/share/applications/voice-to-text.desktop
+	install -D -m 0755 target/release/vtt-linux \
+		debian/voice-to-text/usr/bin/vtt-linux
+	install -D -m 0644 vtt.service \
+		debian/voice-to-text/usr/lib/systemd/user/vtt.service
+	install -D -m 0644 debian/voice-to-text.desktop \
+		debian/voice-to-text/usr/share/applications/voice-to-text.desktop
+	install -d debian/voice-to-text/usr/share/voice-to-text/models
 
 override_dh_auto_clean:
-	# Clean build artifacts
-	$(MAKE) -f Makefile.linux clean || true
-	rm -f vtt-linux
-	rm -rf build/
+	cargo clean || true
+	rm -rf target
 
 override_dh_auto_test:
-	# Skip tests for now (add unit tests later)
-	@echo "Skipping tests"
+	@echo "Cargo tests deferred to STORY-VTT014 (CI matrix build)"
