@@ -1,3 +1,27 @@
+voice-to-text (2.0.0) noble; urgency=medium
+
+  * Rust binary now shipped — 1.0.x releases installed the legacy C binary
+    despite the Rust rewrite being in the tree since 1.0.16
+  * whisper-rs in-process replaces the CT2 + Python subprocess path — the
+    model loads once at startup and remains resident for sub-second
+    transcriptions regardless of clip length or model size
+  * Python runtime dependency removed (no more python3, python3-pip,
+    faster-whisper, or ctranslate2 in the install footprint)
+  * Vulkan GPU acceleration on Linux works universally with NVIDIA, AMD,
+    and Intel GPUs without requiring the CUDA Toolkit
+  * Model menu simplified to a flat list: Small, Medium, Large-v3-turbo,
+    Large-v3 — the W/CT2 prefixes are retired along with the dead backends
+  * Default model ggml-small.en.bin downloaded via postinst on first install
+  * GGML models downloaded on demand from ggerganov/whisper.cpp when users
+    select alternatives from the tray menu
+  * Breaking: existing CT2 model caches at ~/.cache/huggingface/ are no
+    longer used; GGML models re-download on first selection
+  * Delete 7,638 lines of obsolete C and Objective-C source
+  * See ADR-0003 at CONSCIOUSNESS/adr/0003-*.md for the full architectural
+    decision record
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Sat, 18 Apr 2026 02:10:44 +0100
+
 voice-to-text (1.0.16) noble; urgency=medium
 
   * Fix model menu showing stale list after language switch
