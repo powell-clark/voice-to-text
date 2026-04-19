@@ -8,6 +8,11 @@
 export RUST_BACKTRACE := 1
 export CARGO_TERM_COLOR := never
 
+# Include rustup-installed cargo/rustc when present. On Launchpad builders the
+# cargo package lives in /usr/bin. On dev machines people often use rustup
+# which installs to ~/.cargo/bin — add both so debian/rules works for both.
+export PATH := $(HOME)/.cargo/bin:$(PATH)
+
 %:
 	dh $@
 
@@ -26,6 +31,12 @@ override_dh_auto_install:
 override_dh_auto_clean:
 	cargo clean || true
 	rm -rf target
+
+override_dh_clean:
+	# Exclude vendor/ so dh_clean does not delete cargo-vendored .orig files.
+	# cargo vendor writes Cargo.toml.orig sidecars that dh_clean's default
+	# pattern matcher eats, breaking the cargo checksum.
+	dh_clean -Xvendor
 
 override_dh_auto_test:
 	@echo "Cargo tests deferred to STORY-VTT014 (CI matrix build)"
