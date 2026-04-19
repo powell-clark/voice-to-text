@@ -1,3 +1,12 @@
+voice-to-text (2.0.3) noble; urgency=medium
+
+  * Fix: make Build-Depends and Depends jammy-compatible by using the
+    libasound2t64 | libasound2 alternation. The 2.0.2 jammy build failed
+    at install-deps because Jammy does not have the time_t64 variant.
+    Noble 2.0.2 built successfully and remains a good target.
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Sun, 19 Apr 2026 07:22:01 +0100
+
 voice-to-text (2.0.2) noble; urgency=medium
 
   * Fix: switch to pre-built binary distribution on the PPA.

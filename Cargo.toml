@@ -1,6 +1,6 @@
 [package]
 name = "voice-to-text"
-version = "2.0.2"
+version = "2.0.3"
 edition = "2021"
 description = "Free, world-class voice-to-text for Ubuntu, macOS and Windows"
 license = "MIT"
