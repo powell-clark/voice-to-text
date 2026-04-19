@@ -1,18 +1,18 @@
 {
   "sessions": {
-    "vtt-whisper-rs-m-8bfff58f": {
+    "vtt-main-8bfff58f": {
       "assignment_message_id": null,
       "conscious_mode": false,
       "current_activity": null,
       "current_task": null,
       "identity": null,
-      "last_activity": "2026-04-18T01:09:38.638Z",
+      "last_activity": "2026-04-19T02:09:21.376Z",
       "model": null,
       "pane_id": "0",
       "role": null,
       "session_type": "cli",
       "specialty": null,
-      "started": "2026-04-17T22:18:06.305Z"
+      "started": "2026-04-19T00:56:06.171Z"
     }
   }
 }

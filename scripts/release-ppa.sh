@@ -118,6 +118,13 @@ echo "[1/${STEP_TOTAL:-?}] Vendoring cargo dependencies..."
 cargo vendor > /tmp/vtt-cargo-config.toml
 # The .cargo/config.toml is committed; we don't need to overwrite it.
 echo "  vendor/ size: $(du -sh vendor/ | cut -f1)"
+
+# Force Cargo.lock v3 format so Ubuntu Noble cargo 1.75 can parse it.
+# rustup >=1.78 writes v4 by default, which breaks Launchpad builds.
+if grep -q '^version = 4$' Cargo.lock; then
+    echo "  Downgrading Cargo.lock v4 -> v3 for Ubuntu 1.75 compatibility"
+    sed -i 's/^version = 4$/version = 3/' Cargo.lock
+fi
 echo ""
 
 # ═══════════════════════════════════════════════════════════════

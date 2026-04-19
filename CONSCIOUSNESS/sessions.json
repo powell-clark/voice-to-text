@@ -149,9 +149,9 @@
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
-        "commits": 2,
-        "turns": 22,
-        "human_prompts": 28,
+        "commits": 4,
+        "turns": 38,
+        "human_prompts": 45,
         "errors": 0,
         "compactions": 0,
         "hooks_latency_ms": {
