@@ -429,7 +429,8 @@ fn build_logs_menu() -> gtk::Menu {
             }
         })
         .collect();
-    files.sort_by(|a, b| b.cmp(a)); // Newest first
+    files.sort_unstable();
+    files.reverse(); // Newest first (filenames are ISO dates, lexicographic sort reversed == newest first)
 
     if files.is_empty() {
         let empty = gtk::MenuItem::with_label("(no logs yet)");

@@ -522,7 +522,7 @@ fn load_engine(
     let ui_tx_clone = ui_tx.clone();
     let name_for_progress = info.name.to_string();
     let path = match models::ensure(info, move |done, total| {
-        let pct = if total > 0 { done * 100 / total } else { 0 };
+        let pct = (done * 100).checked_div(total).unwrap_or(0);
         ui_tx_clone
             .send(tray::UiMessage::SetStatus(format!(
                 "Downloading {}... {}%",
@@ -603,7 +603,7 @@ fn prune_recordings(dir: &std::path::Path, max: usize) {
         return;
     }
 
-    entries.sort_by(|a, b| b.1.cmp(&a.1)); // newest first
+    entries.sort_by_key(|e| std::cmp::Reverse(e.1)); // newest first
     for (path, _) in &entries[max..] {
         if std::fs::remove_file(path).is_ok() {
             vtt_log!("Pruned old recording: {}", path.display());
