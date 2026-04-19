@@ -3,20 +3,15 @@ Section: sound
 Priority: optional
 Maintainer: Emmanuel Powell-Clark <emmanuel@powellclark.com>
 Build-Depends: debhelper-compat (= 13),
-               rustc (>= 1.75),
-               cargo (>= 1.75),
-               libclang-dev,
-               libvulkan-dev,
-               glslc,
-               pkg-config,
-               libgtk-3-dev,
-               libayatana-appindicator3-dev,
-               libnotify-dev,
-               libasound2-dev,
-               libx11-dev,
-               libxtst-dev,
-               libxext-dev,
-               cmake
+               file,
+               libgtk-3-0,
+               libayatana-appindicator3-1,
+               libnotify4,
+               libasound2t64,
+               libx11-6,
+               libxtst6,
+               libxext6,
+               libvulkan1
 Standards-Version: 4.6.2
 Homepage: https://github.com/powell-clark/voice-to-text
 Vcs-Git: https://github.com/powell-clark/voice-to-text.git
@@ -35,6 +30,7 @@ Depends: ${shlibs:Depends},
          libxtst6,
          libxext6,
          libvulkan1,
+         libnotify-bin,
          curl
 Recommends: vulkan-tools,
             mesa-vulkan-drivers
@@ -53,7 +49,13 @@ Description: Free, world-class voice-to-text for Ubuntu, macOS and Windows
   - System tray with GTK3 and libappindicator
   - 100% offline operation after the model is cached
  .
- 2.0.0 breaking changes:
+ 2.0.x ships a pre-built binary for amd64, because Ubuntu LTS cargo
+ 1.75 cannot parse the edition-2024 Cargo.toml manifests that modern
+ Rust dependencies use. The binary is compiled on Emmanuel's machine
+ with Rust 1.91 and committed to the source tree. See debian/rules
+ for rationale.
+ .
+ 2.0.0 breaking changes from the 1.0.x C binary:
   - Replaces CTranslate2 / faster-whisper Python backend with whisper-rs
   - Replaces the legacy C binary with the Rust rewrite
   - Python 3 is no longer required

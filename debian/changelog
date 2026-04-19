@@ -1,3 +1,22 @@
+voice-to-text (2.0.2) noble; urgency=medium
+
+  * Fix: switch to pre-built binary distribution on the PPA.
+    Ubuntu LTS cargo 1.75 cannot parse edition-2024 Cargo.toml manifests
+    that modern Rust deps use (getrandom 0.3, moxcms, pxfm, toml_edit
+    via cpal and arboard). Both 2.0.0 and 2.0.1 failed to build on
+    Launchpad for this reason.
+  * debian/rules now installs vtt-linux.prebuilt instead of running
+    cargo. The binary is compiled locally with Rust 1.91 and committed.
+  * Build-Depends reduced to debhelper-compat (= 13) plus runtime libs
+    needed by dh_shlibdeps.
+  * Source tarball reduced dramatically (vendor/ no longer shipped).
+  * Remove notify-rust crate; notifications now shell to notify-send
+    from libnotify-bin (added to Depends).
+  * When Ubuntu eventually ships rustc 1.85+, this file can revert to
+    the cargo-build path at git commit efa5d75.
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Sun, 19 Apr 2026 06:18:04 +0100
+
 voice-to-text (2.0.1) noble; urgency=medium
 
   * Fix: pin Cargo.lock to version 3 so Ubuntu Noble's cargo 1.75 can

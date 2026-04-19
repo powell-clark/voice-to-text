@@ -1,6 +1,6 @@
 [package]
 name = "voice-to-text"
-version = "2.0.1"
+version = "2.0.2"
 edition = "2021"
 description = "Free, world-class voice-to-text for Ubuntu, macOS and Windows"
 license = "MIT"
@@ -19,8 +19,9 @@ tempfile = "3"
 # Clipboard (cross-platform)
 arboard = "3"
 
-# Notifications (cross-platform)
-notify-rust = "4"
+# Notifications: shelled out to notify-send on Linux (libnotify-bin is a
+# runtime dep). notify-rust crate removed because its zbus 5.x transitive
+# requires Rust edition 2024, which Ubuntu Noble's cargo 1.75 can't parse.
 
 # Date/time
 chrono = "0.4"
