@@ -145,19 +145,40 @@
       "id": "vtt-main-aa2717d9",
       "prev": "vtt-main-0997d4d0",
       "started": "2026-04-17 22:50:20.740 gmt+1",
+      "ended": "2026-04-19 22:38:46.578 gmt+1",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 15,
+        "turns": 75,
+        "human_prompts": 86,
+        "errors": 0,
+        "compactions": 2,
+        "hooks_latency_ms": {
+          "session-init": 92,
+          "message-end": 11,
+          "task-completed": 1,
+          "pre-compact": 2,
+          "post-compact": 1
+        }
+      }
+    },
+    {
+      "id": "vtt-main-2ba05079",
+      "prev": "vtt-main-aa2717d9",
+      "started": "2026-04-19 22:38:46.578 gmt+1",
       "ended": null,
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
-        "commits": 4,
-        "turns": 38,
-        "human_prompts": 45,
+        "commits": 13,
+        "turns": 25,
+        "human_prompts": 28,
         "errors": 0,
         "compactions": 0,
         "hooks_latency_ms": {
-          "session-init": 92,
-          "message-end": 10,
-          "task-completed": 1
+          "session-init": 52,
+          "message-end": 10
         },
         "ralph_loops": null
       }

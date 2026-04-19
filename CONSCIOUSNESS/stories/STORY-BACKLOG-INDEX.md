@@ -1,6 +1,7 @@
 # Backlog Stories
 
 id|priority|title|epic_id|task_ids|feature_ids|doc
+STORY-VTT018|p0|As Emmanuel I want automated regression tests and CI gates so that broken typing, broken tray menus, and broken releases stop reaching users|EPIC-VTT002|TASK-VTT055,TASK-VTT056,TASK-VTT057,TASK-VTT058,TASK-VTT059,TASK-VTT060,TASK-VTT061|FEAT-VTT035|STORY-VTT018.md
 STORY-VTT012|p1|As Emmanuel I want macOS builds for my 2019 Intel i9 and Apple Silicon so that I can dictate on all my machines|EPIC-VTT002|TASK-VTT040,TASK-VTT041,TASK-VTT042,TASK-VTT043|FEAT-VTT029|
 STORY-VTT013|p1|As Emmanuel I want Windows builds so that my Windows desktop has the same VTT as Linux and Mac|EPIC-VTT002|TASK-VTT044,TASK-VTT045,TASK-VTT046,TASK-VTT047|FEAT-VTT030|
 STORY-VTT014|p2|As Emmanuel I want GitHub Actions matrix builds so that every tag auto-releases binaries for Linux, macOS Intel, macOS ARM and Windows|EPIC-VTT002|TASK-VTT048,TASK-VTT049|FEAT-VTT031|

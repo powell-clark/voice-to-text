@@ -1,6 +1,7 @@
 # Backlog Features
 
 id|priority|kano|description|story_ids|task_ids|doc
+FEAT-VTT035|p0|must-have|Automated regression testing — cargo unit tests, GitHub Actions CI (fmt/clippy/test/build) on every push, local pre-push hook matching CI, so broken builds and behaviour never reach the PPA|STORY-VTT018|TASK-VTT055,TASK-VTT056,TASK-VTT057,TASK-VTT058,TASK-VTT059|FEAT-VTT035.md
 FEAT-VTT022|p0|must-have|Whisper model loaded once in-process worker thread — eliminates spawn-per-press, sub-second transcription regardless of model size|STORY-VTT010|TASK-VTT024,TASK-VTT026,TASK-VTT027,TASK-VTT028,TASK-VTT030,TASK-VTT033,TASK-VTT034|FEAT-VTT022.md
 FEAT-VTT023|p0|must-have|Pure Rust transcription — no Python runtime dependency, no pip install, no faster-whisper, no ctranslate2|STORY-VTT010|TASK-VTT025,TASK-VTT031,TASK-VTT032|FEAT-VTT023.md
 FEAT-VTT024|p1|performance|Vulkan GPU acceleration on Linux and Windows — universal NVIDIA plus AMD plus Intel without requiring CUDA Toolkit|STORY-VTT010|TASK-VTT025|FEAT-VTT024.md

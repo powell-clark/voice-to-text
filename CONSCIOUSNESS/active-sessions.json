@@ -1,18 +1,32 @@
 {
   "sessions": {
-    "vtt-main-8bfff58f": {
+    "vtt-main-2ba05079": {
       "assignment_message_id": null,
       "conscious_mode": false,
       "current_activity": null,
       "current_task": null,
       "identity": null,
-      "last_activity": "2026-04-19T02:09:21.376Z",
+      "last_activity": "2026-04-19T23:22:25.398Z",
       "model": null,
-      "pane_id": "0",
+      "pane_id": "10",
       "role": null,
       "session_type": "cli",
       "specialty": null,
-      "started": "2026-04-19T00:56:06.171Z"
+      "started": "2026-04-19T23:22:25.398Z"
+    },
+    "vtt-main-3d07050c": {
+      "assignment_message_id": null,
+      "conscious_mode": false,
+      "current_activity": null,
+      "current_task": null,
+      "identity": null,
+      "last_activity": "2026-04-19T23:38:08.657Z",
+      "model": null,
+      "pane_id": "10",
+      "role": null,
+      "session_type": "cli",
+      "specialty": null,
+      "started": "2026-04-19T21:39:10.593Z"
     }
   }
 }
