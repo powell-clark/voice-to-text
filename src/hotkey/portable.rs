@@ -72,10 +72,7 @@ pub fn get_key_name(keycode: u8) -> String {
     rdev_key_name(key).to_string()
 }
 
-pub fn start_monitor<F>(
-    initial_keycode: u8,
-    callback: F,
-) -> anyhow::Result<mpsc::Sender<HotkeyCmd>>
+pub fn start_monitor<F>(initial_keycode: u8, callback: F) -> anyhow::Result<mpsc::Sender<HotkeyCmd>>
 where
     F: Fn(KeyEvent) + Send + 'static,
 {
@@ -88,10 +85,7 @@ where
         .spawn(move || {
             let target_key = keycode_to_rdev(target_clone.load(Ordering::Relaxed) as u8);
 
-            crate::vtt_log!(
-                "Hotkey monitor started ({})",
-                rdev_key_name(target_key)
-            );
+            crate::vtt_log!("Hotkey monitor started ({})", rdev_key_name(target_key));
 
             // rdev::listen blocks forever
             if let Err(e) = rdev::listen(move |event| {

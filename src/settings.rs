@@ -185,7 +185,8 @@ mod tests {
         for s in &inputs {
             let round_tripped = unescape(&escape(s));
             assert_eq!(
-                &round_tripped, s,
+                &round_tripped,
+                s,
                 "round-trip failed for {:?} -> {:?} -> {:?}",
                 s,
                 escape(s),

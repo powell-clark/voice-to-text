@@ -27,16 +27,27 @@ use std::time::{Duration, Instant};
 /// v2.0 uses in-memory f32 samples; Truncated marks buffer-full recordings so
 /// the user sees `[Truncated]` prefix on the typed output.
 enum WorkItem {
-    Audio { samples: Vec<f32>, archive_path: PathBuf },
-    Truncated { samples: Vec<f32>, archive_path: PathBuf },
-    SwitchModel { model_name: String, language: String },
+    Audio {
+        samples: Vec<f32>,
+        archive_path: PathBuf,
+    },
+    Truncated {
+        samples: Vec<f32>,
+        archive_path: PathBuf,
+    },
+    SwitchModel {
+        model_name: String,
+        language: String,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
     // Platform-specific init
     #[cfg(target_os = "linux")]
     {
-        unsafe { x11::xlib::XInitThreads(); }
+        unsafe {
+            x11::xlib::XInitThreads();
+        }
         gtk::init()?;
     }
 
@@ -95,9 +106,12 @@ fn main() -> anyhow::Result<()> {
             #[cfg(target_os = "linux")]
             {
                 let result = std::process::Command::new("notify-send")
-                    .args(["--icon=dialog-information", "--expire-time=3000",
-                           "Voice to Text",
-                           "Recording limit reached — release key to transcribe"])
+                    .args([
+                        "--icon=dialog-information",
+                        "--expire-time=3000",
+                        "Voice to Text",
+                        "Recording limit reached — release key to transcribe",
+                    ])
                     .status();
                 if let Err(e) = result {
                     crate::vtt_log!("notify-send failed: {}", e);
@@ -173,8 +187,12 @@ fn main() -> anyhow::Result<()> {
                 *hk_recording_start.lock().unwrap() = Instant::now();
                 hk_recording.store(true, Ordering::SeqCst);
                 hk_audio.start_recording();
-                hk_ui_tx.send(tray::UiMessage::SetStatus("Recording...".into())).ok();
-                hk_ui_tx.send(tray::UiMessage::SetIcon("recording".into())).ok();
+                hk_ui_tx
+                    .send(tray::UiMessage::SetStatus("Recording...".into()))
+                    .ok();
+                hk_ui_tx
+                    .send(tray::UiMessage::SetIcon("recording".into()))
+                    .ok();
             }
             hotkey::KeyEvent::Up => {
                 if !hk_recording.load(Ordering::SeqCst) {
@@ -194,27 +212,51 @@ fn main() -> anyhow::Result<()> {
                 match hk_audio.stop_recording() {
                     Some(RecordingResult::Audio { samples, path }) => {
                         vtt_log!("Recording saved: {}", path.display());
-                        hk_ui_tx.send(tray::UiMessage::SetStatus("Transcribing...".into())).ok();
-                        hk_ui_tx.send(tray::UiMessage::SetIcon("processing".into())).ok();
-                        hk_work_tx.send(WorkItem::Audio { samples, archive_path: path }).ok();
+                        hk_ui_tx
+                            .send(tray::UiMessage::SetStatus("Transcribing...".into()))
+                            .ok();
+                        hk_ui_tx
+                            .send(tray::UiMessage::SetIcon("processing".into()))
+                            .ok();
+                        hk_work_tx
+                            .send(WorkItem::Audio {
+                                samples,
+                                archive_path: path,
+                            })
+                            .ok();
                     }
                     Some(RecordingResult::MaxLength { samples, path }) => {
                         vtt_log!("Max recording length reached");
-                        hk_ui_tx.send(tray::UiMessage::SetStatus("Transcribing...".into())).ok();
-                        hk_ui_tx.send(tray::UiMessage::SetIcon("processing".into())).ok();
-                        hk_work_tx.send(WorkItem::Truncated { samples, archive_path: path }).ok();
+                        hk_ui_tx
+                            .send(tray::UiMessage::SetStatus("Transcribing...".into()))
+                            .ok();
+                        hk_ui_tx
+                            .send(tray::UiMessage::SetIcon("processing".into()))
+                            .ok();
+                        hk_work_tx
+                            .send(WorkItem::Truncated {
+                                samples,
+                                archive_path: path,
+                            })
+                            .ok();
                     }
                     Some(RecordingResult::TooShort(_)) => {
-                        hk_ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
+                        hk_ui_tx
+                            .send(tray::UiMessage::SetStatus("Ready".into()))
+                            .ok();
                         hk_ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
                     }
                     Some(RecordingResult::TooQuiet(_)) => {
-                        hk_ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
+                        hk_ui_tx
+                            .send(tray::UiMessage::SetStatus("Ready".into()))
+                            .ok();
                         hk_ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
                     }
                     None => {
                         vtt_log!("Recording returned None");
-                        hk_ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
+                        hk_ui_tx
+                            .send(tray::UiMessage::SetStatus("Ready".into()))
+                            .ok();
                         hk_ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
                     }
                 }
@@ -224,7 +266,10 @@ fn main() -> anyhow::Result<()> {
 
     // Apply loaded hotkey
     if hk_keycode >= 8 {
-        vtt_log!("Applied custom hotkey from settings: keycode {}", hk_keycode);
+        vtt_log!(
+            "Applied custom hotkey from settings: keycode {}",
+            hk_keycode
+        );
     }
 
     vtt_log!("All systems initialized");
@@ -289,7 +334,11 @@ fn transcription_worker(
             Some(e)
         }
         None => {
-            ui_tx.send(tray::UiMessage::SetStatus("No model — select one in the menu".into())).ok();
+            ui_tx
+                .send(tray::UiMessage::SetStatus(
+                    "No model — select one in the menu".into(),
+                ))
+                .ok();
             None
         }
     };
@@ -301,9 +350,18 @@ fn transcription_worker(
         };
 
         let (samples, archive_path, is_truncated) = match item {
-            WorkItem::Audio { samples, archive_path } => (samples, archive_path, false),
-            WorkItem::Truncated { samples, archive_path } => (samples, archive_path, true),
-            WorkItem::SwitchModel { model_name, language } => {
+            WorkItem::Audio {
+                samples,
+                archive_path,
+            } => (samples, archive_path, false),
+            WorkItem::Truncated {
+                samples,
+                archive_path,
+            } => (samples, archive_path, true),
+            WorkItem::SwitchModel {
+                model_name,
+                language,
+            } => {
                 drop(engine.take()); // free the old engine (and its GPU memory) before loading the new one
                 engine = load_engine(&model_name, &language, &ui_tx);
                 if engine.is_some() {
@@ -320,7 +378,8 @@ fn transcription_worker(
             let s = settings.read().unwrap();
             (s.selected_model.clone(), s.selected_language.clone())
         };
-        let want_model = models::resolve_variant(&migrate_legacy_model_name(&want_model_raw), &want_lang);
+        let want_model =
+            models::resolve_variant(&migrate_legacy_model_name(&want_model_raw), &want_lang);
         let needs_reload = engine
             .as_ref()
             .map(|e| e.model_name() != want_model)
@@ -334,13 +393,19 @@ fn transcription_worker(
             Some(e) => e,
             None => {
                 vtt_log!("Transcription skipped — no model loaded");
-                ui_tx.send(tray::UiMessage::SetStatus("No model loaded".into())).ok();
+                ui_tx
+                    .send(tray::UiMessage::SetStatus("No model loaded".into()))
+                    .ok();
                 continue;
             }
         };
 
-        ui_tx.send(tray::UiMessage::SetStatus("Transcribing...".into())).ok();
-        ui_tx.send(tray::UiMessage::SetIcon("processing".into())).ok();
+        ui_tx
+            .send(tray::UiMessage::SetStatus("Transcribing...".into()))
+            .ok();
+        ui_tx
+            .send(tray::UiMessage::SetIcon("processing".into()))
+            .ok();
 
         // Read settings snapshot
         let s = settings.read().unwrap();
@@ -419,8 +484,15 @@ fn load_engine(
         }
     };
 
-    ui_tx.send(tray::UiMessage::SetStatus(format!("Loading {}...", info.name))).ok();
-    ui_tx.send(tray::UiMessage::SetIcon("processing".into())).ok();
+    ui_tx
+        .send(tray::UiMessage::SetStatus(format!(
+            "Loading {}...",
+            info.name
+        )))
+        .ok();
+    ui_tx
+        .send(tray::UiMessage::SetIcon("processing".into()))
+        .ok();
 
     let ui_tx_clone = ui_tx.clone();
     let name_for_progress = info.name.to_string();
@@ -436,7 +508,9 @@ fn load_engine(
         Ok(p) => p,
         Err(e) => {
             vtt_log!("Model ensure failed for {}: {}", info.name, e);
-            ui_tx.send(tray::UiMessage::SetStatus("Model download failed".into())).ok();
+            ui_tx
+                .send(tray::UiMessage::SetStatus("Model download failed".into()))
+                .ok();
             return None;
         }
     };
@@ -445,7 +519,9 @@ fn load_engine(
         Ok(engine) => Some(engine),
         Err(e) => {
             vtt_log!("Engine load failed: {}", e);
-            ui_tx.send(tray::UiMessage::SetStatus("Model load failed".into())).ok();
+            ui_tx
+                .send(tray::UiMessage::SetStatus("Model load failed".into()))
+                .ok();
             None
         }
     }
@@ -491,11 +567,7 @@ fn prune_recordings(dir: &std::path::Path, max: usize) {
         .into_iter()
         .flatten()
         .flatten()
-        .filter(|e| {
-            e.file_name()
-                .to_string_lossy()
-                .ends_with(".wav")
-        })
+        .filter(|e| e.file_name().to_string_lossy().ends_with(".wav"))
         .filter_map(|e| {
             let mtime = e.metadata().ok()?.modified().ok()?;
             Some((e.path(), mtime))
@@ -582,8 +654,6 @@ fn ctrlc_handler<F: Fn() + Send + 'static>(f: F) {
         .ok();
 }
 
-
-
 /// Pure: build the final text that gets typed, given the transcription.
 ///
 /// - If `is_truncated`, prepend `[Truncated] ` before the prefix.
@@ -633,7 +703,10 @@ mod tests {
     #[test]
     fn compose_final_text_empty_prefix_returns_trimmed_unchanged() {
         let s = compose_final_text(false, "", "hello");
-        assert_eq!(s, "hello", "empty prefix means every string already 'starts with' it");
+        assert_eq!(
+            s, "hello",
+            "empty prefix means every string already 'starts with' it"
+        );
     }
 
     #[test]

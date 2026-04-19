@@ -2,6 +2,7 @@
 
 Local push-to-talk voice transcription using OpenAI Whisper.
 
+[![CI](https://github.com/powell-clark/voice-to-text/actions/workflows/ci.yml/badge.svg)](https://github.com/powell-clark/voice-to-text/actions/workflows/ci.yml)
 [![macOS](https://img.shields.io/badge/macOS-11.0+-blue?logo=apple)](https://github.com/powell-clark/voice-to-text)
 [![Linux](https://img.shields.io/badge/Linux-Ubuntu%2024.04+-orange?logo=linux)](https://github.com/powell-clark/voice-to-text)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
@@ -279,6 +280,24 @@ fix: Resolve microphone detection on Ubuntu 24.10
 docs: Update GPU installation guide
 chore: Bump whisper.cpp to v1.5.4
 ```
+
+### Development setup
+
+After cloning, install the git pre-push hook so you catch fmt/clippy/test/build
+failures locally before they turn CI red:
+
+```bash
+bash scripts/git-hooks/install.sh
+```
+
+The hook runs the same checks as `.github/workflows/ci.yml`:
+
+- `cargo fmt --all -- --check`
+- `cargo clippy --release --all-targets -- -D warnings`
+- `cargo test --release`
+- `cargo build --release`
+
+Bypass once with `git push --no-verify` only in genuine emergencies.
 
 ### Ideas for Contributions
 

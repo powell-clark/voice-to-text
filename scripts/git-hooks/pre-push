@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Git pre-push hook — mirrors .github/workflows/ci.yml.
+#
+# Install via:   bash scripts/git-hooks/install.sh
+# Skip once via: git push --no-verify   (use sparingly)
+#
+# Rationale: CI on GitHub will fail the same way if fmt/clippy/test/build
+# fails. Failing locally first is cheaper and stops you from turning main
+# red for everyone else.
+
+set -e
+cd "$(git rev-parse --show-toplevel)"
+
+echo "[pre-push] cargo fmt --check"
+cargo fmt --all -- --check
+
+echo "[pre-push] cargo clippy --release --all-targets -- -D warnings"
+cargo clippy --release --all-targets -- -D warnings
+
+echo "[pre-push] cargo test --release"
+cargo test --release
+
+echo "[pre-push] cargo build --release"
+cargo build --release
+
+echo "[pre-push] all checks passed — pushing"

@@ -3,13 +3,11 @@ use super::{UiMessage, UiSender};
 use crate::hotkey::{self, HotkeyCmd};
 use crate::logging;
 use crate::settings::Settings;
+use std::path::Path;
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, RwLock};
-use std::path::Path;
 
-use muda::{
-    CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu,
-};
+use muda::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tray_icon::{TrayIcon, TrayIconBuilder};
 
 pub struct Tray {
@@ -44,12 +42,22 @@ impl Tray {
         menu.append(&PredefinedMenuItem::separator())?;
 
         // Language
-        let lang_en = CheckMenuItem::new("English only (fastest)", true, current_lang == "en", None);
-        let lang_multi = CheckMenuItem::new("Multilingual (99 languages)", true, current_lang != "en", None);
+        let lang_en =
+            CheckMenuItem::new("English only (fastest)", true, current_lang == "en", None);
+        let lang_multi = CheckMenuItem::new(
+            "Multilingual (99 languages)",
+            true,
+            current_lang != "en",
+            None,
+        );
         let lang_sub = Submenu::new(
             &format!(
                 "Language: {}",
-                if current_lang == "en" { "English only" } else { "Multilingual" }
+                if current_lang == "en" {
+                    "English only"
+                } else {
+                    "Multilingual"
+                }
             ),
             true,
         );
@@ -60,9 +68,14 @@ impl Tray {
         // Models
         let model_sub = Submenu::new(&format!("Model: {}", current_model), true);
         let model_names = [
-            "W base", "W small", "W medium", "W large",
-            "CT2 base", "CT2 small",
-            "CT2 distil-large-v3.5", "CT2 large-v3-turbo",
+            "W base",
+            "W small",
+            "W medium",
+            "W large",
+            "CT2 base",
+            "CT2 small",
+            "CT2 distil-large-v3.5",
+            "CT2 large-v3-turbo",
         ];
         let mut models = Vec::new();
         for &name in &model_names {
@@ -76,7 +89,11 @@ impl Tray {
 
         // Logging
         let logging = MenuItem::new(
-            if logging_enabled { "Logging: On" } else { "Logging: Off" },
+            if logging_enabled {
+                "Logging: On"
+            } else {
+                "Logging: Off"
+            },
             true,
             None,
         );
@@ -140,7 +157,12 @@ impl Tray {
                 }
             })?;
 
-        Ok((Tray { _tray_icon: tray_icon }, ui_tx))
+        Ok((
+            Tray {
+                _tray_icon: tray_icon,
+            },
+            ui_tx,
+        ))
     }
 }
 
@@ -172,8 +194,19 @@ fn handle_menu_events(
                 let mut s = settings.write().unwrap();
                 s.logging_enabled = !s.logging_enabled;
                 logging::set_enabled(s.logging_enabled);
-                ids.logging.set_text(if s.logging_enabled { "Logging: On" } else { "Logging: Off" });
-                crate::vtt_log!("Logging {}", if s.logging_enabled { "enabled" } else { "disabled" });
+                ids.logging.set_text(if s.logging_enabled {
+                    "Logging: On"
+                } else {
+                    "Logging: Off"
+                });
+                crate::vtt_log!(
+                    "Logging {}",
+                    if s.logging_enabled {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    }
+                );
             }
 
             // Language

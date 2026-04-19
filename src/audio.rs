@@ -1,8 +1,8 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleRate, StreamConfig};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::path::PathBuf;
 
 const SAMPLE_RATE: u32 = 16000;
 const MAX_RECORDING_SECONDS: usize = 300; // 5 minutes
@@ -103,7 +103,10 @@ impl Audio {
         )?;
 
         stream.play()?;
-        crate::vtt_log!("Audio stream opened (zero-latency mode, {} Hz)", SAMPLE_RATE);
+        crate::vtt_log!(
+            "Audio stream opened (zero-latency mode, {} Hz)",
+            SAMPLE_RATE
+        );
 
         Ok(Audio {
             _stream: stream,
