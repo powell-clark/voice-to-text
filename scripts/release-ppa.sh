@@ -18,6 +18,14 @@ GPG_KEY="${VTT_GPG_KEY:-emmanuel@powellclark.com}"
 PPA_TARGET="${VTT_PPA_TARGET:-powellclark-voice-to-text}"
 DISTROS=("noble" "jammy")  # LTS releases
 
+# Pinned mirror — DO NOT use archive.ubuntu.com or any gb.archive.ubuntu.com
+# round-robin. Those CDNs rotate through backends; some serve devel/resolute
+# under the "noble" name, which silently corrupts the chroot and fails the
+# pbuilder gate with baffling errors (base-passwd postinst mktemp, satisfydepends
+# failures). Bytemark is a single UK server, no round-robin, reliably serving
+# pinned releases. Override with VTT_MIRROR=... if you know what you're doing.
+PBUILDER_MIRROR="${VTT_MIRROR:-http://mirror.bytemark.co.uk/ubuntu}"
+
 # ═══════════════════════════════════════════════════════════════
 # FLAGS
 # ═══════════════════════════════════════════════════════════════
@@ -138,15 +146,22 @@ echo ""
 # target distro (noble, jammy) and runs the EXACT build Launchpad will
 # run. If this fails locally, Launchpad fails too — and we never dput.
 #
-# One-time setup (sudo required):
+# One-time setup (sudo required) — use bytemark, NEVER archive.ubuntu.com:
 #   sudo pbuilder --create --distribution noble \
 #       --basetgz /var/cache/pbuilder/noble-base.tgz \
-#       --mirror http://archive.ubuntu.com/ubuntu \
-#       --components "main restricted universe multiverse"
+#       --mirror http://mirror.bytemark.co.uk/ubuntu \
+#       --components "main restricted universe multiverse" \
+#       --debootstrapopts --variant=buildd
 #   sudo pbuilder --create --distribution jammy \
 #       --basetgz /var/cache/pbuilder/jammy-base.tgz \
-#       --mirror http://archive.ubuntu.com/ubuntu \
-#       --components "main restricted universe multiverse"
+#       --mirror http://mirror.bytemark.co.uk/ubuntu \
+#       --components "main restricted universe multiverse" \
+#       --debootstrapopts --variant=buildd
+#
+# The archive.ubuntu.com (and gb.archive.ubuntu.com) mirrors are round-robin
+# CDNs — some backends serve devel/resolute content under pinned release names,
+# silently corrupting the chroot. Bytemark is a single UK server, pinned, and
+# has not lied about what release it's serving in 20+ years of operation.
 #
 # Bypass with VTT_SKIP_PBUILDER=1 only if you truly know what you're
 # doing (e.g. repeating a known-good release on a machine without
@@ -161,8 +176,13 @@ check_pbuilder() {
         echo "One-time setup required. Run once per distro:"
         echo "  sudo pbuilder --create --distribution ${distro} \\"
         echo "      --basetgz $basetgz \\"
-        echo "      --mirror http://archive.ubuntu.com/ubuntu \\"
-        echo "      --components \"main restricted universe multiverse\""
+        echo "      --mirror ${PBUILDER_MIRROR} \\"
+        echo "      --components \"main restricted universe multiverse\" \\"
+        echo "      --debootstrapopts --variant=buildd"
+        echo ""
+        echo "NOTE: we pin the mirror to bytemark (single server) because"
+        echo "archive.ubuntu.com round-robin sometimes serves devel/resolute"
+        echo "content, silently corrupting the chroot. See config block for detail."
         return 1
     fi
     return 0
