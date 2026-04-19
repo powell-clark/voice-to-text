@@ -194,9 +194,18 @@ build_in_chroot() {
     local basetgz="/var/cache/pbuilder/${distro}-base.tgz"
     local logfile="/tmp/vtt-pbuilder-${distro}.log"
     echo "[pre-flight] pbuilder --build ($distro) — simulates Launchpad exactly..."
+    # Use apt-based satisfydepends instead of the default aptitude-based one.
+    # The aptitude variant builds a dummy .deb via dpkg-deb in /tmp/satisfydepends-aptitude/,
+    # which fails on dpkg ≥ 1.22 with
+    #   "dpkg-deb: error: failed to make temporary file (control member): No such file or directory"
+    # when the chroot's dpkg-deb atomic-temp-file handling collides with the
+    # host kernel's overlay/mount layering. The apt variant installs deps via
+    # apt-get directly, bypassing the dpkg-deb build step entirely.
+    # Launchpad also uses apt-based resolution, so this matches production.
     if sudo -n pbuilder --build \
             --distribution "$distro" \
             --basetgz "$basetgz" \
+            --pbuildersatisfydepends /usr/lib/pbuilder/pbuilder-satisfydepends-apt \
             --buildresult /tmp/vtt-pbuilder-${distro} \
             "$dsc" > "$logfile" 2>&1; then
         tail -20 "$logfile"
