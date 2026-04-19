@@ -289,13 +289,6 @@ impl Tray {
         ))
     }
 
-    /// Set the hotkey command sender (called after hotkey monitor is started)
-    pub fn set_hotkey_sender(
-        state: &Rc<RefCell<TrayState>>,
-        tx: Sender<HotkeyCmd>,
-    ) {
-        state.borrow_mut().hotkey_cmd_tx = Some(tx);
-    }
 }
 
 // ─── Model menu ─────────────────────────────────────────────────
@@ -447,18 +440,7 @@ fn build_logs_menu() -> gtk::Menu {
         .to_string();
 
     for filename in &files {
-        let date = filename
-            .strip_prefix("vtt-")
-            .and_then(|s| s.strip_suffix(".log"))
-            .unwrap_or(filename);
-
-        let label = if date == today {
-            format!("Today ({})", &date[5..])
-        } else if date == yesterday {
-            format!("Yesterday ({})", &date[5..])
-        } else {
-            date.to_string()
-        };
+        let label = format_log_label(filename, &today, &yesterday);
 
         let item = gtk::MenuItem::with_label(&label);
         let full_path = log_dir.join(filename).to_string_lossy().to_string();
@@ -832,4 +814,71 @@ fn show_hotkey_dialog(state: &Rc<RefCell<TrayState>>) {
     dialog.show_all();
     dialog.run();
     unsafe { dialog.destroy(); }
+}
+
+// ─── Pure helpers (testable without GTK) ──────────────────────────
+
+/// Turn a log filename like `vtt-2026-04-20.log` into a menu label.
+/// - Today's file → `Today (MM-DD)`
+/// - Yesterday's → `Yesterday (MM-DD)`
+/// - Older       → `YYYY-MM-DD`
+/// - Malformed   → the filename itself (fallback)
+///
+/// Pure function — no I/O, no GTK, trivially testable.
+fn format_log_label(filename: &str, today: &str, yesterday: &str) -> String {
+    let date = filename
+        .strip_prefix("vtt-")
+        .and_then(|s| s.strip_suffix(".log"))
+        .unwrap_or(filename);
+
+    if date == today && date.len() >= 7 {
+        format!("Today ({})", &date[5..])
+    } else if date == yesterday && date.len() >= 7 {
+        format!("Yesterday ({})", &date[5..])
+    } else {
+        date.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_log_label_today_gives_friendly_label() {
+        let s = format_log_label("vtt-2026-04-20.log", "2026-04-20", "2026-04-19");
+        assert_eq!(s, "Today (04-20)");
+    }
+
+    #[test]
+    fn format_log_label_yesterday_gives_friendly_label() {
+        let s = format_log_label("vtt-2026-04-19.log", "2026-04-20", "2026-04-19");
+        assert_eq!(s, "Yesterday (04-19)");
+    }
+
+    #[test]
+    fn format_log_label_older_returns_full_iso_date() {
+        let s = format_log_label("vtt-2026-01-15.log", "2026-04-20", "2026-04-19");
+        assert_eq!(s, "2026-01-15");
+    }
+
+    #[test]
+    fn format_log_label_malformed_filename_returns_filename() {
+        let s = format_log_label("not-a-log-file.txt", "2026-04-20", "2026-04-19");
+        assert_eq!(s, "not-a-log-file.txt");
+    }
+
+    #[test]
+    fn format_log_label_wrong_prefix_returns_filename() {
+        let s = format_log_label("vtt2026-04-20.log", "2026-04-20", "2026-04-19");
+        assert_eq!(s, "vtt2026-04-20.log", "filename without proper vtt- prefix falls through");
+    }
+
+    #[test]
+    fn format_log_label_short_dates_dont_panic() {
+        // Sanity check the bounds guard — a "today" of "2026" (len 4) must not panic
+        // from string slicing at [5..].
+        let s = format_log_label("vtt-2026.log", "2026", "2025");
+        assert_eq!(s, "2026", "short dates bypass the friendly label and fall through");
+    }
 }

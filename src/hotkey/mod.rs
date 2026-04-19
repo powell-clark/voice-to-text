@@ -1,5 +1,3 @@
-use std::sync::mpsc;
-
 #[derive(Debug, Clone, Copy)]
 pub enum KeyEvent {
     Down,

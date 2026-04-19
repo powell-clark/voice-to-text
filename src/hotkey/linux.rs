@@ -1,3 +1,10 @@
+// X11 keysym and xlib constants ship CamelCase / Mixed_Case (e.g. XK_End,
+// KeyPress, Mod5Mask) because they match the historical Xlib C headers.
+// Clippy flags these as "constant in pattern should have an upper case name"
+// whenever we match against them. They're re-exported verbatim by the x11
+// crate and we can't rename them — allow the lint at module level.
+#![allow(non_upper_case_globals)]
+
 use super::{HotkeyCmd, KeyEvent};
 use std::sync::mpsc;
 use std::thread;
@@ -52,8 +59,8 @@ unsafe fn grab_key(display: *mut Display, root: Window, keycode: u32) {
             m,
             root,
             1,            // owner_events = True
-            GrabModeAsync as i32,
-            GrabModeAsync as i32,
+            GrabModeAsync,
+            GrabModeAsync,
         );
     }
     XSync(display, 0);
