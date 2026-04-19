@@ -37,7 +37,9 @@ jobs:
             libvulkan-dev \
             libxtst-dev \
             libnotify-bin \
-            pkg-config
+            pkg-config \
+            cmake \
+            glslang-tools
 
       - name: Install Rust toolchain (stable)
         uses: dtolnay/rust-toolchain@stable
