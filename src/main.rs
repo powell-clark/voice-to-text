@@ -79,17 +79,27 @@ fn main() -> anyhow::Result<()> {
     // Initialize audio
     let audio = Arc::new(audio::Audio::new()?);
 
-    // Buffer full notification
+    // Buffer full notification (shells to notify-send on Linux; libnotify-bin
+    // is a runtime dependency. This avoids the notify-rust crate which pulls
+    // zbus 5.x which uses edition 2024 — Ubuntu Noble cargo 1.75 can't parse).
     audio.set_buffer_full_callback(|| {
         let show_notification = || {
-            if let Err(e) = notify_rust::Notification::new()
-                .summary("Voice to Text")
-                .body("Recording limit reached - release key to transcribe")
-                .icon("dialog-information")
-                .timeout(3000)
-                .show()
+            #[cfg(target_os = "linux")]
             {
-                crate::vtt_log!("Notification failed: {}", e);
+                let result = std::process::Command::new("notify-send")
+                    .args(["--icon=dialog-information", "--expire-time=3000",
+                           "Voice to Text",
+                           "Recording limit reached — release key to transcribe"])
+                    .status();
+                if let Err(e) = result {
+                    crate::vtt_log!("notify-send failed: {}", e);
+                }
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                // TODO: macOS/Windows notifications via osascript / winrt API in
+                // STORY-VTT012 / STORY-VTT013.
+                crate::vtt_log!("Recording limit reached");
             }
         };
         #[cfg(target_os = "linux")]

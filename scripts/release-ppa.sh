@@ -111,43 +111,22 @@ echo "  Distros: ${DISTROS[*]}"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
-# VENDOR CARGO DEPENDENCIES
-# ═══════════════════════════════════════════════════════════════
-
-echo "[1/${STEP_TOTAL:-?}] Vendoring cargo dependencies..."
-cargo vendor > /tmp/vtt-cargo-config.toml
-# The .cargo/config.toml is committed; we don't need to overwrite it.
-echo "  vendor/ size: $(du -sh vendor/ | cut -f1)"
-
-# Force Cargo.lock v3 format so Ubuntu Noble cargo 1.75 can parse it.
-# rustup >=1.78 writes v4 by default, which breaks Launchpad builds.
-if grep -q '^version = 4$' Cargo.lock; then
-    echo "  Downgrading Cargo.lock v4 -> v3 for Ubuntu 1.75 compatibility"
-    sed -i 's/^version = 4$/version = 3/' Cargo.lock
-fi
-echo ""
-
-# ═══════════════════════════════════════════════════════════════
-# PRE-FLIGHT BUILD CHECK — simulate Launchpad's offline build
+# PRE-FLIGHT — build fresh binary and stage as vtt-linux.prebuilt
 # ═══════════════════════════════════════════════════════════════
 #
-# Launchpad builders have no network access. Our vendored source + v3
-# Cargo.lock must be sufficient to `cargo build --offline --locked`.
-# Doing this locally before dput catches issues on our machine instead
-# of dinging the PPA score. The 2.0.0 build failed because Cargo.lock
-# was v4; this check would have caught it on our machine.
+# Since 2.0.2, PPA releases ship the pre-built binary (Ubuntu LTS
+# cargo 1.75 cannot build the modern Rust dep tree). Build the binary
+# locally with rustup 1.91 and copy it to vtt-linux.prebuilt which
+# debian/rules will install verbatim.
 
-echo "[2/${STEP_TOTAL:-?}] Pre-flight: cargo build --offline --locked (simulates Launchpad)..."
-if cargo build --release --offline --locked 2>&1 | tail -40 | grep -E "^error" > /tmp/vtt-prebuild-errors; then
-    echo "  FAIL — build errors detected. Would break on Launchpad."
-    cat /tmp/vtt-prebuild-errors
-    echo ""
-    echo "Refusing to upload. Fix the errors above before retrying."
-    echo "Tip: running cargo clean && cargo build --release --offline --locked locally reproduces the Launchpad build."
+echo "[1/${STEP_TOTAL:-?}] Building release binary with local rustup..."
+cargo build --release --offline 2>&1 | tail -5
+if [ ! -x target/release/vtt-linux ]; then
+    echo "  FAIL — build did not produce target/release/vtt-linux"
     exit 1
 fi
-echo "  OK — offline locked build succeeds."
-rm -f /tmp/vtt-prebuild-errors
+cp target/release/vtt-linux vtt-linux.prebuilt
+echo "  OK — vtt-linux.prebuilt at $(du -h vtt-linux.prebuilt | cut -f1)"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
