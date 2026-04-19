@@ -833,4 +833,57 @@ mod tests {
         assert!(is_whisper_filler("[music    playing]"));
         assert!(is_whisper_filler("[ Blank_Audio ]"));
     }
+
+    #[test]
+    fn migrate_legacy_model_name_strips_ct2_and_w_prefixes() {
+        assert_eq!(migrate_legacy_model_name("CT2 small"), "small");
+        assert_eq!(migrate_legacy_model_name("W small.en"), "small.en");
+        assert_eq!(migrate_legacy_model_name("CT2 medium"), "medium");
+    }
+
+    #[test]
+    fn migrate_legacy_model_name_maps_retired_models_to_supported_ones() {
+        // tiny and base were removed in the v2.0 model trim — migrate to small.en
+        // so users with stale settings.conf don't error out on startup.
+        assert_eq!(migrate_legacy_model_name("tiny"), "small.en");
+        assert_eq!(migrate_legacy_model_name("tiny.en"), "small.en");
+        assert_eq!(migrate_legacy_model_name("base"), "small.en");
+        assert_eq!(migrate_legacy_model_name("base.en"), "small.en");
+        assert_eq!(migrate_legacy_model_name(""), "small.en");
+    }
+
+    #[test]
+    fn migrate_legacy_model_name_maps_distil_to_large_v3_turbo() {
+        // distil models were replaced by large-v3-turbo — same speed, better quality.
+        assert_eq!(
+            migrate_legacy_model_name("distil-large-v3"),
+            "large-v3-turbo"
+        );
+        assert_eq!(
+            migrate_legacy_model_name("distil-large-v3.5"),
+            "large-v3-turbo"
+        );
+    }
+
+    #[test]
+    fn migrate_legacy_model_name_maps_bare_large_to_large_v3() {
+        assert_eq!(migrate_legacy_model_name("large"), "large-v3");
+    }
+
+    #[test]
+    fn migrate_legacy_model_name_passes_current_names_through_unchanged() {
+        assert_eq!(migrate_legacy_model_name("small"), "small");
+        assert_eq!(migrate_legacy_model_name("small.en"), "small.en");
+        assert_eq!(
+            migrate_legacy_model_name("large-v3-turbo"),
+            "large-v3-turbo"
+        );
+        assert_eq!(migrate_legacy_model_name("large-v3"), "large-v3");
+    }
+
+    #[test]
+    fn migrate_legacy_model_name_handles_whitespace() {
+        assert_eq!(migrate_legacy_model_name("  small  "), "small");
+        assert_eq!(migrate_legacy_model_name("CT2  small"), "small");
+    }
 }
