@@ -1,11 +1,12 @@
 #!/bin/bash
 set -e
 
-# Voice-to-Text PPA Release Script
+# Voice-to-Text PPA Release Script (2.0.0+)
 # Usage: ./scripts/release-ppa.sh [--force] [--dry-run]
 #
-# Pre-flight checks, builds, signs, uploads to PPA for all supported
-# Ubuntu releases, tags the release, and archives artifacts.
+# Pre-flight checks, vendored cargo build, debuild source package,
+# sign with GPG, upload to Launchpad PPA for all supported Ubuntu
+# releases, tag the release, and archive artifacts.
 
 cd "$(dirname "$0")/.."
 
@@ -15,7 +16,7 @@ cd "$(dirname "$0")/.."
 
 GPG_KEY="${VTT_GPG_KEY:-emmanuel@powellclark.com}"
 PPA_TARGET="${VTT_PPA_TARGET:-powellclark-voice-to-text}"
-DISTROS=("noble" "jammy")  # Add new LTS releases here
+DISTROS=("noble" "jammy")  # LTS releases
 
 # ═══════════════════════════════════════════════════════════════
 # FLAGS
@@ -34,8 +35,7 @@ done
 
 echo "=== Pre-flight checks ==="
 
-# Check for uncommitted changes (source files only, ignore CONSCIOUSNESS/)
-DIRTY=$(git diff --name-only HEAD -- src/ debian/ Makefile.linux vtt.service scripts/ | head -20)
+DIRTY=$(git diff --name-only HEAD -- src/ debian/ Cargo.toml vtt.service scripts/ | head -20)
 if [ -n "$DIRTY" ] && [ "$FORCE" = false ]; then
     echo "ERROR: Uncommitted source changes:"
     echo "$DIRTY"
@@ -44,14 +44,12 @@ if [ -n "$DIRTY" ] && [ "$FORCE" = false ]; then
     exit 1
 fi
 
-# Check we're on main
 BRANCH=$(git branch --show-current)
 if [ "$BRANCH" != "main" ] && [ "$FORCE" = false ]; then
     echo "ERROR: Not on main branch (on $BRANCH). Use --force to override."
     exit 1
 fi
 
-# Check remote is up to date
 git fetch origin main --quiet
 LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse origin/main)
@@ -77,41 +75,49 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-# Check version is newer than the last tag
+CARGO_VERSION=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')
+if [ "$CARGO_VERSION" != "$VERSION" ] && [ "$FORCE" = false ]; then
+    echo "ERROR: Cargo.toml version ($CARGO_VERSION) != debian/changelog ($VERSION)"
+    echo "Align both before releasing."
+    exit 1
+fi
+
 LAST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1 | sed 's/^v//')
 if [ -n "$LAST_TAG" ]; then
     if dpkg --compare-versions "$VERSION" le "$LAST_TAG" 2>/dev/null; then
         if [ "$FORCE" = false ]; then
             echo "ERROR: Version $VERSION is not newer than last tag v$LAST_TAG"
-            echo "Update debian/changelog with a higher version first."
             exit 1
-        else
-            echo "WARNING: Version $VERSION is not newer than last tag v$LAST_TAG (--force)"
         fi
     fi
     echo "  Last release: v$LAST_TAG"
 fi
 
-# Check tag doesn't already exist
 if git tag -l "v${VERSION}" | grep -q .; then
     if [ "$FORCE" = false ]; then
-        echo "ERROR: Tag v${VERSION} already exists. Already released?"
+        echo "ERROR: Tag v${VERSION} already exists."
         exit 1
-    else
-        echo "WARNING: Tag v${VERSION} already exists (--force)"
     fi
 fi
 
-# Check changelog has actual content (not just version header)
 CHANGELOG_LINES=$(sed -n '2,/^ --/p' debian/changelog | grep -c '^\s\+\*' || true)
 if [ "$CHANGELOG_LINES" -eq 0 ] && [ "$FORCE" = false ]; then
     echo "ERROR: No changelog entries found for v${VERSION}."
-    echo "Add bullet points to debian/changelog first."
     exit 1
 fi
 
 echo "  Version: $VERSION ($CHANGELOG_LINES changelog entries)"
 echo "  Distros: ${DISTROS[*]}"
+echo ""
+
+# ═══════════════════════════════════════════════════════════════
+# VENDOR CARGO DEPENDENCIES
+# ═══════════════════════════════════════════════════════════════
+
+echo "[1/${STEP_TOTAL:-?}] Vendoring cargo dependencies..."
+cargo vendor > /tmp/vtt-cargo-config.toml
+# The .cargo/config.toml is committed; we don't need to overwrite it.
+echo "  vendor/ size: $(du -sh vendor/ | cut -f1)"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
@@ -121,52 +127,36 @@ echo ""
 if [ "$DRY_RUN" = true ]; then
     echo "=== DRY RUN — would release v${VERSION} ==="
     echo ""
-    echo "Changelog:"
-    sed -n '1,/^ --/p' debian/changelog
-    echo ""
     echo "Steps:"
-    echo "  1. make -f Makefile.linux clean && make -f Makefile.linux"
+    echo "  1. cargo vendor (done above)"
     for distro in "${DISTROS[@]}"; do
         if [ "$distro" = "$DISTRO" ]; then
-            echo "  2. debuild -S -sa -k\"$GPG_KEY\" (${distro})"
+            echo "  2. debuild -S -sa -k$GPG_KEY (${distro})"
             echo "  3. dput $PPA_TARGET voice-to-text_${VERSION}_source.changes"
         else
             suffix="~${distro}1"
-            echo "  2. debuild -S -sa -k\"$GPG_KEY\" (${distro}, ${VERSION}${suffix})"
+            echo "  2. debuild -S -sa -k$GPG_KEY (${distro}, ${VERSION}${suffix})"
             echo "  3. dput $PPA_TARGET voice-to-text_${VERSION}${suffix}_source.changes"
         fi
     done
     echo "  4. git tag v${VERSION} && git push origin v${VERSION}"
     echo "  5. Archive artifacts to build-archives/"
-    echo ""
-    echo "Run without --dry-run to execute."
     exit 0
 fi
 
 # ═══════════════════════════════════════════════════════════════
-# BUILD
+# BUILD SOURCE PACKAGES + UPLOAD
 # ═══════════════════════════════════════════════════════════════
 
 TOTAL_STEPS=$(( 2 + ${#DISTROS[@]} * 2 + 2 ))
-STEP=0
-
-STEP=$((STEP+1))
-echo "[$STEP/$TOTAL_STEPS] Building..."
-make -f Makefile.linux clean
-make -f Makefile.linux
-echo ""
-
-# ═══════════════════════════════════════════════════════════════
-# UPLOAD EACH DISTRO
-# ═══════════════════════════════════════════════════════════════
+STEP=1
 
 FIRST=true
 for distro in "${DISTROS[@]}"; do
     if [ "$FIRST" = true ]; then
-        # Primary distro — use changelog as-is
         STEP=$((STEP+1))
         echo "[$STEP/$TOTAL_STEPS] Building ${distro} source package..."
-        debuild -S -sa -k"$GPG_KEY"
+        debuild -S -sa -k"$GPG_KEY" -d
         echo ""
 
         STEP=$((STEP+1))
@@ -176,13 +166,12 @@ for distro in "${DISTROS[@]}"; do
 
         FIRST=false
     else
-        # Secondary distros — patch changelog
         VARIANT="${VERSION}~${distro}1"
         STEP=$((STEP+1))
         echo "[$STEP/$TOTAL_STEPS] Building ${distro} source package (${VARIANT})..."
-        sed -i "1s/${DISTRO}/jammy/" debian/changelog
+        sed -i "1s/${DISTRO}/${distro}/" debian/changelog
         sed -i "1s/${VERSION}/${VARIANT}/" debian/changelog
-        debuild -S -sa -k"$GPG_KEY"
+        debuild -S -sa -k"$GPG_KEY" -d
         echo ""
 
         STEP=$((STEP+1))
@@ -190,7 +179,6 @@ for distro in "${DISTROS[@]}"; do
         dput "$PPA_TARGET" "../voice-to-text_${VARIANT}_source.changes"
         echo ""
 
-        # Restore for next iteration
         git checkout debian/changelog
     fi
 done
