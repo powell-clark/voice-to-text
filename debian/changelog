@@ -1,3 +1,11 @@
+voice-to-text (2.0.1) noble; urgency=medium
+
+  * Fix: pin Cargo.lock to version 3 so Ubuntu Noble's cargo 1.75 can
+    parse it (Rust 1.78+ generates version 4 which older cargo rejects).
+    The 2.0.0 Launchpad builds failed for exactly this reason.
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Sun, 19 Apr 2026 03:08:03 +0100
+
 voice-to-text (2.0.0) noble; urgency=medium
 
   * Rust binary now shipped — 1.0.x releases installed the legacy C binary
