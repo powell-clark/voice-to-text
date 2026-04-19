@@ -35,3 +35,7 @@ TASK-VTT035|Rewrite debian/rules — replace Makefile.linux invocation with carg
 TASK-VTT036|Update debian/control — drop python3/pip/cmake/g++/make from Depends; add rustc/cargo/libclang-dev/libssl-dev to Build-Depends|STORY-VTT011|EPIC-VTT002|FEAT-VTT027|TASK-VTT036.md
 TASK-VTT037|Write postinst script that downloads ggml-small.en.bin to /usr/share/voice-to-text/models on first install|STORY-VTT011|EPIC-VTT002|FEAT-VTT028|TASK-VTT037.md
 TASK-VTT038|Bump debian/changelog to 2.0.0 with explicit note that the PPA now ships the Rust binary|STORY-VTT011|EPIC-VTT002|FEAT-VTT027|TASK-VTT038.md
+TASK-VTT055|Release v2.0.5 — £/é typing fix + Logs submenu fix — via release-manager with pbuilder hard gate|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT055.md
+TASK-VTT057|Cargo unit tests for pure logic — 20 tests added across settings, main::compose_final_text, tray::format_log_label|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT057.md
+TASK-VTT058|GitHub Actions CI — fmt + clippy + test + build on every push and PR, ubuntu-24.04|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT058.md
+TASK-VTT059|Local git pre-push hook matching CI — installed via scripts/git-hooks/install.sh|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT059.md
