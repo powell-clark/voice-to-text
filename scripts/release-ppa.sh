@@ -128,6 +128,29 @@ fi
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
+# PRE-FLIGHT BUILD CHECK — simulate Launchpad's offline build
+# ═══════════════════════════════════════════════════════════════
+#
+# Launchpad builders have no network access. Our vendored source + v3
+# Cargo.lock must be sufficient to `cargo build --offline --locked`.
+# Doing this locally before dput catches issues on our machine instead
+# of dinging the PPA score. The 2.0.0 build failed because Cargo.lock
+# was v4; this check would have caught it on our machine.
+
+echo "[2/${STEP_TOTAL:-?}] Pre-flight: cargo build --offline --locked (simulates Launchpad)..."
+if cargo build --release --offline --locked 2>&1 | tail -40 | grep -E "^error" > /tmp/vtt-prebuild-errors; then
+    echo "  FAIL — build errors detected. Would break on Launchpad."
+    cat /tmp/vtt-prebuild-errors
+    echo ""
+    echo "Refusing to upload. Fix the errors above before retrying."
+    echo "Tip: running cargo clean && cargo build --release --offline --locked locally reproduces the Launchpad build."
+    exit 1
+fi
+echo "  OK — offline locked build succeeds."
+rm -f /tmp/vtt-prebuild-errors
+echo ""
+
+# ═══════════════════════════════════════════════════════════════
 # DRY RUN
 # ═══════════════════════════════════════════════════════════════
 
@@ -136,18 +159,19 @@ if [ "$DRY_RUN" = true ]; then
     echo ""
     echo "Steps:"
     echo "  1. cargo vendor (done above)"
+    echo "  2. cargo build --offline --locked (PASSED above — Launchpad will build)"
     for distro in "${DISTROS[@]}"; do
         if [ "$distro" = "$DISTRO" ]; then
-            echo "  2. debuild -S -sa -k$GPG_KEY (${distro})"
-            echo "  3. dput $PPA_TARGET voice-to-text_${VERSION}_source.changes"
+            echo "  3. debuild -S -sa -k$GPG_KEY (${distro})"
+            echo "  4. dput $PPA_TARGET voice-to-text_${VERSION}_source.changes"
         else
             suffix="~${distro}1"
-            echo "  2. debuild -S -sa -k$GPG_KEY (${distro}, ${VERSION}${suffix})"
-            echo "  3. dput $PPA_TARGET voice-to-text_${VERSION}${suffix}_source.changes"
+            echo "  3. debuild -S -sa -k$GPG_KEY (${distro}, ${VERSION}${suffix})"
+            echo "  4. dput $PPA_TARGET voice-to-text_${VERSION}${suffix}_source.changes"
         fi
     done
-    echo "  4. git tag v${VERSION} && git push origin v${VERSION}"
-    echo "  5. Archive artifacts to build-archives/"
+    echo "  5. git tag v${VERSION} && git push origin v${VERSION}"
+    echo "  6. Archive artifacts to build-archives/"
     exit 0
 fi
 
