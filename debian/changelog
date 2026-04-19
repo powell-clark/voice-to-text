@@ -1,3 +1,18 @@
+voice-to-text (2.0.5) noble; urgency=medium
+
+  * fix(typing): non-ASCII characters (£, é, —) now type directly via
+    Key::Unicode instead of clipboard paste — fixes silent truncation
+    in Claude Code TUI, Slack, and any app that does not bind Ctrl+V
+    to paste. Clipboard paste retained as a narrow per-character
+    fallback for enigo failures only.
+  * fix(tray): Logs submenu rebuilds on parent menu 'show' signal
+    instead of logs_item 'activate', so first-open no longer shows
+    stale content from the previous session.
+  * fix(tray): Logs submenu now renders an error fallback when the
+    log directory is unreadable, instead of silently showing empty.
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Sun, 19 Apr 2026 23:53:57 +0100
+
 voice-to-text (2.0.4) noble; urgency=medium
 
   * postinst: read installed version via dpkg-query instead of hardcoding.
