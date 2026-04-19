@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
 # Voice-to-Text PPA Release Script (2.0.0+)
 # Usage: ./scripts/release-ppa.sh [--force] [--dry-run]
@@ -172,19 +172,24 @@ build_in_chroot() {
     local distro="$1"
     local dsc="$2"
     local basetgz="/var/cache/pbuilder/${distro}-base.tgz"
+    local logfile="/tmp/vtt-pbuilder-${distro}.log"
     echo "[pre-flight] pbuilder --build ($distro) — simulates Launchpad exactly..."
-    if ! sudo pbuilder --build \
+    if sudo -n pbuilder --build \
             --distribution "$distro" \
             --basetgz "$basetgz" \
             --buildresult /tmp/vtt-pbuilder-${distro} \
-            "$dsc" 2>&1 | tail -20; then
+            "$dsc" > "$logfile" 2>&1; then
+        tail -20 "$logfile"
+        echo "  OK — $distro chroot build succeeded."
+        return 0
+    else
+        tail -30 "$logfile"
         echo ""
         echo "  FAIL — $distro chroot build failed. Launchpad would fail too."
+        echo "  Full log: $logfile"
         echo "  Fix the error shown above, bump version, re-run this script."
         return 1
     fi
-    echo "  OK — $distro chroot build succeeded."
-    return 0
 }
 
 if [ "${VTT_SKIP_PBUILDER:-0}" = "1" ]; then
@@ -197,6 +202,14 @@ else
             exit 1
         fi
     done
+    # Require cached sudo up-front. Without this the chroot build silently
+    # fails the password prompt while the script proceeds — the exact bug
+    # that let 2.0.4 dput without the gate running.
+    echo "  Priming sudo (will prompt once if not cached)..."
+    sudo -v || { echo "  FAIL — sudo required for pbuilder chroot."; exit 1; }
+    ( while true; do sudo -n true; sleep 60; kill -0 "$$" 2>/dev/null || exit; done ) &
+    SUDO_KEEPALIVE_PID=$!
+    trap 'kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true' EXIT
 fi
 echo ""
 
