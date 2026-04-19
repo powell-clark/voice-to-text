@@ -204,7 +204,11 @@ build_in_chroot() {
     #   "dpkg-deb: error: failed to make temporary file (control member)"
     # on dpkg ≥ 1.22. Apt variant installs deps via apt-get directly.
     local cfg="$(dirname "$0")/pbuilderrc-override"
-    if sudo -n pbuilder --build \
+    # Also unset TMPDIR — user's shell sets it to /tmp/user/$UID (systemd
+    # private tmp), which leaks through sudo into the chroot where no such
+    # directory exists, so dpkg-deb and mktemp fail with ENOENT. Clearing
+    # TMPDIR lets everything default to plain /tmp.
+    if sudo -n env -u TMPDIR pbuilder --build \
             --configfile "$cfg" \
             --distribution "$distro" \
             --basetgz "$basetgz" \
