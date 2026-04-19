@@ -39,7 +39,7 @@ jobs:
             libnotify-bin \
             pkg-config \
             cmake \
-            glslang-tools
+            glslc
 
       - name: Install Rust toolchain (stable)
         uses: dtolnay/rust-toolchain@stable
