@@ -183,3 +183,93 @@ pub fn ensure<F: FnMut(u64, u64)>(info: &ModelInfo, mut progress: F) -> anyhow::
     progress(downloaded, total);
     Ok(path)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn find_returns_known_models_by_exact_name() {
+        assert_eq!(find("small").map(|m| m.filename), Some("ggml-small.bin"));
+        assert_eq!(
+            find("small.en").map(|m| m.filename),
+            Some("ggml-small.en.bin")
+        );
+        assert_eq!(
+            find("large-v3-turbo").map(|m| m.filename),
+            Some("ggml-large-v3-turbo.bin")
+        );
+    }
+
+    #[test]
+    fn find_returns_none_for_unknown_model() {
+        assert!(find("tiny").is_none(), "tiny was dropped in v2.0 trim");
+        assert!(find("").is_none());
+        assert!(
+            find("CT2 small").is_none(),
+            "legacy prefixes must be migrated first"
+        );
+        assert!(find("large-v4").is_none(), "future models not in catalogue");
+    }
+
+    #[test]
+    fn resolve_variant_picks_en_suffix_for_english_where_it_exists() {
+        assert_eq!(resolve_variant("small", "en"), "small.en");
+        assert_eq!(resolve_variant("medium", "en"), "medium.en");
+    }
+
+    #[test]
+    fn resolve_variant_picks_multilingual_for_auto_or_non_english() {
+        assert_eq!(resolve_variant("small", "auto"), "small");
+        assert_eq!(resolve_variant("small", "fr"), "small");
+        assert_eq!(resolve_variant("medium", "de"), "medium");
+    }
+
+    #[test]
+    fn resolve_variant_no_en_variant_for_large_models() {
+        // Upstream whisper.cpp doesn't ship ggml-large-v3.en.bin — skip the suffix.
+        assert_eq!(resolve_variant("large-v3-turbo", "en"), "large-v3-turbo");
+        assert_eq!(resolve_variant("large-v3", "en"), "large-v3");
+    }
+
+    #[test]
+    fn resolve_variant_strips_existing_en_before_re_adding_it() {
+        // Idempotency: if someone already has "small.en" selected, English mode
+        // should not double-suffix it into "small.en.en".
+        assert_eq!(resolve_variant("small.en", "en"), "small.en");
+        assert_eq!(resolve_variant("medium.en", "en"), "medium.en");
+    }
+
+    #[test]
+    fn resolve_variant_strips_en_when_switching_to_multilingual() {
+        // Symmetrically, switching a .en selection to multilingual should drop .en.
+        assert_eq!(resolve_variant("small.en", "auto"), "small");
+        assert_eq!(resolve_variant("medium.en", "fr"), "medium");
+    }
+
+    #[test]
+    fn all_catalogue_models_have_consistent_names_and_filenames() {
+        for m in MODELS {
+            assert!(
+                m.filename.starts_with("ggml-") && m.filename.ends_with(".bin"),
+                "model {} has non-standard filename {}",
+                m.name,
+                m.filename
+            );
+            assert!(
+                m.url.starts_with("https://"),
+                "model {} url is not https: {}",
+                m.name,
+                m.url
+            );
+            assert!(m.size_mb > 0, "model {} has zero size_mb", m.name);
+            // .en models must be non-multilingual, non-.en models must be multilingual
+            let has_en = m.name.ends_with(".en");
+            assert_eq!(
+                has_en, !m.multilingual,
+                "model {} has inconsistent .en/multilingual flags",
+                m.name
+            );
+        }
+    }
+}
