@@ -16,12 +16,14 @@ pub enum RecordingResult {
     MaxLength { samples: Vec<f32>, path: PathBuf },
 }
 
+type BufferFullCallback = Arc<Mutex<Option<Box<dyn Fn() + Send>>>>;
+
 pub struct Audio {
     _stream: cpal::Stream,
     buffer: Arc<Mutex<Vec<f32>>>,
     recording: Arc<AtomicBool>,
     buffer_full: Arc<AtomicBool>,
-    buffer_full_callback: Arc<Mutex<Option<Box<dyn Fn() + Send>>>>,
+    buffer_full_callback: BufferFullCallback,
     max_samples: usize,
 }
 
@@ -47,8 +49,7 @@ impl Audio {
         let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::with_capacity(max_samples)));
         let recording = Arc::new(AtomicBool::new(false));
         let buffer_full = Arc::new(AtomicBool::new(false));
-        let buffer_full_callback: Arc<Mutex<Option<Box<dyn Fn() + Send>>>> =
-            Arc::new(Mutex::new(None));
+        let buffer_full_callback: BufferFullCallback = Arc::new(Mutex::new(None));
 
         let buf_clone = buffer.clone();
         let rec_clone = recording.clone();

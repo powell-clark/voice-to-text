@@ -1,3 +1,11 @@
+// Several public methods and fields are kept even when not currently called —
+// e.g. Settings::config_dir, logging::is_enabled, transcribe::load_wav — because
+// they are the maintained API surface that other modules (and tests) use, or
+// will use once the Windows/macOS ports catch up (TASK-VTT044..TASK-VTT047).
+// Clippy dead_code warnings would otherwise block `-D warnings` in CI for
+// legitimately retained API, so allow them crate-wide.
+#![allow(dead_code)]
+
 mod audio;
 mod hotkey;
 mod logging;
@@ -296,7 +304,7 @@ fn transcription_worker(
             WorkItem::Audio { samples, archive_path } => (samples, archive_path, false),
             WorkItem::Truncated { samples, archive_path } => (samples, archive_path, true),
             WorkItem::SwitchModel { model_name, language } => {
-                engine = None;
+                drop(engine.take()); // free the old engine (and its GPU memory) before loading the new one
                 engine = load_engine(&model_name, &language, &ui_tx);
                 if engine.is_some() {
                     ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
@@ -318,7 +326,7 @@ fn transcription_worker(
             .map(|e| e.model_name() != want_model)
             .unwrap_or(true);
         if needs_reload {
-            engine = None;
+            drop(engine.take()); // free old engine before loading replacement
             engine = load_engine(&want_model_raw, &want_lang, &ui_tx);
         }
 
@@ -366,13 +374,7 @@ fn transcription_worker(
             } else if trimmed.chars().any(|c| c.is_alphanumeric()) {
                 vtt_log!("Transcription: {}", trimmed);
 
-                let final_text = if is_truncated {
-                    format!("[Truncated] {}{}", prefix, trimmed)
-                } else if !trimmed.starts_with(&prefix) {
-                    format!("{}{}", prefix, trimmed)
-                } else {
-                    trimmed.to_string()
-                };
+                let final_text = compose_final_text(is_truncated, &prefix, trimmed);
 
                 typing_active.store(true, Ordering::SeqCst);
                 if append_newline && typing_has_output.load(Ordering::Relaxed) {
@@ -546,10 +548,8 @@ fn cleanup_old_wavs() {
             }
             if let Ok(meta) = entry.metadata() {
                 if let Ok(modified) = meta.modified() {
-                    if modified < cutoff {
-                        if std::fs::remove_file(entry.path()).is_ok() {
-                            cleaned += 1;
-                        }
+                    if modified < cutoff && std::fs::remove_file(entry.path()).is_ok() {
+                        cleaned += 1;
                     }
                 }
             }
@@ -582,3 +582,63 @@ fn ctrlc_handler<F: Fn() + Send + 'static>(f: F) {
         .ok();
 }
 
+
+
+/// Pure: build the final text that gets typed, given the transcription.
+///
+/// - If `is_truncated`, prepend `[Truncated] ` before the prefix.
+/// - Else if the transcription doesn't already start with the prefix,
+///   prepend the prefix (so the user isn't double-prefixed when Whisper
+///   echoes the prefix back from the prompt).
+/// - Else return the trimmed text unchanged.
+fn compose_final_text(is_truncated: bool, prefix: &str, trimmed: &str) -> String {
+    if is_truncated {
+        format!("[Truncated] {}{}", prefix, trimmed)
+    } else if !trimmed.starts_with(prefix) {
+        format!("{}{}", prefix, trimmed)
+    } else {
+        trimmed.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compose_final_text_prepends_prefix_when_missing() {
+        let s = compose_final_text(false, "[Voice] ", "hello world");
+        assert_eq!(s, "[Voice] hello world");
+    }
+
+    #[test]
+    fn compose_final_text_does_not_double_prefix() {
+        let s = compose_final_text(false, "[Voice] ", "[Voice] hello world");
+        assert_eq!(s, "[Voice] hello world");
+    }
+
+    #[test]
+    fn compose_final_text_handles_truncated_flag() {
+        let s = compose_final_text(true, "[Voice] ", "hello world");
+        assert_eq!(s, "[Truncated] [Voice] hello world");
+    }
+
+    #[test]
+    fn compose_final_text_truncated_wins_over_prefix_check() {
+        // Even when the text already starts with prefix, truncated still prepends.
+        let s = compose_final_text(true, "[Voice] ", "[Voice] hello");
+        assert_eq!(s, "[Truncated] [Voice] [Voice] hello");
+    }
+
+    #[test]
+    fn compose_final_text_empty_prefix_returns_trimmed_unchanged() {
+        let s = compose_final_text(false, "", "hello");
+        assert_eq!(s, "hello", "empty prefix means every string already 'starts with' it");
+    }
+
+    #[test]
+    fn compose_final_text_unicode_prefix_and_body_roundtrip() {
+        let s = compose_final_text(false, "[£ é] ", "£100 an hour");
+        assert_eq!(s, "[£ é] £100 an hour");
+    }
+}

@@ -40,8 +40,10 @@ impl Default for Settings {
 
 impl Settings {
     pub fn load(config_dir: &Path) -> Self {
-        let mut settings = Settings::default();
-        settings.config_dir = config_dir.to_path_buf();
+        let mut settings = Settings {
+            config_dir: config_dir.to_path_buf(),
+            ..Settings::default()
+        };
 
         let path = config_dir.join("settings.conf");
         let content = match fs::read_to_string(&path) {
@@ -153,4 +155,130 @@ fn unescape(s: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn strip_quotes_handles_unquoted_plain_quoted_and_one_char() {
+        assert_eq!(strip_quotes(""), "");
+        assert_eq!(strip_quotes("plain"), "plain");
+        assert_eq!(strip_quotes("\"quoted\""), "quoted");
+        assert_eq!(strip_quotes("\""), "\"", "single quote is not a pair");
+        assert_eq!(strip_quotes("\"\""), "", "empty pair becomes empty string");
+    }
+
+    #[test]
+    fn escape_and_unescape_roundtrip_preserves_input() {
+        let inputs = [
+            "",
+            "plain text",
+            "with \"quotes\" in it",
+            "back\\slash",
+            "line1\nline2",
+            "mixed \"\\\n end",
+            "£ and é and — non-ASCII preserved",
+        ];
+        for s in &inputs {
+            let round_tripped = unescape(&escape(s));
+            assert_eq!(
+                &round_tripped, s,
+                "round-trip failed for {:?} -> {:?} -> {:?}",
+                s,
+                escape(s),
+                round_tripped
+            );
+        }
+    }
+
+    #[test]
+    fn unescape_of_trailing_backslash_is_literal_backslash() {
+        assert_eq!(unescape("foo\\"), "foo\\");
+    }
+
+    #[test]
+    fn settings_roundtrip_via_tempdir_preserves_all_fields() {
+        let dir = tempdir().unwrap();
+        let original = Settings {
+            selected_model: "large-v3-turbo".into(),
+            selected_language: "auto".into(),
+            voice_prefix: "[Speech] ".into(),
+            initial_prompt: "transcribe accurately".into(),
+            selected_device_index: 3,
+            hotkey_keycode: 78,
+            append_newline: false,
+            newline_type: NewlineType::PlainReturn,
+            logging_enabled: false,
+            config_dir: dir.path().to_path_buf(),
+        };
+        original.save().expect("save should succeed");
+
+        let loaded = Settings::load(dir.path());
+        assert_eq!(loaded.selected_model, original.selected_model);
+        assert_eq!(loaded.selected_language, original.selected_language);
+        assert_eq!(loaded.voice_prefix, original.voice_prefix);
+        assert_eq!(loaded.initial_prompt, original.initial_prompt);
+        assert_eq!(loaded.selected_device_index, original.selected_device_index);
+        assert_eq!(loaded.hotkey_keycode, original.hotkey_keycode);
+        assert_eq!(loaded.append_newline, original.append_newline);
+        assert_eq!(loaded.newline_type, original.newline_type);
+    }
+
+    #[test]
+    fn settings_load_returns_defaults_when_file_missing() {
+        let dir = tempdir().unwrap();
+        let s = Settings::load(dir.path());
+        let d = Settings::default();
+        assert_eq!(s.selected_model, d.selected_model);
+        assert_eq!(s.selected_language, d.selected_language);
+        assert_eq!(s.hotkey_keycode, d.hotkey_keycode);
+    }
+
+    #[test]
+    fn settings_load_ignores_comments_and_blank_lines() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.conf");
+        std::fs::write(
+            &path,
+            "# comment line\n\n   \nmodel=medium\n# trailing comment\nlanguage=en\n",
+        )
+        .unwrap();
+        let s = Settings::load(dir.path());
+        assert_eq!(s.selected_model, "medium");
+        assert_eq!(s.selected_language, "en");
+    }
+
+    #[test]
+    fn settings_hotkey_out_of_range_keeps_default() {
+        let dir = tempdir().unwrap();
+        std::fs::write(dir.path().join("settings.conf"), "hotkey=300\n").unwrap();
+        let s = Settings::load(dir.path());
+        assert_eq!(
+            s.hotkey_keycode, 0,
+            "300 is out of u8 XKB keycode range 8..=255, should be ignored"
+        );
+
+        std::fs::write(dir.path().join("settings.conf"), "hotkey=5\n").unwrap();
+        let s = Settings::load(dir.path());
+        assert_eq!(
+            s.hotkey_keycode, 0,
+            "5 is below the XKB keycode floor of 8, should be ignored"
+        );
+    }
+
+    #[test]
+    fn settings_escape_preserves_unicode_in_voice_prefix() {
+        let dir = tempdir().unwrap();
+        let original = Settings {
+            voice_prefix: "£ € — naïve".into(),
+            config_dir: dir.path().to_path_buf(),
+            ..Settings::default()
+        };
+        original.save().unwrap();
+        let loaded = Settings::load(dir.path());
+        assert_eq!(loaded.voice_prefix, "£ € — naïve");
+    }
 }
