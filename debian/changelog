@@ -1,3 +1,14 @@
+voice-to-text (2.0.4) noble; urgency=medium
+
+  * postinst: read installed version via dpkg-query instead of hardcoding.
+    The banner shown after install/upgrade now always reflects the actual
+    version just installed — no more stale "2.0.0" headers after upgrade.
+  * First release to flow through the mandatory pbuilder chroot gate in
+    scripts/release-ppa.sh. Both noble and jammy chroots verified locally
+    before any dput. No more public Launchpad build failures.
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Sun, 19 Apr 2026 08:53:18 +0100
+
 voice-to-text (2.0.3) noble; urgency=medium
 
   * Fix: make Build-Depends and Depends jammy-compatible by using the
