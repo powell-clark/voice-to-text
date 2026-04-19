@@ -130,6 +130,77 @@ echo "  OK — vtt-linux.prebuilt at $(du -h vtt-linux.prebuilt | cut -f1)"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
+# HARD GATE — pbuilder chroot test matching Launchpad EXACTLY
+# ═══════════════════════════════════════════════════════════════
+#
+# This is the mechanical guard that prevents tonight's 2.0.0/2.0.1/2.0.2
+# failures from ever recurring. pbuilder creates a clean chroot of the
+# target distro (noble, jammy) and runs the EXACT build Launchpad will
+# run. If this fails locally, Launchpad fails too — and we never dput.
+#
+# One-time setup (sudo required):
+#   sudo pbuilder --create --distribution noble \
+#       --basetgz /var/cache/pbuilder/noble-base.tgz \
+#       --mirror http://archive.ubuntu.com/ubuntu \
+#       --components "main restricted universe multiverse"
+#   sudo pbuilder --create --distribution jammy \
+#       --basetgz /var/cache/pbuilder/jammy-base.tgz \
+#       --mirror http://archive.ubuntu.com/ubuntu \
+#       --components "main restricted universe multiverse"
+#
+# Bypass with VTT_SKIP_PBUILDER=1 only if you truly know what you're
+# doing (e.g. repeating a known-good release on a machine without
+# pbuilder set up).
+
+check_pbuilder() {
+    local distro="$1"
+    local basetgz="/var/cache/pbuilder/${distro}-base.tgz"
+    if [ ! -f "$basetgz" ]; then
+        echo "  MISSING chroot: $basetgz"
+        echo ""
+        echo "One-time setup required. Run once per distro:"
+        echo "  sudo pbuilder --create --distribution ${distro} \\"
+        echo "      --basetgz $basetgz \\"
+        echo "      --mirror http://archive.ubuntu.com/ubuntu \\"
+        echo "      --components \"main restricted universe multiverse\""
+        return 1
+    fi
+    return 0
+}
+
+build_in_chroot() {
+    local distro="$1"
+    local dsc="$2"
+    local basetgz="/var/cache/pbuilder/${distro}-base.tgz"
+    echo "[pre-flight] pbuilder --build ($distro) — simulates Launchpad exactly..."
+    if ! sudo pbuilder --build \
+            --distribution "$distro" \
+            --basetgz "$basetgz" \
+            --buildresult /tmp/vtt-pbuilder-${distro} \
+            "$dsc" 2>&1 | tail -20; then
+        echo ""
+        echo "  FAIL — $distro chroot build failed. Launchpad would fail too."
+        echo "  Fix the error shown above, bump version, re-run this script."
+        return 1
+    fi
+    echo "  OK — $distro chroot build succeeded."
+    return 0
+}
+
+if [ "${VTT_SKIP_PBUILDER:-0}" = "1" ]; then
+    echo "[pre-flight] WARNING — VTT_SKIP_PBUILDER=1 set; skipping chroot tests."
+    echo "  This bypasses tonight's hard-learned lesson. Do not do this habitually."
+else
+    echo "[2/${STEP_TOTAL:-?}] Pre-flight chroot tests (noble + jammy) — HARD GATE"
+    for distro in "${DISTROS[@]}"; do
+        if ! check_pbuilder "$distro"; then
+            exit 1
+        fi
+    done
+fi
+echo ""
+
+# ═══════════════════════════════════════════════════════════════
 # DRY RUN
 # ═══════════════════════════════════════════════════════════════
 
@@ -164,31 +235,52 @@ STEP=1
 FIRST=true
 for distro in "${DISTROS[@]}"; do
     if [ "$FIRST" = true ]; then
-        STEP=$((STEP+1))
-        echo "[$STEP/$TOTAL_STEPS] Building ${distro} source package..."
-        debuild -S -sa -k"$GPG_KEY" -d
-        echo ""
-
-        STEP=$((STEP+1))
-        echo "[$STEP/$TOTAL_STEPS] Uploading ${distro} to PPA..."
-        dput "$PPA_TARGET" "../voice-to-text_${VERSION}_source.changes"
-        echo ""
-
-        FIRST=false
+        CHANGES_FILE="../voice-to-text_${VERSION}_source.changes"
+        DSC_FILE="../voice-to-text_${VERSION}.dsc"
+        TARGET_VERSION="${VERSION}"
     else
         VARIANT="${VERSION}~${distro}1"
-        STEP=$((STEP+1))
-        echo "[$STEP/$TOTAL_STEPS] Building ${distro} source package (${VARIANT})..."
+        CHANGES_FILE="../voice-to-text_${VARIANT}_source.changes"
+        DSC_FILE="../voice-to-text_${VARIANT}.dsc"
+        TARGET_VERSION="${VARIANT}"
         sed -i "1s/${DISTRO}/${distro}/" debian/changelog
         sed -i "1s/${VERSION}/${VARIANT}/" debian/changelog
-        debuild -S -sa -k"$GPG_KEY" -d
-        echo ""
+    fi
 
+    STEP=$((STEP+1))
+    echo "[$STEP/$TOTAL_STEPS] Building ${distro} source package (${TARGET_VERSION})..."
+    debuild -S -sa -k"$GPG_KEY" -d
+    echo ""
+
+    # HARD GATE — pbuilder chroot build matching Launchpad exactly.
+    # If this fails, dput NEVER happens. No exceptions.
+    if [ "${VTT_SKIP_PBUILDER:-0}" != "1" ]; then
         STEP=$((STEP+1))
-        echo "[$STEP/$TOTAL_STEPS] Uploading ${distro} to PPA..."
-        dput "$PPA_TARGET" "../voice-to-text_${VARIANT}_source.changes"
+        echo "[$STEP/$TOTAL_STEPS] Pre-flight chroot build (${distro}) — hard gate..."
+        if ! build_in_chroot "$distro" "$DSC_FILE"; then
+            echo ""
+            echo "================================================================"
+            echo "REFUSING TO UPLOAD v${TARGET_VERSION} to ${distro}."
+            echo ""
+            echo "The same build that would run on Launchpad failed locally."
+            echo "Uploading now would publish broken software and dent the PPA."
+            echo ""
+            echo "Fix the error, bump version, re-run this script."
+            echo "================================================================"
+            [ "$FIRST" != true ] && git checkout debian/changelog
+            exit 1
+        fi
         echo ""
+    fi
 
+    STEP=$((STEP+1))
+    echo "[$STEP/$TOTAL_STEPS] Uploading ${distro} to PPA..."
+    dput "$PPA_TARGET" "$CHANGES_FILE"
+    echo ""
+
+    if [ "$FIRST" = true ]; then
+        FIRST=false
+    else
         git checkout debian/changelog
     fi
 done
