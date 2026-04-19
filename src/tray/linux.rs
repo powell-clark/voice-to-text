@@ -107,18 +107,12 @@ impl Tray {
         });
         menu.append(&logging_item);
 
-        // --- Logs submenu (rebuilt each time menu opens) ---
+        // --- Logs submenu ---
+        // Rebuilt when the parent tray menu is shown (via menu.connect_show below),
+        // not on logs_item's connect_activate — that fires AFTER GTK has already
+        // revealed the submenu, so the first open sees stale content.
         let logs_item = gtk::MenuItem::with_label("Logs");
         logs_item.set_submenu(Some(&build_logs_menu()));
-        {
-            let logs_item_ref = logs_item.clone();
-            logs_item.connect_activate(move |_| {
-                logs_item_ref.set_submenu(Some(&build_logs_menu()));
-                if let Some(sub) = logs_item_ref.submenu() {
-                    sub.show_all();
-                }
-            });
-        }
         menu.append(&logs_item);
 
         menu.append(&gtk::SeparatorMenuItem::new());
@@ -131,6 +125,18 @@ impl Tray {
         // --- Quit ---
         let quit_item = gtk::MenuItem::with_label("Quit");
         menu.append(&quit_item);
+
+        // Rebuild Logs submenu every time the tray menu is shown — catches new
+        // log files written since the last open. This fires before GTK reveals
+        // any child submenu, so first-hover already sees fresh contents.
+        {
+            let logs_item_ref = logs_item.clone();
+            menu.connect_show(move |_| {
+                let fresh = build_logs_menu();
+                fresh.show_all();
+                logs_item_ref.set_submenu(Some(&fresh));
+            });
+        }
 
         menu.show_all();
         indicator.borrow_mut().set_menu(&mut menu);
@@ -404,54 +410,64 @@ fn build_logs_menu() -> gtk::Menu {
     let menu = gtk::Menu::new();
     let log_dir = logging::get_dir();
 
-    if let Ok(entries) = std::fs::read_dir(&log_dir) {
-        let mut files: Vec<String> = entries
-            .flatten()
-            .filter_map(|e| {
-                let name = e.file_name().to_string_lossy().to_string();
-                if name.starts_with("vtt-") && name.ends_with(".log") {
-                    Some(name)
-                } else {
-                    None
-                }
-            })
-            .collect();
-        files.sort_by(|a, b| b.cmp(a)); // Newest first
-
-        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-        let yesterday = (chrono::Local::now() - chrono::Duration::days(1))
-            .format("%Y-%m-%d")
-            .to_string();
-
-        for filename in &files {
-            // Extract date: vtt-2026-04-07.log
-            let date = filename
-                .strip_prefix("vtt-")
-                .and_then(|s| s.strip_suffix(".log"))
-                .unwrap_or(filename);
-
-            let label = if date == today {
-                format!("Today ({})", &date[5..])
-            } else if date == yesterday {
-                format!("Yesterday ({})", &date[5..])
-            } else {
-                date.to_string()
-            };
-
-            let item = gtk::MenuItem::with_label(&label);
-            let full_path = log_dir.join(filename).to_string_lossy().to_string();
-            item.connect_activate(move |_| {
-                open_file(&full_path);
-            });
+    let entries = match std::fs::read_dir(&log_dir) {
+        Ok(e) => e,
+        Err(e) => {
+            let msg = format!("(log dir unreadable: {})", e);
+            let item = gtk::MenuItem::with_label(&msg);
+            item.set_sensitive(false);
             menu.append(&item);
+            return menu;
         }
+    };
 
-        if files.is_empty() {
-            let empty = gtk::MenuItem::with_label("(no logs yet)");
-            empty.set_sensitive(false);
-            menu.append(&empty);
-        }
+    let mut files: Vec<String> = entries
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            if name.starts_with("vtt-") && name.ends_with(".log") {
+                Some(name)
+            } else {
+                None
+            }
+        })
+        .collect();
+    files.sort_by(|a, b| b.cmp(a)); // Newest first
+
+    if files.is_empty() {
+        let empty = gtk::MenuItem::with_label("(no logs yet)");
+        empty.set_sensitive(false);
+        menu.append(&empty);
+        return menu;
     }
+
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let yesterday = (chrono::Local::now() - chrono::Duration::days(1))
+        .format("%Y-%m-%d")
+        .to_string();
+
+    for filename in &files {
+        let date = filename
+            .strip_prefix("vtt-")
+            .and_then(|s| s.strip_suffix(".log"))
+            .unwrap_or(filename);
+
+        let label = if date == today {
+            format!("Today ({})", &date[5..])
+        } else if date == yesterday {
+            format!("Yesterday ({})", &date[5..])
+        } else {
+            date.to_string()
+        };
+
+        let item = gtk::MenuItem::with_label(&label);
+        let full_path = log_dir.join(filename).to_string_lossy().to_string();
+        item.connect_activate(move |_| {
+            open_file(&full_path);
+        });
+        menu.append(&item);
+    }
+
     menu
 }
 

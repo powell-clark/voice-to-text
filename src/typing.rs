@@ -30,49 +30,56 @@ impl Typer {
         // Initial delay before first keystroke
         thread::sleep(Duration::from_millis(INITIAL_DELAY_MS));
 
-        // Find first non-ASCII character
-        let first_non_ascii = text.find(|c: char| !c.is_ascii());
+        let (typed, fallback_chars) = type_chars(&mut enigo, text, newline_type);
 
-        match first_non_ascii {
-            None => {
-                // All ASCII — type character by character for natural appearance
-                type_ascii(&mut enigo, text, newline_type);
-            }
-            Some(0) => {
-                // Starts with non-ASCII — clipboard paste everything
-                paste_text(&mut enigo, text);
-            }
-            Some(pos) => {
-                // Mixed: type ASCII prefix, paste the rest
-                type_ascii(&mut enigo, &text[..pos], newline_type);
-                paste_text(&mut enigo, &text[pos..]);
-            }
+        // If any char could not be synthesised (rare — Key::Unicode handles £, é, —, etc.
+        // but may fail on some emoji / CJK on X11), fall back to clipboard paste for
+        // just those chars. Ctrl+V is unreliable in many TUIs, so only use as last resort.
+        if !fallback_chars.is_empty() {
+            crate::vtt_log!(
+                "Typing fallback: {} chars via clipboard paste",
+                fallback_chars.chars().count()
+            );
+            paste_text(&mut enigo, &fallback_chars);
         }
 
-        crate::vtt_log!("Typing completed");
+        crate::vtt_log!("Typing completed ({} chars typed directly)", typed);
     }
 }
 
-fn type_ascii(enigo: &mut Enigo, text: &str, newline_type: NewlineType) {
+/// Type every character via `Key::Unicode`, which enigo's X11 backend maps to a
+/// temporary keysym — this handles £, é, —, and most Latin-extended characters.
+/// Returns (chars typed directly, chars that need clipboard fallback).
+fn type_chars(enigo: &mut Enigo, text: &str, newline_type: NewlineType) -> (usize, String) {
+    let mut typed = 0usize;
+    let mut fallback = String::new();
+
     for c in text.chars() {
-        if c == '\n' {
+        let result = if c == '\n' {
             match newline_type {
                 NewlineType::ShiftReturn => {
                     enigo.key(Key::Shift, Direction::Press).ok();
-                    enigo.key(Key::Return, Direction::Click).ok();
+                    let r = enigo.key(Key::Return, Direction::Click);
                     enigo.key(Key::Shift, Direction::Release).ok();
+                    r
                 }
-                NewlineType::PlainReturn => {
-                    enigo.key(Key::Return, Direction::Click).ok();
-                }
+                NewlineType::PlainReturn => enigo.key(Key::Return, Direction::Click),
             }
         } else if c == '\t' {
-            enigo.key(Key::Tab, Direction::Click).ok();
+            enigo.key(Key::Tab, Direction::Click)
         } else {
-            enigo.key(Key::Unicode(c), Direction::Click).ok();
+            enigo.key(Key::Unicode(c), Direction::Click)
+        };
+
+        if result.is_ok() {
+            typed += 1;
+        } else {
+            fallback.push(c);
         }
         thread::sleep(Duration::from_millis(KEYSTROKE_DELAY_MS));
     }
+
+    (typed, fallback)
 }
 
 fn paste_text(enigo: &mut Enigo, text: &str) {
