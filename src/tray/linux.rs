@@ -58,13 +58,14 @@ impl Tray {
         } else {
             "Multilingual"
         };
-        let language_item =
-            gtk::MenuItem::with_label(&format!("Language: {}", lang_display));
+        let language_item = gtk::MenuItem::with_label(&format!("Language: {}", lang_display));
         let language_menu = gtk::Menu::new();
 
         let lang_en = gtk::RadioMenuItem::with_label("English only (fastest)");
-        let lang_multi =
-            gtk::RadioMenuItem::with_label_from_widget(&lang_en, Some("Multilingual (99 languages)"));
+        let lang_multi = gtk::RadioMenuItem::with_label_from_widget(
+            &lang_en,
+            Some("Multilingual (99 languages)"),
+        );
         if lang == "en" {
             lang_en.set_active(true);
         } else {
@@ -245,12 +246,15 @@ impl Tray {
         });
 
         // Microphone label auto-refresh
-        glib::timeout_add_seconds_local(3, clone!(@weak mic_item => @default-return glib::ControlFlow::Break, move || {
-            if let Some(desc) = get_default_mic_description() {
-                mic_item.set_label(&format!("Microphone: {}", desc));
-            }
-            glib::ControlFlow::Continue
-        }));
+        glib::timeout_add_seconds_local(
+            3,
+            clone!(@weak mic_item => @default-return glib::ControlFlow::Break, move || {
+                if let Some(desc) = get_default_mic_description() {
+                    mic_item.set_label(&format!("Microphone: {}", desc));
+                }
+                glib::ControlFlow::Continue
+            }),
+        );
         // Initial mic label
         if let Some(desc) = get_default_mic_description() {
             mic_item.set_label(&format!("Microphone: {}", desc));
@@ -274,7 +278,9 @@ impl Tray {
                             "processing" => "emblem-synchronizing",
                             _ => "audio-input-microphone",
                         };
-                        indicator_clone.borrow_mut().set_icon_full(icon_name, "status");
+                        indicator_clone
+                            .borrow_mut()
+                            .set_icon_full(icon_name, "status");
                     }
                 }
             }
@@ -288,7 +294,6 @@ impl Tray {
             ui_tx,
         ))
     }
-
 }
 
 // ─── Model menu ─────────────────────────────────────────────────
@@ -312,8 +317,7 @@ fn rebuild_model_menu(state: &Rc<RefCell<TrayState>>) {
             new_model
         );
         s.settings.write().unwrap().selected_model = new_model.clone();
-        s.model_item
-            .set_label(&format!("Model: {}", new_model));
+        s.model_item.set_label(&format!("Model: {}", new_model));
     }
 
     let current = s.settings.read().unwrap().selected_model.clone();
@@ -331,9 +335,9 @@ fn rebuild_model_menu(state: &Rc<RefCell<TrayState>>) {
 
     // Normalise current selection down to a menu key, handling legacy values
     let legacy = ["CT2 ", "W "];
-    let cleaned = legacy
-        .iter()
-        .fold(current_base.clone(), |acc, p| acc.trim_start_matches(*p).to_string());
+    let cleaned = legacy.iter().fold(current_base.clone(), |acc, p| {
+        acc.trim_start_matches(*p).to_string()
+    });
     let base_key = cleaned.trim_end_matches(".en");
 
     for &(label, key) in &models {
@@ -531,7 +535,9 @@ fn show_about_dialog() {
 
     dialog.show_all();
     dialog.run();
-    unsafe { dialog.destroy(); }
+    unsafe {
+        dialog.destroy();
+    }
 }
 
 fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
@@ -564,9 +570,8 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
 
     // Initial prompt
     let prompt_label = gtk::Label::new(None);
-    prompt_label.set_markup(
-        "<b>Initial Prompt (helps Whisper recognize your voice, max 240 chars):</b>",
-    );
+    prompt_label
+        .set_markup("<b>Initial Prompt (helps Whisper recognize your voice, max 240 chars):</b>");
     prompt_label.set_halign(gtk::Align::Start);
     vbox.pack_start(&prompt_label, false, false, 0);
 
@@ -614,8 +619,7 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
     nl_label.set_halign(gtk::Align::Start);
     vbox.pack_start(&nl_label, false, false, 5);
 
-    let plain_radio =
-        gtk::RadioButton::with_label("Plain Return (may send messages in chat apps)");
+    let plain_radio = gtk::RadioButton::with_label("Plain Return (may send messages in chat apps)");
     vbox.pack_start(&plain_radio, false, false, 0);
 
     let shift_radio = gtk::RadioButton::with_label_from_widget(
@@ -665,7 +669,9 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
     // Cancel
     {
         let d = dialog.clone();
-        cancel_btn.connect_clicked(move |_| unsafe { d.destroy(); });
+        cancel_btn.connect_clicked(move |_| unsafe {
+            d.destroy();
+        });
     }
 
     // Save
@@ -684,8 +690,10 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
 
             let start = buf.start_iter();
             let end = buf.end_iter();
-            settings.initial_prompt =
-                buf.text(&start, &end, false).map(|s| s.to_string()).unwrap_or_default();
+            settings.initial_prompt = buf
+                .text(&start, &end, false)
+                .map(|s| s.to_string())
+                .unwrap_or_default();
 
             settings.append_newline = nt.is_active();
             settings.newline_type = if sr.is_active() {
@@ -706,7 +714,9 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
 
             drop(settings);
             drop(s);
-            unsafe { d.destroy(); }
+            unsafe {
+                d.destroy();
+            }
         });
     }
 
@@ -813,7 +823,9 @@ fn show_hotkey_dialog(state: &Rc<RefCell<TrayState>>) {
 
     dialog.show_all();
     dialog.run();
-    unsafe { dialog.destroy(); }
+    unsafe {
+        dialog.destroy();
+    }
 }
 
 // ─── Pure helpers (testable without GTK) ──────────────────────────
@@ -871,7 +883,10 @@ mod tests {
     #[test]
     fn format_log_label_wrong_prefix_returns_filename() {
         let s = format_log_label("vtt2026-04-20.log", "2026-04-20", "2026-04-19");
-        assert_eq!(s, "vtt2026-04-20.log", "filename without proper vtt- prefix falls through");
+        assert_eq!(
+            s, "vtt2026-04-20.log",
+            "filename without proper vtt- prefix falls through"
+        );
     }
 
     #[test]
@@ -879,6 +894,9 @@ mod tests {
         // Sanity check the bounds guard — a "today" of "2026" (len 4) must not panic
         // from string slicing at [5..].
         let s = format_log_label("vtt-2026.log", "2026", "2025");
-        assert_eq!(s, "2026", "short dates bypass the friendly label and fall through");
+        assert_eq!(
+            s, "2026",
+            "short dates bypass the friendly label and fall through"
+        );
     }
 }

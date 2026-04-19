@@ -30,14 +30,12 @@ impl WhisperEngine {
         let size_mb = std::fs::metadata(model_path)
             .map(|m| m.len() / 1_048_576)
             .unwrap_or(0);
-        crate::vtt_log!(
-            "Model loaded: {} ({} MB) in {:.2}s",
-            name,
-            size_mb,
-            elapsed
-        );
+        crate::vtt_log!("Model loaded: {} ({} MB) in {:.2}s", name, size_mb, elapsed);
 
-        Ok(Self { ctx, model_name: name })
+        Ok(Self {
+            ctx,
+            model_name: name,
+        })
     }
 
     /// Transcribe raw 16kHz mono f32 PCM samples. Creates a fresh WhisperState each

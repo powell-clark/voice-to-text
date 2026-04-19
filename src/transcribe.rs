@@ -13,7 +13,11 @@ pub fn transcribe_samples(
     language: &str,
     prompt: &str,
 ) -> Option<String> {
-    let prompt_opt = if prompt.is_empty() { None } else { Some(prompt) };
+    let prompt_opt = if prompt.is_empty() {
+        None
+    } else {
+        Some(prompt)
+    };
     match engine.transcribe(samples, language, prompt_opt) {
         Ok(text) => {
             let trimmed = text.trim().to_string();
@@ -49,10 +53,7 @@ pub fn load_wav(path: &Path) -> anyhow::Result<Vec<f32>> {
             .filter_map(Result::ok)
             .map(|s| s as f32 / 32768.0)
             .collect(),
-        hound::SampleFormat::Float => reader
-            .samples::<f32>()
-            .filter_map(Result::ok)
-            .collect(),
+        hound::SampleFormat::Float => reader.samples::<f32>().filter_map(Result::ok).collect(),
     };
     Ok(samples)
 }

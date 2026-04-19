@@ -15,10 +15,7 @@ use x11::xlib::*;
 ///
 /// Returns a sender for commands (e.g. changing the hotkey or stopping).
 /// The callback fires on key-down and key-up events.
-pub fn start_monitor<F>(
-    initial_keycode: u8,
-    callback: F,
-) -> anyhow::Result<mpsc::Sender<HotkeyCmd>>
+pub fn start_monitor<F>(initial_keycode: u8, callback: F) -> anyhow::Result<mpsc::Sender<HotkeyCmd>>
 where
     F: Fn(KeyEvent) + Send + 'static,
 {
@@ -47,10 +44,10 @@ unsafe fn get_scroll_lock_keycode(display: *mut Display) -> u32 {
 /// Grab a key on the root window with Num Lock / Caps Lock modifier combinations.
 unsafe fn grab_key(display: *mut Display, root: Window, keycode: u32) {
     let modifiers: [u32; 4] = [
-        0,                    // No modifiers
-        LockMask,             // Caps Lock
-        Mod2Mask,             // Num Lock
-        LockMask | Mod2Mask,  // Both
+        0,                   // No modifiers
+        LockMask,            // Caps Lock
+        Mod2Mask,            // Num Lock
+        LockMask | Mod2Mask, // Both
     ];
     for &m in &modifiers {
         XGrabKey(
@@ -58,7 +55,7 @@ unsafe fn grab_key(display: *mut Display, root: Window, keycode: u32) {
             keycode as i32,
             m,
             root,
-            1,            // owner_events = True
+            1, // owner_events = True
             GrabModeAsync,
             GrabModeAsync,
         );
@@ -114,9 +111,7 @@ pub fn get_key_name(keycode: u8) -> String {
                     XCloseDisplay(display);
                     return format!("Key {}", keycode);
                 }
-                let name = std::ffi::CStr::from_ptr(s)
-                    .to_string_lossy()
-                    .into_owned();
+                let name = std::ffi::CStr::from_ptr(s).to_string_lossy().into_owned();
                 XCloseDisplay(display);
                 return name;
             }
@@ -126,11 +121,8 @@ pub fn get_key_name(keycode: u8) -> String {
     }
 }
 
-unsafe fn monitor_loop<F>(
-    initial_keycode: u8,
-    callback: F,
-    cmd_rx: mpsc::Receiver<HotkeyCmd>,
-) where
+unsafe fn monitor_loop<F>(initial_keycode: u8, callback: F, cmd_rx: mpsc::Receiver<HotkeyCmd>)
+where
     F: Fn(KeyEvent) + Send + 'static,
 {
     let display = XOpenDisplay(std::ptr::null());
@@ -154,10 +146,7 @@ unsafe fn monitor_loop<F>(
     };
 
     grab_key(display, root, keycode);
-    crate::vtt_log!(
-        "Hotkey monitor started (keycode {})",
-        keycode
-    );
+    crate::vtt_log!("Hotkey monitor started (keycode {})", keycode);
 
     let mut event: XEvent = std::mem::zeroed();
 
@@ -241,4 +230,3 @@ unsafe fn monitor_loop<F>(
         }
     }
 }
-

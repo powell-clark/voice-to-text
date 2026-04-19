@@ -6,10 +6,10 @@
 //! postinst script) or a per-user cache (`~/.cache/voice-to-text/models/`). The
 //! system cache is preferred when present so `apt install` works offline on first run.
 
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Copy)]
 pub struct ModelInfo {
@@ -124,10 +124,7 @@ pub fn resolve_path(filename: &str) -> PathBuf {
 /// Guarantee a model is present on disk and return its path. Downloads from
 /// HuggingFace into the user cache if missing. `progress` receives (downloaded, total)
 /// byte counts — callers use this to drive tray notifications.
-pub fn ensure<F: FnMut(u64, u64)>(
-    info: &ModelInfo,
-    mut progress: F,
-) -> anyhow::Result<PathBuf> {
+pub fn ensure<F: FnMut(u64, u64)>(info: &ModelInfo, mut progress: F) -> anyhow::Result<PathBuf> {
     let path = resolve_path(info.filename);
     if path.exists() {
         return Ok(path);
