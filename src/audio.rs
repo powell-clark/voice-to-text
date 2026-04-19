@@ -214,3 +214,80 @@ fn write_wav(samples: &[f32]) -> anyhow::Result<PathBuf> {
 
     Ok(path)
 }
+
+/// Pure: given the current buffer length, an incoming chunk size, and the
+/// maximum allowed buffer length, compute how many samples we can append and
+/// whether the append causes the buffer to transition to "full".
+///
+/// Returns `(take, became_full)` where:
+/// - `take` is the number of samples to append (0..=incoming, clamped to available space)
+/// - `became_full` is true if after the append the buffer reached `max`
+///
+/// Used by the audio stream callback to avoid overflowing the bounded capture
+/// buffer (currently 5 min at 16 kHz = 4.8 M samples). Becoming full flips the
+/// `buffer_full` atomic flag and fires the notification callback.
+fn compute_append(current_len: usize, incoming: usize, max: usize) -> (usize, bool) {
+    let space = max.saturating_sub(current_len);
+    let take = incoming.min(space);
+    let new_len = current_len + take;
+    let became_full = new_len >= max;
+    (take, became_full)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compute_append_room_for_full_chunk() {
+        assert_eq!(compute_append(100, 50, 1000), (50, false));
+    }
+
+    #[test]
+    fn compute_append_chunk_exactly_fills_buffer() {
+        assert_eq!(compute_append(900, 100, 1000), (100, true));
+    }
+
+    #[test]
+    fn compute_append_chunk_overflows_gets_clamped() {
+        assert_eq!(
+            compute_append(950, 100, 1000),
+            (50, true),
+            "only 50 of the 100 fit, buffer transitions to full"
+        );
+    }
+
+    #[test]
+    fn compute_append_already_full_takes_nothing() {
+        assert_eq!(
+            compute_append(1000, 50, 1000),
+            (0, true),
+            "at capacity, take nothing but still report full"
+        );
+    }
+
+    #[test]
+    fn compute_append_past_full_takes_nothing() {
+        // Shouldn't happen in practice but should not panic or wrap.
+        assert_eq!(compute_append(2000, 50, 1000), (0, true));
+    }
+
+    #[test]
+    fn compute_append_empty_buffer_empty_chunk() {
+        assert_eq!(compute_append(0, 0, 1000), (0, false));
+    }
+
+    #[test]
+    fn compute_append_empty_buffer_full_chunk() {
+        assert_eq!(compute_append(0, 1000, 1000), (1000, true));
+    }
+
+    #[test]
+    fn compute_append_realistic_audio_frame() {
+        // 16 kHz, 5 min max buffer, 10 ms frame = 160 samples
+        let max = 16_000 * 300;
+        let (take, full) = compute_append(max - 100, 160, max);
+        assert_eq!(take, 100, "only 100 samples fit in the last slice");
+        assert!(full, "buffer is at capacity after the append");
+    }
+}
