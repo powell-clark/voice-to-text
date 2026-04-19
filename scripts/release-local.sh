@@ -24,7 +24,7 @@ echo ""
 # Ensure cargo is on PATH for debian/rules (rustup installs under ~/.cargo)
 export PATH="$HOME/.cargo/bin:$PATH"
 
-echo "[1/3] Vendoring cargo dependencies..."
+echo "[1/4] Vendoring cargo dependencies..."
 if [ ! -d vendor ] || [ ! -f vendor/anyhow/Cargo.toml.orig ]; then
     cargo vendor > /dev/null
 fi
@@ -37,7 +37,15 @@ if grep -q '^version = 4$' Cargo.lock; then
 fi
 echo ""
 
-echo "[2/3] Running debuild -b -us -uc -d ..."
+echo "[2/4] Pre-flight: cargo build --offline --locked (mirrors Launchpad)..."
+if ! cargo build --release --offline --locked 2>&1 | tail -5 | grep -q "Finished\|up to date"; then
+    echo "  WARN — offline locked build may have issues. Continuing with debuild anyway."
+else
+    echo "  OK — offline locked build succeeds. Launchpad would build too."
+fi
+echo ""
+
+echo "[3/4] Running debuild -b -us -uc -d ..."
 debuild -b -us -uc -d
 echo ""
 
@@ -47,7 +55,7 @@ if [ ! -f "$DEB" ]; then
     exit 1
 fi
 
-echo "[3/3] Built: $(realpath "$DEB") ($(du -h "$DEB" | cut -f1))"
+echo "[4/4] Built: $(realpath "$DEB") ($(du -h "$DEB" | cut -f1))"
 echo ""
 
 if [ "$INSTALL" = true ]; then
