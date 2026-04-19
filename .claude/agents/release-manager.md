@@ -160,6 +160,22 @@ sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml
 cargo check --offline 2>&1 | tail -3
 ```
 
+### Step 5b — Simulate Launchpad offline build (catches Cargo.lock v4 regressions)
+
+```bash
+cargo vendor > /dev/null
+# Force Cargo.lock v3 format — Ubuntu Noble ships cargo 1.75 which can't parse v4
+grep -q '^version = 4$' Cargo.lock && sed -i 's/^version = 4$/version = 3/' Cargo.lock
+cargo build --release --offline --locked 2>&1 | tail -5
+```
+
+This mirrors Launchpad's network-isolated build environment. If this fails locally, Launchpad will fail too — and a failed PPA build dings the project's visible build-success rate. Release-ppa.sh runs the same check before dput, but doing it here (pre-tag, pre-commit) lets the agent abort cleanly without leaving a published tag pointing at an unshippable commit.
+
+Abort conditions:
+- `error: failed to parse lock file` → Cargo.lock mismatch. The sed above should have fixed it; if it didn't, something else is wrong.
+- `error: ... not found in vendor/` → vendor stale. `rm -rf vendor && cargo vendor` and retry.
+- Any compile error → the code doesn't build offline with the committed lockfile. Fix before tagging.
+
 ### Step 6 — Write changelog entry
 
 Read every commit message since the last tag. Group into sections:
@@ -220,7 +236,13 @@ You cannot run this yourself because `debuild -S -sa` invokes `gpg` which needs 
 ! ./scripts/release-ppa.sh
 ```
 
-The script prompts for GPG passphrase (twice, once per distro). Emmanuel types it; nothing else needed from him. After it completes, you resume Step 10.
+The script itself now runs the same offline-build pre-check as Step 5b and aborts before uploading if the build would fail on Launchpad. It prompts for GPG passphrase twice (once per distro). After it completes, you resume Step 10.
+
+**Known Launchpad-breaker classes (all caught by the Step 5b pre-check):**
+- `Cargo.lock` version 4 (Ubuntu Noble cargo 1.75 only reads v3). Script auto-downgrades.
+- `edition = "2024"` in Cargo.toml (requires Rust 1.85+; Noble has 1.75). Don't use.
+- Missing vendored crates (stale `vendor/` after adding a dep). Re-run `cargo vendor`.
+- Build-time tool missing from `debian/control` Build-Depends (e.g. `glslc`, `libclang-dev`).
 
 ### Step 10 — Post-verify
 
