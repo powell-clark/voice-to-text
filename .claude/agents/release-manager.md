@@ -23,30 +23,73 @@ Everything else — changelog text, commit message, tag message — you write fr
 
 ## Command 1 — `test release`
 
-Exactly this, in order:
+You cannot run `sudo` yourself — the shell that claude-code invokes has no TTY for the password prompt. So split the workflow into two phases:
+
+### Phase A — You do autonomously (no sudo)
+
+1. Build the `.deb` without installing:
+   ```bash
+   ./scripts/release-local.sh
+   ```
+2. Verify it built and inspect metadata:
+   ```bash
+   ls -lh ../voice-to-text_$(head -1 debian/changelog | grep -oP '\(.*?\)' | tr -d '()')_amd64.deb
+   dpkg-deb -I ../voice-to-text_*.deb | grep -E "Version|Depends"
+   ```
+3. Print the install command Emmanuel must paste into his terminal.
+
+### Phase B — Emmanuel pastes one command
+
+Present this (using the `!` prefix so claude-code runs it in his actual shell with TTY):
 
 ```
-./scripts/release-local.sh --install
-pkill -f vtt-linux
-nohup /usr/bin/vtt-linux > /tmp/vtt-release-test.out 2>&1 &
-sleep 8
-tail -30 ~/.local/share/voice-to-text/vtt-$(date +%Y-%m-%d).log
+! sudo apt install -y ../voice-to-text_X.Y.Z_amd64.deb && pkill -f vtt-linux; sleep 1; /usr/bin/vtt-linux &
 ```
 
-Report:
+### Phase C — After he confirms install, you do autonomously
+
+1. Wait briefly for the new binary to start:
+   ```bash
+   sleep 5
+   ```
+2. Verify process and log:
+   ```bash
+   ps aux | grep vtt-linux | grep -v grep | head -3
+   md5sum /usr/bin/vtt-linux target/release/vtt-linux
+   tail -20 ~/.local/share/voice-to-text/vtt-$(date +%Y-%m-%d).log
+   ```
+3. Check the installed binary hash matches the fresh build.
+
+### Report format
+
+Before asking Emmanuel to install:
 
 ```
-TEST RELEASE: voice-to-text X.Y.Z
-Built: ../voice-to-text_X.Y.Z_amd64.deb (X.X MB)
-Installed: ✓
-Binary launched: ✓ (PID N)
-Model: <loaded|downloading|missing>
-Log status: [last line of log]
+TEST RELEASE — build complete
+
+Built:    ../voice-to-text_X.Y.Z_amd64.deb (X.X MB)
+Depends:  [one-line summary, flag any unexpected entries]
+Version:  X.Y.Z (Cargo.toml ↔ debian/changelog aligned)
+
+Run this to install + restart VTT:
+
+  ! sudo apt install -y ../voice-to-text_X.Y.Z_amd64.deb && pkill -f vtt-linux; sleep 1; /usr/bin/vtt-linux &
+```
+
+After he runs it:
+
+```
+TEST RELEASE — verified
+
+Installed: /usr/bin/vtt-linux (hash matches target/release/vtt-linux)
+Running:   PID N
+Model:     <loaded|downloading|missing>
+Log tail:  [last line]
 
 DONE. Press Scroll Lock to test transcription end-to-end.
 ```
 
-If any step fails, stop and report the failing step. Don't continue to the next step.
+If the build fails, stop and report. If the install didn't happen (hash mismatch, no process), stop and tell Emmanuel the likely cause (wrong password, apt lock, dependency missing).
 
 ## Command 2 — `production`
 
@@ -148,15 +191,36 @@ git push origin main --tags
 
 ### Step 8 — Local smoke test before PPA
 
-Run `./scripts/release-local.sh --install` to verify the tagged version actually builds and installs. If this fails, reset the tag with `git tag -d vX.Y.Z; git push origin :refs/tags/vX.Y.Z` and report.
+You build the `.deb` autonomously, then ask Emmanuel to install:
+
+```bash
+./scripts/release-local.sh
+```
+
+Then present:
+
+```
+! sudo apt install -y ../voice-to-text_X.Y.Z_amd64.deb && pkill -f vtt-linux; sleep 1; /usr/bin/vtt-linux &
+```
+
+After he confirms, verify process + log. If anything fails at this stage, back the tag out:
+
+```bash
+git tag -d vX.Y.Z
+git push origin :refs/tags/vX.Y.Z
+```
+
+Report and stop.
 
 ### Step 9 — PPA upload
 
-```bash
-./scripts/release-ppa.sh
+You cannot run this yourself because `debuild -S -sa` invokes `gpg` which needs a passphrase prompt. Ask Emmanuel to paste:
+
+```
+! ./scripts/release-ppa.sh
 ```
 
-The script prompts for GPG passphrase twice (noble + jammy uploads). Emmanuel types it; nothing else needed from him.
+The script prompts for GPG passphrase (twice, once per distro). Emmanuel types it; nothing else needed from him. After it completes, you resume Step 10.
 
 ### Step 10 — Post-verify
 
