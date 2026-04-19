@@ -215,31 +215,58 @@ On first run, macOS requires permissions for microphone, accessibility, and inpu
 
 **No transcription**
 - Enable logging from the menu icon
-- Check logs: `log stream --predicate 'process == "VTT"'`
-- Try switching to CT2 small model
+- Check today's log: `tail -f ~/Library/Application\ Support/voice-to-text/vtt-$(date +%Y-%m-%d).log`
+- Try switching to a smaller model (tray menu → **Model** → small)
 
 ### Linux
 
+**Confirm what's installed**
+```bash
+vtt-linux --version         # prints version
+apt-cache policy voice-to-text   # verifies PPA source
+```
+
 **Hotkey not working**
 - Verify X11 (not Wayland): `echo $XDG_SESSION_TYPE`
-- Must return `x11` - Wayland support coming soon
-- Check logs: `tail -f ~/.local/share/voice-to-text/vtt.log`
-- Try customizing hotkey from tray menu
+- Must return `x11` — Wayland support is on the roadmap
+- Check today's log: `tail -f ~/.local/share/voice-to-text/vtt-$(date +%Y-%m-%d).log`
+- Open logs from the tray menu → **Logs** → Today
+- Re-bind hotkey from the tray menu → **Hotkey**
+
+**Typing stops partway through a transcription**
+- Fixed in 2.0.5 — upgrade with `sudo apt update && sudo apt upgrade voice-to-text`
+- If on 2.0.5+ and still happening, open an issue with a sample of the missing text
+  and which application was receiving focus
+
+**Transcription is typing `[Music]` / `[Blank Audio]`**
+- Also filtered in 2.0.5+. Upgrade, or set a non-empty *Initial Prompt*
+  under the tray's customise menu to prime Whisper for speech
 
 **No system tray icon**
 - Install AppIndicator: `sudo apt install libayatana-appindicator3-1`
-- Check service: `systemctl --user status vtt`
+- Check user service: `systemctl --user status vtt`
 - GNOME users need the [AppIndicator extension](https://extensions.gnome.org/extension/615/appindicator-support/)
 
-**GPU not detected**
-- Check CUDA: `nvcc --version`
-- Test: `python3.12 -c "import ctranslate2; print(ctranslate2.get_cuda_device_count())"`
-- Restart after installing CUDA: `systemctl --user restart vtt`
+**GPU not detected / slow transcription**
+- v2.0 uses Vulkan (not CUDA): `vulkaninfo --summary | head -20`
+- Install drivers:
+  - NVIDIA: `sudo apt install libvulkan1 mesa-vulkan-drivers nvidia-driver-550`
+  - AMD/Intel: `sudo apt install libvulkan1 mesa-vulkan-drivers`
+- Restart VTT after driver changes: `systemctl --user restart vtt`
+- First-transcription is always slower (model loads into VRAM); subsequent
+  presses are sub-second on a healthy GPU
 
 **Microphone issues**
 - List devices: `pactl list sources short`
-- Test: `arecord -d 3 test.wav && aplay test.wav`
-- Select different mic from tray menu
+- Test the default mic: `arecord -d 3 -f cd /tmp/mic-test.wav && aplay /tmp/mic-test.wav`
+- Change default via PulseAudio: `pactl set-default-source <source-name>`
+
+**PPA install shows wrong version**
+```bash
+sudo apt update
+apt-cache policy voice-to-text    # confirm which version apt will install
+sudo apt install voice-to-text=2.0.5  # pin a specific version if needed
+```
 
 ---
 
