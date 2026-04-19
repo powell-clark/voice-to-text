@@ -35,6 +35,7 @@ debian/files
 # CONSCIOUSNESS runtime files (STM locks and versions)
 *.lock
 CONSCIOUSNESS/*.lock
+!Cargo.lock
 
 # CONSCIOUSNESS legacy symlinks (if they exist - point to subdirectories)
 CONSCIOUSNESS/ROADMAP.md

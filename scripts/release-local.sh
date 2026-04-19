@@ -29,6 +29,12 @@ if [ ! -d vendor ] || [ ! -f vendor/anyhow/Cargo.toml.orig ]; then
     cargo vendor > /dev/null
 fi
 echo "  vendor/ size: $(du -sh vendor/ | cut -f1)"
+
+# Force Cargo.lock v3 format so Ubuntu Noble cargo 1.75 can parse it.
+# rustup >=1.78 writes v4 by default, which breaks Launchpad builds.
+if grep -q '^version = 4$' Cargo.lock; then
+    sed -i 's/^version = 4$/version = 3/' Cargo.lock
+fi
 echo ""
 
 echo "[2/3] Running debuild -b -us -uc -d ..."
