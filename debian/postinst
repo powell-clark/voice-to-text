@@ -1,5 +1,5 @@
 #!/bin/sh
-# Post-install script for voice-to-text 2.0.0.
+# Post-install script for voice-to-text.
 # Downloads the default small.en GGML model if not already present so that
 # the first run works offline. Also enables the user systemd service for
 # any logged-in graphical user.
@@ -41,9 +41,11 @@ case "$1" in
             done
         fi
 
+        # Read the actual installed version — never hardcode.
+        INSTALLED_VERSION=$(dpkg-query --show --showformat='${Version}' voice-to-text 2>/dev/null || echo "installed")
         echo ""
         echo "============================================"
-        echo "Voice to Text 2.0.0 installed"
+        echo "Voice to Text ${INSTALLED_VERSION} installed"
         echo "============================================"
         echo "Hold Scroll Lock and speak — text appears where you type."
         echo ""
