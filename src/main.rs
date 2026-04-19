@@ -456,10 +456,7 @@ fn transcription_worker(
             vtt_log!("Transcribed in {:.2}s", elapsed.as_secs_f64());
             let trimmed = text.trim();
 
-            if trimmed.is_empty()
-                || trimmed.eq_ignore_ascii_case("[BLANK_AUDIO]")
-                || trimmed.eq_ignore_ascii_case("[MUSIC PLAYING]")
-            {
+            if is_whisper_filler(trimmed) {
                 vtt_log!("Skipping blank transcription");
             } else if trimmed.chars().any(|c| c.is_alphanumeric()) {
                 vtt_log!("Transcription: {}", trimmed);
@@ -696,6 +693,50 @@ fn compose_final_text(is_truncated: bool, prefix: &str, trimmed: &str) -> String
     }
 }
 
+/// Is the given transcription a whisper "filler" (empty, bracketed marker,
+/// or punctuation-only) that we should drop instead of typing?
+///
+/// Whisper models emit bracketed markers when they hear non-speech audio —
+/// silence, music, applause, coughing, etc. These get typed literally if
+/// we don't filter them, which is always surprising and never useful.
+///
+/// Pure function — no I/O, no globals, easy to extend and test.
+fn is_whisper_filler(trimmed: &str) -> bool {
+    if trimmed.is_empty() {
+        return true;
+    }
+
+    // Strip a leading/trailing bracket pair and compare the inner token
+    // case-insensitively against the known filler list. Covers [BLANK_AUDIO],
+    // [MUSIC PLAYING], [Music], [Applause], [Silence], (silence), etc.
+    let inner = trimmed
+        .strip_prefix('[')
+        .and_then(|s| s.strip_suffix(']'))
+        .or_else(|| trimmed.strip_prefix('(').and_then(|s| s.strip_suffix(')')));
+
+    if let Some(tok) = inner {
+        let upper = tok.trim().to_ascii_uppercase();
+        // Normalise whitespace and underscores so "MUSIC PLAYING" == "MUSIC_PLAYING".
+        let norm = upper.replace('_', " ");
+        let norm = norm.split_whitespace().collect::<Vec<_>>().join(" ");
+        return matches!(
+            norm.as_str(),
+            "BLANK AUDIO"
+                | "MUSIC PLAYING"
+                | "MUSIC"
+                | "APPLAUSE"
+                | "SILENCE"
+                | "NO AUDIO"
+                | "LAUGHTER"
+                | "COUGHING"
+                | "INAUDIBLE"
+                | "NOISE"
+        );
+    }
+
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -738,5 +779,58 @@ mod tests {
     fn compose_final_text_unicode_prefix_and_body_roundtrip() {
         let s = compose_final_text(false, "[£ é] ", "£100 an hour");
         assert_eq!(s, "[£ é] £100 an hour");
+    }
+
+    #[test]
+    fn is_whisper_filler_drops_empty_and_known_bracketed_markers() {
+        for filler in [
+            "",
+            "[BLANK_AUDIO]",
+            "[blank_audio]",
+            "[MUSIC PLAYING]",
+            "[music playing]",
+            "[Music]",
+            "[Applause]",
+            "[Silence]",
+            "[NO AUDIO]",
+            "[no_audio]",
+            "(silence)",
+            "[LAUGHTER]",
+            "[Coughing]",
+            "[INAUDIBLE]",
+            "[noise]",
+        ] {
+            assert!(
+                is_whisper_filler(filler),
+                "expected {:?} to be treated as filler",
+                filler
+            );
+        }
+    }
+
+    #[test]
+    fn is_whisper_filler_does_not_drop_real_speech() {
+        for text in [
+            "Hello world",
+            "I was about to say [music] playing in the background",
+            "[something custom]",
+            "[deprecated]",
+            "£100 an hour",
+            "Music is great",
+        ] {
+            assert!(
+                !is_whisper_filler(text),
+                "expected {:?} to pass through (real speech, not filler)",
+                text
+            );
+        }
+    }
+
+    #[test]
+    fn is_whisper_filler_handles_case_and_whitespace_variants() {
+        assert!(is_whisper_filler("[  MUSIC  PLAYING  ]"));
+        assert!(is_whisper_filler("[MUSIC_PLAYING]"));
+        assert!(is_whisper_filler("[music    playing]"));
+        assert!(is_whisper_filler("[ Blank_Audio ]"));
     }
 }
