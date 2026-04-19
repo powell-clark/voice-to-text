@@ -42,6 +42,31 @@ enum WorkItem {
 }
 
 fn main() -> anyhow::Result<()> {
+    // Simple arg handling — no clap dep just for --version / --help.
+    // Hold a hotkey to speak; the tray is the real UI. These flags only
+    // exist so users can confirm what's installed without launching GTK.
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--version" || a == "-V") {
+        println!("voice-to-text {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!(
+            "voice-to-text {} — push-to-talk offline transcription\n\n\
+             Usage: vtt-linux [options]\n\n\
+             Options:\n  \
+             -V, --version    Print version and exit\n  \
+             -h, --help       Print this help and exit\n\n\
+             With no options, launches the tray icon. Hold the configured\n\
+             hotkey (default: Scroll Lock) and speak. Release to transcribe.\n\n\
+             Config:   ~/.local/share/voice-to-text/settings.conf\n\
+             Logs:     ~/.local/share/voice-to-text/vtt-YYYY-MM-DD.log\n\
+             Models:   /usr/share/voice-to-text/models/ggml-*.bin",
+            env!("CARGO_PKG_VERSION")
+        );
+        return Ok(());
+    }
+
     // Platform-specific init
     #[cfg(target_os = "linux")]
     {
