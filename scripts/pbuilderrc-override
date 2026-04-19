@@ -1,0 +1,10 @@
+# Local pbuilder config override for voice-to-text release-ppa.sh.
+# Sourced via --configfile AFTER /usr/share/pbuilder/pbuilderrc, so this
+# takes precedence over the system default.
+#
+# Switches satisfydepends from aptitude (which builds a dummy .deb via
+# dpkg-deb and fails on dpkg ≥ 1.22 with "failed to make temporary file
+# (control member): No such file or directory") to the apt variant, which
+# installs build deps via apt-get directly — matching what Launchpad does.
+
+PBUILDERSATISFYDEPENDSCMD="/usr/lib/pbuilder/pbuilder-satisfydepends-apt"

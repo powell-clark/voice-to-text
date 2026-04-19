@@ -195,14 +195,17 @@ build_in_chroot() {
     local logfile="/tmp/vtt-pbuilder-${distro}.log"
     echo "[pre-flight] pbuilder --build ($distro) — simulates Launchpad exactly..."
     # Use apt-based satisfydepends instead of the default aptitude-based one.
-    # Configured via PBUILDERSATISFYDEPENDSCMD env var (no CLI flag exists).
-    # The aptitude variant builds a dummy .deb via dpkg-deb in /tmp/satisfydepends-aptitude/,
-    # which fails on dpkg ≥ 1.22 with
-    #   "dpkg-deb: error: failed to make temporary file (control member): No such file or directory"
-    # The apt variant installs deps via apt-get directly, bypassing dpkg-deb entirely.
-    # Launchpad also uses apt-based resolution, so this matches production.
-    if sudo -n env PBUILDERSATISFYDEPENDSCMD=/usr/lib/pbuilder/pbuilder-satisfydepends-apt \
-            pbuilder --build \
+    # Must go via --configfile because /usr/share/pbuilder/pbuilderrc
+    # hard-sets PBUILDERSATISFYDEPENDSCMD without checking for an override,
+    # so an env var alone is clobbered. Our override file is sourced AFTER
+    # the system default and takes precedence.
+    #
+    # The aptitude variant builds a dummy .deb via dpkg-deb and fails with
+    #   "dpkg-deb: error: failed to make temporary file (control member)"
+    # on dpkg ≥ 1.22. Apt variant installs deps via apt-get directly.
+    local cfg="$(dirname "$0")/pbuilderrc-override"
+    if sudo -n pbuilder --build \
+            --configfile "$cfg" \
             --distribution "$distro" \
             --basetgz "$basetgz" \
             --buildresult /tmp/vtt-pbuilder-${distro} \
