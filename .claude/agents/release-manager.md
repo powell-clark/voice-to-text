@@ -160,21 +160,53 @@ sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml
 cargo check --offline 2>&1 | tail -3
 ```
 
-### Step 5b — Simulate Launchpad offline build (catches Cargo.lock v4 regressions)
+### Step 5b — HARD GATE: pbuilder chroot test (mandatory)
+
+Read `RELEASE_CONTRACT.md` before proceeding. It codifies the principle:
+**No release leaves this machine until the exact build Launchpad will run has succeeded locally.**
+
+This is not a convention. It is a non-negotiable gate. Release-ppa.sh itself runs this check and refuses to `dput` if it fails — but do it here first so the agent never proposes a tag that cannot ship.
 
 ```bash
-cargo vendor > /dev/null
-# Force Cargo.lock v3 format — Ubuntu Noble ships cargo 1.75 which can't parse v4
-grep -q '^version = 4$' Cargo.lock && sed -i 's/^version = 4$/version = 3/' Cargo.lock
-cargo build --release --offline --locked 2>&1 | tail -5
+# Build the binary first
+cargo build --release --offline 2>&1 | tail -3
+cp target/release/vtt-linux vtt-linux.prebuilt
+
+# Generate source packages, then test each in a chroot
+for distro in noble jammy; do
+    debuild -S -sa -k"$GPG_KEY" -d
+    sudo pbuilder --build \
+        --distribution "$distro" \
+        --basetgz "/var/cache/pbuilder/${distro}-base.tgz" \
+        --buildresult "/tmp/vtt-pbuilder-${distro}" \
+        ../voice-to-text_${VERSION}.dsc
+    if [ $? -ne 0 ]; then
+        echo "REFUSING to proceed — ${distro} chroot build failed."
+        exit 1
+    fi
+done
 ```
 
-This mirrors Launchpad's network-isolated build environment. If this fails locally, Launchpad will fail too — and a failed PPA build dings the project's visible build-success rate. Release-ppa.sh runs the same check before dput, but doing it here (pre-tag, pre-commit) lets the agent abort cleanly without leaving a published tag pointing at an unshippable commit.
+If this step fails:
+- **Do not tag.** Do not commit the release. Fix the build error first.
+- **Do not set `VTT_SKIP_PBUILDER=1`** to bypass. The bypass exists only for pbuilder-absent first-release-on-new-machine cases, not for skipping a real failure.
+- **Report the specific error to Emmanuel** with the pbuilder output tail.
 
-Abort conditions:
-- `error: failed to parse lock file` → Cargo.lock mismatch. The sed above should have fixed it; if it didn't, something else is wrong.
-- `error: ... not found in vendor/` → vendor stale. `rm -rf vendor && cargo vendor` and retry.
-- Any compile error → the code doesn't build offline with the committed lockfile. Fix before tagging.
+Prerequisites (one-time per machine):
+```bash
+sudo pbuilder --create --distribution noble \
+    --basetgz /var/cache/pbuilder/noble-base.tgz \
+    --mirror http://archive.ubuntu.com/ubuntu \
+    --components "main restricted universe multiverse"
+sudo pbuilder --create --distribution jammy \
+    --basetgz /var/cache/pbuilder/jammy-base.tgz \
+    --mirror http://archive.ubuntu.com/ubuntu \
+    --components "main restricted universe multiverse"
+```
+
+If the chroots don't exist, the script tells Emmanuel exactly which commands to run. Do not proceed to `dput` without them.
+
+Historical note (2026-04-19): this gate exists because 2.0.0, 2.0.1, and 2.0.2~jammy1 all failed publicly on Launchpad before it was added. Each failure was a specific class (Cargo.lock v4, edition 2024 deps, libasound2t64 noble-only) that would have been caught in ~3 minutes of local pbuilder testing. Never again.
 
 ### Step 6 — Write changelog entry
 
