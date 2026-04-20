@@ -19,8 +19,6 @@
 # 2024 (expected in 25.04+), this file can be reverted to the cargo-build
 # path at git history commit efa5d75.
 
-export DEB_BUILD_OPTIONS := noautodbgsym
-
 %:
 	dh $@
 
