@@ -1,22 +1,51 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// How to send a `\n` inside a transcription. Many chat apps use plain Return
+/// to send and Shift+Return for a new line, so ShiftReturn is the default.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum NewlineType {
+    /// Plain Return — suitable for editors where Return means "new line".
     PlainReturn = 0,
+    /// Shift+Return — suitable for chat apps where Return means "send".
     ShiftReturn = 1,
 }
 
+/// All user-tunable state, persisted to `settings.conf` in the config dir.
+/// Loaded once at startup via `Settings::load(&config_dir)`, then shared
+/// across threads via `Arc<RwLock<Settings>>`. The tray mutates through the
+/// RwLock and calls `save()` to persist.
 #[derive(Debug, Clone)]
 pub struct Settings {
+    /// Menu-facing model name, e.g. "small", "large-v3-turbo". May include
+    /// an ".en" suffix for English-only variants. See `models::MODELS`.
     pub selected_model: String,
+    /// BCP-47-ish language code ("en" or "auto" in practice). "auto" means
+    /// "let whisper detect" and selects the multilingual model variant.
     pub selected_language: String,
+    /// String prepended to every transcription before typing (e.g. "[Voice] ").
+    /// Also used as the `starts_with` check to suppress double-prefixing when
+    /// whisper echoes the prompt back.
     pub voice_prefix: String,
+    /// Whisper's `initial_prompt` — helps the model recognise technical
+    /// vocabulary, names, or style specific to the user. Capped at 240 chars
+    /// by the tray dialog; longer values from hand-edited settings.conf are
+    /// silently truncated by whisper-rs.
     pub initial_prompt: String,
+    /// cpal device index. -1 means "use default". Read from settings.conf
+    /// but not yet consumed by `audio::Audio::new()` — see TASK-VTT050 track.
     pub selected_device_index: i32,
+    /// X11 keycode of the push-to-talk key. 0 means "use Scroll Lock".
+    /// Valid range: 8..=255 (enforced by the loader — anything else falls
+    /// back to the default).
     pub hotkey_keycode: u8,
+    /// If true, insert a newline before typing the next transcription.
+    /// Only applies after the first transcription of a session.
     pub append_newline: bool,
+    /// Plain vs Shift-qualified return. See `NewlineType`.
     pub newline_type: NewlineType,
+    /// If false, `vtt_log!` becomes a no-op (daily log file is not written
+    /// or created). Set via the tray menu, persisted to settings.conf.
     pub logging_enabled: bool,
     config_dir: PathBuf,
 }
