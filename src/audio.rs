@@ -35,9 +35,33 @@ unsafe impl Sync for Audio {}
 impl Audio {
     pub fn new() -> anyhow::Result<Self> {
         let host = cpal::default_host();
-        let device = host
-            .default_input_device()
-            .ok_or_else(|| anyhow::anyhow!("No input device found"))?;
+        let device = match host.default_input_device() {
+            Some(d) => d,
+            None => {
+                // Help the user see what cpal can see — the "no default" case is
+                // usually a PulseAudio / PipeWire misconfiguration where devices
+                // exist but no default source is set. Listing them points at the
+                // fix: `pactl set-default-source <source-name>`.
+                let available: Vec<String> = host
+                    .input_devices()
+                    .map(|iter| iter.filter_map(|d| d.name().ok()).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                if available.is_empty() {
+                    anyhow::bail!(
+                        "No input audio devices detected. Check that your microphone \
+                         is plugged in and recognised by PulseAudio/PipeWire: \
+                         run `pactl list sources short` to verify."
+                    );
+                } else {
+                    anyhow::bail!(
+                        "No default input device set, but {} input device(s) are available: [{}]. \
+                         Set a default with `pactl set-default-source <source-name>`.",
+                        available.len(),
+                        available.join(", ")
+                    );
+                }
+            }
+        };
 
         crate::vtt_log!(
             "Audio device: {}",
