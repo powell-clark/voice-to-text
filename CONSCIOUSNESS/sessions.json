@@ -169,18 +169,17 @@
       "started": "2026-04-19 22:38:46.578 gmt+1",
       "ended": null,
       "metrics": {
-        "autonomous_loops": 13,
+        "autonomous_loops": 16,
         "tasks_completed": [],
-        "commits": 58,
-        "turns": 38,
+        "commits": 65,
+        "turns": 41,
         "human_prompts": 28,
         "errors": 0,
         "compactions": 0,
         "hooks_latency_ms": {
           "session-init": 52,
           "message-end": 10
-        },
-        "ralph_loops": null
+        }
       }
     }
   ]
