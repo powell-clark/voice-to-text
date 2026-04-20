@@ -348,7 +348,6 @@ fn rebuild_model_menu(state: &Rc<RefCell<TrayState>>) {
         // Match on the base key so english/multilingual mode doesn't affect selection visuals
         item.set_active(key == base_key);
         item.set_sensitive(true);
-        let _ = is_english; // suppressed — all models work in both modes
 
         let st = state.clone();
         let model_name = key.to_string();
