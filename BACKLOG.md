@@ -1,5 +1,11 @@
 # Voice to Text Backlog
 
+> **⚠️ SUPERSEDED — do not edit.** This file's content is historical. The
+> canonical backlog is `CONSCIOUSNESS/tasks/TASK-BACKLOG-INDEX.md` (with
+> detail docs under `CONSCIOUSNESS/tasks/backlog-task-item-details/`) and
+> `CONSCIOUSNESS/stories/STORY-BACKLOG-INDEX.md`. New work items go there,
+> not here.
+
 **Scope:** Features and improvements for VTT Linux application
 
 ---
