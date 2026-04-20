@@ -2,6 +2,7 @@
 
 id|priority|title|story_ids|epic_id|feature_ids|doc
 TASK-VTT056|p0|Monitor v2.0.5 in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT056.md
+TASK-VTT062|p2|Wire Settings.selected_device_index through to audio::Audio::new() so users with multiple mics can pick one from the tray — field is saved to settings.conf but currently unused; audio.rs hardcodes default_input_device()||EPIC-VTT002||TASK-VTT062.md
 TASK-VTT060|p1|Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT060.md
 TASK-VTT040|p1|cargo bundle macOS .app with metal feature, Info.plist with NSMicrophoneUsageDescription|STORY-VTT012|EPIC-VTT002|FEAT-VTT029|
 TASK-VTT041|p1|Verify transcription on 2019 Intel i9 Mac with Radeon Pro 5500M via Metal|STORY-VTT012|EPIC-VTT002|FEAT-VTT029|

@@ -169,10 +169,10 @@
       "started": "2026-04-19 22:38:46.578 gmt+1",
       "ended": null,
       "metrics": {
-        "autonomous_loops": 0,
+        "autonomous_loops": 13,
         "tasks_completed": [],
-        "commits": 21,
-        "turns": 25,
+        "commits": 58,
+        "turns": 38,
         "human_prompts": 28,
         "errors": 0,
         "compactions": 0,
