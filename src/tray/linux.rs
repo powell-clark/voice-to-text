@@ -780,7 +780,16 @@ fn show_hotkey_dialog(state: &Rc<RefCell<TrayState>>) {
         let key_pressed = key_pressed.clone();
         dialog.connect_key_press_event(move |_, event| {
             let keycode = event.hardware_keycode();
-            if keycode < 8 {
+            // X11 hardware keycodes are 8..=255. Anything outside that range
+            // won't survive the u16→u8 cast that hotkey_keycode expects, so
+            // reject early and tell the user rather than silently capturing
+            // the wrong key.
+            if !(8..=255).contains(&keycode) {
+                label.set_text(&format!(
+                    "Key {} is outside the valid X11 keycode range (8-255).\n\n\
+                     Try a different key.",
+                    keycode
+                ));
                 return glib::Propagation::Stop;
             }
             *captured.borrow_mut() = Some(keycode);
