@@ -319,14 +319,19 @@ fn rebuild_model_menu(state: &Rc<RefCell<TrayState>>) {
     let current = s.settings.read().unwrap().selected_model.clone();
     let current_base = current.replace(".en", "");
 
-    // Flat model list. Language toggle (English vs Multilingual) auto-swaps
-    // .en variants for small/medium; large-v3-turbo and large-v3 are multilingual-only.
-    let models = [
-        ("Small", "small"),
-        ("Medium", "medium"),
-        ("Large-v3-turbo", "large-v3-turbo"),
-        ("Large-v3", "large-v3"),
-    ];
+    // Derive the menu from models::MODELS instead of a hardcoded list.
+    // Each multilingual entry becomes one menu row (with an English toggle
+    // swapping .en variants at transcription time via resolve_variant).
+    // Adding a model to MODELS now automatically adds it to the tray.
+    let model_entries: Vec<(String, &str)> = crate::models::MODELS
+        .iter()
+        .filter(|m| m.multilingual)
+        .map(|m| (display_name_for_model(m.name), m.name))
+        .collect();
+    let models: Vec<(&str, &str)> = model_entries
+        .iter()
+        .map(|(label, key)| (label.as_str(), *key))
+        .collect();
     let mut group: Option<gtk::RadioMenuItem> = None;
 
     // Normalise current selection down to a menu key, handling legacy values
@@ -878,6 +883,21 @@ fn format_log_label(filename: &str, today: &str, yesterday: &str) -> String {
     }
 }
 
+/// Turn a models::MODELS name like "small" or "large-v3-turbo" into the
+/// title-cased display label shown in the tray ("Small" / "Large-v3-turbo").
+///
+/// Rules:
+/// - Capitalize the first character only.
+/// - Leave the rest intact (preserves version numbers like "v3" and
+///   hyphenated suffixes like "-turbo").
+fn display_name_for_model(name: &str) -> String {
+    let mut chars = name.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -968,5 +988,32 @@ mod tests {
         assert!(char_counter_markup(200).0.contains("orange"));
         assert!(char_counter_markup(229).0.contains("orange"));
         assert!(char_counter_markup(230).0.contains("red"));
+    }
+
+    #[test]
+    fn display_name_for_model_capitalises_first_char_only() {
+        assert_eq!(display_name_for_model("small"), "Small");
+        assert_eq!(display_name_for_model("medium"), "Medium");
+        assert_eq!(display_name_for_model("large-v3-turbo"), "Large-v3-turbo");
+        assert_eq!(display_name_for_model("large-v3"), "Large-v3");
+    }
+
+    #[test]
+    fn display_name_for_model_handles_empty_string() {
+        assert_eq!(display_name_for_model(""), "");
+    }
+
+    #[test]
+    fn display_name_for_model_leaves_version_suffixes_intact() {
+        // Hypothetical future models — the helper shouldn't mangle them.
+        assert_eq!(display_name_for_model("large-v4"), "Large-v4");
+        assert_eq!(display_name_for_model("distil-v3.5"), "Distil-v3.5");
+    }
+
+    #[test]
+    fn display_name_for_model_handles_unicode_first_char() {
+        // Defensive — if a model name starts with a non-ASCII letter (unlikely
+        // but possible), we use Unicode to_uppercase, not ASCII.
+        assert_eq!(display_name_for_model("étude"), "Étude");
     }
 }
