@@ -305,4 +305,70 @@ mod tests {
         assert_eq!(take, 100, "only 100 samples fit in the last slice");
         assert!(full, "buffer is at capacity after the append");
     }
+
+    #[test]
+    fn write_wav_round_trips_samples_through_hound() {
+        // Synthesize a 100-sample sine-ish signal (amplitude 0.5 at peaks).
+        let input: Vec<f32> = (0..100)
+            .map(|i| (i as f32 / 100.0 * std::f32::consts::TAU * 5.0).sin() * 0.5)
+            .collect();
+
+        let path = write_wav(&input).expect("write should succeed");
+        assert!(path.exists(), "wav file should be on disk after write");
+
+        // Read it back via hound (same crate used to write it).
+        let mut reader = hound::WavReader::open(&path).expect("readable wav");
+        let spec = reader.spec();
+        assert_eq!(spec.sample_rate, SAMPLE_RATE);
+        assert_eq!(spec.channels, 1);
+        assert_eq!(spec.bits_per_sample, 16);
+
+        let decoded: Vec<f32> = reader
+            .samples::<i16>()
+            .map(|s| s.expect("readable sample") as f32 / 32767.0)
+            .collect();
+
+        assert_eq!(decoded.len(), input.len(), "sample count preserved");
+        for (i, (&a, &b)) in input.iter().zip(decoded.iter()).enumerate() {
+            // i16 quantization loses ~1/65536 of amplitude range — 0.0001 is a
+            // comfortable upper bound that catches byte-order or scaling bugs
+            // without being sensitive to the quantization noise floor.
+            assert!(
+                (a - b).abs() < 0.0001,
+                "sample {} diverged: input={} decoded={}",
+                i,
+                a,
+                b
+            );
+        }
+
+        // Cleanup — don't leak /tmp WAVs from the test run.
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn write_wav_clamps_out_of_range_samples() {
+        // Whisper can technically produce samples outside [-1, 1] if upstream
+        // audio is normalised elsewhere. write_wav should clamp instead of
+        // wrapping/panicking during the i16 cast.
+        let input = vec![2.0_f32, -2.0, 0.5, -0.5, 1.5, -1.5];
+        let path = write_wav(&input).expect("write should succeed");
+
+        let mut reader = hound::WavReader::open(&path).expect("readable wav");
+        let decoded: Vec<i16> = reader
+            .samples::<i16>()
+            .map(|s| s.expect("readable sample"))
+            .collect();
+
+        assert_eq!(decoded.len(), input.len());
+        assert_eq!(decoded[0], 32767, "2.0 clamps to +max");
+        assert_eq!(decoded[1], -32767, "-2.0 clamps to -max");
+        assert_eq!(decoded[4], 32767, "1.5 clamps to +max");
+        assert_eq!(decoded[5], -32767, "-1.5 clamps to -max");
+        // 0.5 / -0.5 round-trip near their expected i16 values.
+        assert!((decoded[2] - 16383).abs() <= 1);
+        assert!((decoded[3] + 16383).abs() <= 1);
+
+        std::fs::remove_file(&path).ok();
+    }
 }
