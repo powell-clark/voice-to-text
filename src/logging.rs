@@ -65,16 +65,6 @@ pub fn set_enabled(enabled: bool) {
     LOGGER.lock().unwrap().enabled = enabled;
 }
 
-pub fn is_enabled() -> bool {
-    LOGGER.lock().unwrap().enabled
-}
-
-pub fn get_path() -> PathBuf {
-    let mut logger = LOGGER.lock().unwrap();
-    logger.ensure_date();
-    logger.log_path()
-}
-
 pub fn get_dir() -> PathBuf {
     LOGGER.lock().unwrap().log_dir.clone()
 }

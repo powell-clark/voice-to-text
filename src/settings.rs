@@ -113,10 +113,6 @@ impl Settings {
         fs::write(&path, out)?;
         Ok(())
     }
-
-    pub fn config_dir(&self) -> &Path {
-        &self.config_dir
-    }
 }
 
 fn strip_quotes(s: &str) -> String {

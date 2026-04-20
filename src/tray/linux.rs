@@ -17,8 +17,6 @@ pub struct Tray {
 
 struct TrayState {
     settings: Arc<RwLock<Settings>>,
-    indicator: Rc<RefCell<AppIndicator>>,
-    status_item: gtk::MenuItem,
     model_item: gtk::MenuItem,
     model_menu: gtk::Menu,
     language_item: gtk::MenuItem,
@@ -145,8 +143,6 @@ impl Tray {
         // --- Shared state ---
         let state = Rc::new(RefCell::new(TrayState {
             settings: settings.clone(),
-            indicator: indicator.clone(),
-            status_item: status_item.clone(),
             model_item: model_item.clone(),
             model_menu: model_menu.clone(),
             language_item: language_item.clone(),

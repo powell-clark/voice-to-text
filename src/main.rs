@@ -1,11 +1,3 @@
-// Several public methods and fields are kept even when not currently called —
-// e.g. Settings::config_dir, logging::is_enabled, transcribe::load_wav — because
-// they are the maintained API surface that other modules (and tests) use, or
-// will use once the Windows/macOS ports catch up (TASK-VTT044..TASK-VTT047).
-// Clippy dead_code warnings would otherwise block `-D warnings` in CI for
-// legitimately retained API, so allow them crate-wide.
-#![allow(dead_code)]
-
 mod audio;
 mod hotkey;
 mod logging;
@@ -34,10 +26,6 @@ enum WorkItem {
     Truncated {
         samples: Vec<f32>,
         archive_path: PathBuf,
-    },
-    SwitchModel {
-        model_name: String,
-        language: String,
     },
 }
 
@@ -265,13 +253,7 @@ fn main() -> anyhow::Result<()> {
                             })
                             .ok();
                     }
-                    Some(RecordingResult::TooShort(_)) => {
-                        hk_ui_tx
-                            .send(tray::UiMessage::SetStatus("Ready".into()))
-                            .ok();
-                        hk_ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
-                    }
-                    Some(RecordingResult::TooQuiet(_)) => {
+                    Some(RecordingResult::TooShort) | Some(RecordingResult::TooQuiet) => {
                         hk_ui_tx
                             .send(tray::UiMessage::SetStatus("Ready".into()))
                             .ok();
@@ -383,18 +365,6 @@ fn transcription_worker(
                 samples,
                 archive_path,
             } => (samples, archive_path, true),
-            WorkItem::SwitchModel {
-                model_name,
-                language,
-            } => {
-                drop(engine.take()); // free the old engine (and its GPU memory) before loading the new one
-                engine = load_engine(&model_name, &language, &ui_tx);
-                if engine.is_some() {
-                    ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
-                    ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
-                }
-                continue;
-            }
         };
 
         // Detect tray-driven settings changes: if the selected model or language
