@@ -33,7 +33,9 @@ pub struct Settings {
     /// silently truncated by whisper-rs.
     pub initial_prompt: String,
     /// cpal device index. -1 means "use default". Read from settings.conf
-    /// but not yet consumed by `audio::Audio::new()` — see TASK-VTT050 track.
+    /// and saved back, but not yet consumed by `audio::Audio::new()` which
+    /// currently always uses the default input device. Wiring is tracked
+    /// as TASK-VTT062 (multi-mic support via tray menu).
     pub selected_device_index: i32,
     /// X11 keycode of the push-to-talk key. 0 means "use Scroll Lock".
     /// Valid range: 8..=255 (enforced by the loader — anything else falls
