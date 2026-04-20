@@ -607,6 +607,7 @@ fn prune_recordings(dir: &std::path::Path, max: usize) {
 
 #[cfg(unix)]
 fn singleton_lock(config_dir: &std::path::Path) -> anyhow::Result<std::fs::File> {
+    use std::io::Write;
     use std::os::unix::io::AsRawFd;
     std::fs::create_dir_all(config_dir)?;
     let lock_path = config_dir.join("vtt-linux.lock");
@@ -619,8 +620,33 @@ fn singleton_lock(config_dir: &std::path::Path) -> anyhow::Result<std::fs::File>
     // flock(LOCK_EX | LOCK_NB)
     let ret = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
     if ret != 0 {
-        anyhow::bail!("Another instance of vtt-linux is already running");
+        // Read the existing PID from the lock file (written by the holder below)
+        // so the user knows which process to kill or check.
+        let existing_pid = std::fs::read_to_string(&lock_path)
+            .ok()
+            .and_then(|s| s.trim().parse::<u32>().ok());
+        match existing_pid {
+            Some(pid) => anyhow::bail!(
+                "Another instance of vtt-linux is already running (PID {}). \
+                 Stop it with `kill {}` or `systemctl --user stop vtt.service`.",
+                pid,
+                pid
+            ),
+            None => anyhow::bail!(
+                "Another instance of vtt-linux is already running. \
+                 Find it with `pgrep -x vtt-linux` and stop it."
+            ),
+        }
     }
+
+    // We hold the lock — write our PID into the lock file so a future failed
+    // lock attempt can report which process to kill. Truncate first so the
+    // file doesn't retain the previous holder's longer PID if this one is
+    // shorter (e.g. 12345 replacing 456789).
+    let mut file_mut = &file;
+    file_mut.set_len(0).ok();
+    writeln!(&mut file_mut, "{}", std::process::id()).ok();
+
     Ok(file)
 }
 
