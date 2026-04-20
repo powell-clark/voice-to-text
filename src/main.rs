@@ -231,12 +231,21 @@ fn main() -> anyhow::Result<()> {
                         hk_ui_tx
                             .send(tray::UiMessage::SetIcon("processing".into()))
                             .ok();
-                        hk_work_tx
-                            .send(WorkItem::Audio {
-                                samples,
-                                archive_path: path,
-                            })
-                            .ok();
+                        if let Err(e) = hk_work_tx.send(WorkItem::Audio {
+                            samples,
+                            archive_path: path,
+                        }) {
+                            vtt_log!(
+                                "Transcription worker channel closed — worker thread died: {}",
+                                e
+                            );
+                            hk_ui_tx
+                                .send(tray::UiMessage::SetStatus(
+                                    "Worker died — restart required".into(),
+                                ))
+                                .ok();
+                            hk_ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
+                        }
                     }
                     Some(RecordingResult::MaxLength { samples, path }) => {
                         vtt_log!("Max recording length reached");
@@ -246,12 +255,21 @@ fn main() -> anyhow::Result<()> {
                         hk_ui_tx
                             .send(tray::UiMessage::SetIcon("processing".into()))
                             .ok();
-                        hk_work_tx
-                            .send(WorkItem::Truncated {
-                                samples,
-                                archive_path: path,
-                            })
-                            .ok();
+                        if let Err(e) = hk_work_tx.send(WorkItem::Truncated {
+                            samples,
+                            archive_path: path,
+                        }) {
+                            vtt_log!(
+                                "Transcription worker channel closed — worker thread died: {}",
+                                e
+                            );
+                            hk_ui_tx
+                                .send(tray::UiMessage::SetStatus(
+                                    "Worker died — restart required".into(),
+                                ))
+                                .ok();
+                            hk_ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
+                        }
                     }
                     Some(RecordingResult::TooShort) | Some(RecordingResult::TooQuiet) => {
                         hk_ui_tx
