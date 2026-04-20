@@ -135,6 +135,16 @@ if [ ! -x target/release/vtt-linux ]; then
 fi
 cp target/release/vtt-linux vtt-linux.prebuilt
 echo "  OK — vtt-linux.prebuilt at $(du -h vtt-linux.prebuilt | cut -f1)"
+
+# Commit the prebuilt if it changed so git reflects what ships on PPA.
+# Without this, every release leaves the working tree dirty and the tracked
+# binary drifts behind the published one by a release. Use --allow-empty in
+# case the binary is byte-identical (unlikely but possible with SOURCE_DATE_EPOCH).
+if ! git diff --quiet vtt-linux.prebuilt; then
+    git add vtt-linux.prebuilt
+    git commit -m "build: refresh vtt-linux.prebuilt for v${VERSION} release" 2>&1 | tail -2
+    git push origin main 2>&1 | tail -2
+fi
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
