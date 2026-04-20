@@ -1,26 +1,12 @@
 {
   "sessions": {
-    "vtt-main-2ba05079": {
-      "assignment_message_id": null,
-      "conscious_mode": false,
-      "current_activity": null,
-      "current_task": null,
-      "identity": null,
-      "last_activity": "2026-04-19T23:22:25.398Z",
-      "model": null,
-      "pane_id": "10",
-      "role": null,
-      "session_type": "cli",
-      "specialty": null,
-      "started": "2026-04-19T23:22:25.398Z"
-    },
     "vtt-main-3d07050c": {
       "assignment_message_id": null,
       "conscious_mode": false,
       "current_activity": null,
       "current_task": null,
       "identity": null,
-      "last_activity": "2026-04-19T23:38:08.657Z",
+      "last_activity": "2026-04-20T00:07:54.600Z",
       "model": null,
       "pane_id": "10",
       "role": null,

@@ -39,3 +39,4 @@ TASK-VTT055|Release v2.0.5 — £/é typing fix + Logs submenu fix — via relea
 TASK-VTT057|Cargo unit tests for pure logic — 20 tests added across settings, main::compose_final_text, tray::format_log_label|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT057.md
 TASK-VTT058|GitHub Actions CI — fmt + clippy + test + build on every push and PR, ubuntu-24.04|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT058.md
 TASK-VTT059|Local git pre-push hook matching CI — installed via scripts/git-hooks/install.sh|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT059.md
+TASK-VTT061|Local build-archives/ disk cleanup — reduced from 5.7 GB to 24 MB, kept only 2.0.4 + 2.0.5 artefacts|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|
