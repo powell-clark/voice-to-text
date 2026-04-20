@@ -149,9 +149,13 @@ fn main() -> anyhow::Result<()> {
     // Transcription work channel
     let (work_tx, work_rx) = mpsc::channel::<WorkItem>();
 
-    // Create tray (returns UI message sender for cross-thread updates)
-    let (tray, ui_tx) = tray::Tray::new(settings.clone(), &config_dir)?;
-    let _ = tray; // keep alive
+    // Create tray (returns UI message sender for cross-thread updates).
+    // The returned Tray wraps the AppIndicator Rc but we immediately discard
+    // it — the indicator survives because Tray::new also installed a
+    // glib::timeout_add_local closure that holds its own clone of the Rc.
+    // Keeping this discard explicit so future readers don't `?` or `_` the
+    // struct away and wonder why the tray disappears.
+    let (_tray, ui_tx) = tray::Tray::new(settings.clone(), &config_dir)?;
 
     // Worker thread — transcribes audio and types result
     let worker_settings = settings.clone();
