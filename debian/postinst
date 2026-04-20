@@ -25,7 +25,15 @@ case "$1" in
             fi
         fi
 
-        # Enable the user systemd service for any logged-in graphical users
+        # Enable the user systemd service for any logged-in graphical users.
+        # On fresh install: daemon-reload + enable + start.
+        # On upgrade ($2 is the previous version): also try-restart so the
+        # new binary actually takes effect — plain 'start' is a no-op if
+        # the service is already running, which would leave users on the
+        # old binary in memory until they reboot.
+        IS_UPGRADE=""
+        [ -n "$2" ] && IS_UPGRADE="yes"
+
         if command -v loginctl >/dev/null 2>&1; then
             for session in $(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}'); do
                 session_type=$(loginctl show-session "$session" -p Type --value 2>/dev/null)
@@ -33,9 +41,18 @@ case "$1" in
                     user=$(loginctl show-session "$session" -p Name --value 2>/dev/null)
                     uid=$(id -u "$user" 2>/dev/null)
                     if [ -n "$user" ] && [ -n "$uid" ] && [ "$uid" -ge 1000 ]; then
-                        runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid systemctl --user daemon-reload" 2>/dev/null || true
-                        runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid systemctl --user enable vtt.service" 2>/dev/null || true
-                        runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid systemctl --user start vtt.service" 2>/dev/null || true
+                        XDG="XDG_RUNTIME_DIR=/run/user/$uid"
+                        runuser -l "$user" -c "$XDG systemctl --user daemon-reload" 2>/dev/null || true
+                        runuser -l "$user" -c "$XDG systemctl --user enable vtt.service" 2>/dev/null || true
+                        if [ -n "$IS_UPGRADE" ]; then
+                            # try-restart: restarts if running, no-op if stopped
+                            runuser -l "$user" -c "$XDG systemctl --user try-restart vtt.service" 2>/dev/null || true
+                            # Also start in case the service was never running
+                            # (e.g. user disabled auto-start on previous install)
+                            runuser -l "$user" -c "$XDG systemctl --user start vtt.service" 2>/dev/null || true
+                        else
+                            runuser -l "$user" -c "$XDG systemctl --user start vtt.service" 2>/dev/null || true
+                        fi
                     fi
                 fi
             done
