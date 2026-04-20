@@ -72,7 +72,10 @@ fn main() -> anyhow::Result<()> {
     // Initialize logging
     logging::init(&config_dir);
     vtt_log!("===========================================");
-    vtt_log!("Voice to Text - Starting (Rust 2.0)");
+    vtt_log!(
+        "Voice to Text {} — Starting (Rust)",
+        env!("CARGO_PKG_VERSION")
+    );
     vtt_log!("===========================================");
 
     // Silence whisper.cpp and ggml internal C-level stdout/stderr chatter.
