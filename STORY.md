@@ -1,5 +1,10 @@
 # Voice to Text Project Stories
 
+> **⚠️ SUPERSEDED — do not edit.** This file's content is historical. The
+> canonical story list is `CONSCIOUSNESS/stories/STORY-BACKLOG-INDEX.md`
+> with detail docs under `CONSCIOUSNESS/stories/backlog-story-item-details/`.
+> New user stories go there, not here.
+
 User stories for VTT - Linux voice-to-text application
 
 ## In Progress
