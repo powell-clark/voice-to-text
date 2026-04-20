@@ -722,14 +722,31 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
 }
 
 fn update_char_counter(buffer: &gtk::TextBuffer, label: &gtk::Label) {
-    let count = buffer.char_count();
+    let count = buffer.char_count() as usize;
+    let (markup_or_text, is_markup) = char_counter_markup(count);
+    if is_markup {
+        label.set_markup(&markup_or_text);
+    } else {
+        label.set_text(&markup_or_text);
+    }
+}
+
+/// Pure: format the character-count label for the initial-prompt dialog.
+/// Returns `(content, is_markup)` — when `is_markup` is true the caller
+/// should use `set_markup` (Pango coloring), otherwise `set_text` plain.
+///
+/// Thresholds:
+/// - < 200: plain text (no warning)
+/// - 200..=229: orange (approaching limit)
+/// - >= 230: red (almost at limit; limit is 240)
+fn char_counter_markup(count: usize) -> (String, bool) {
     let text = format!("{} / 240 characters", count);
     if count >= 230 {
-        label.set_markup(&format!("<span color='red'>{}</span>", text));
+        (format!("<span color='red'>{}</span>", text), true)
     } else if count >= 200 {
-        label.set_markup(&format!("<span color='orange'>{}</span>", text));
+        (format!("<span color='orange'>{}</span>", text), true)
     } else {
-        label.set_text(&text);
+        (text, false)
     }
 }
 
@@ -896,5 +913,49 @@ mod tests {
             s, "2026",
             "short dates bypass the friendly label and fall through"
         );
+    }
+
+    #[test]
+    fn char_counter_markup_plain_below_200() {
+        let (content, is_markup) = char_counter_markup(0);
+        assert_eq!(content, "0 / 240 characters");
+        assert!(!is_markup);
+
+        let (content, is_markup) = char_counter_markup(199);
+        assert_eq!(content, "199 / 240 characters");
+        assert!(!is_markup);
+    }
+
+    #[test]
+    fn char_counter_markup_orange_200_to_229() {
+        let (content, is_markup) = char_counter_markup(200);
+        assert!(is_markup);
+        assert!(content.contains("color='orange'"));
+        assert!(content.contains("200 / 240 characters"));
+
+        let (content, is_markup) = char_counter_markup(229);
+        assert!(is_markup);
+        assert!(content.contains("color='orange'"));
+    }
+
+    #[test]
+    fn char_counter_markup_red_at_230_plus() {
+        let (content, is_markup) = char_counter_markup(230);
+        assert!(is_markup);
+        assert!(content.contains("color='red'"));
+
+        let (content, is_markup) = char_counter_markup(240);
+        assert!(is_markup);
+        assert!(content.contains("color='red'"));
+        assert!(content.contains("240 / 240 characters"));
+    }
+
+    #[test]
+    fn char_counter_markup_boundary_exact() {
+        // Exact boundary values — 199 is plain, 200 is orange, 229 is orange, 230 is red.
+        assert!(!char_counter_markup(199).1);
+        assert!(char_counter_markup(200).0.contains("orange"));
+        assert!(char_counter_markup(229).0.contains("orange"));
+        assert!(char_counter_markup(230).0.contains("red"));
     }
 }
