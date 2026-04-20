@@ -4,15 +4,36 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+/// Whisper's required sample rate. Hardcoded because every supported
+/// Whisper model is trained at 16 kHz; resampling would cost accuracy.
 const SAMPLE_RATE: u32 = 16000;
-const MAX_RECORDING_SECONDS: usize = 300; // 5 minutes
+/// Hard cap on recording length. Past this, the buffer stops growing and
+/// the user sees a "[Truncated]" prefix on the transcription. 5 minutes
+/// fits ~4.8M f32 samples = ~19 MB — acceptable RAM for a dictation tool.
+const MAX_RECORDING_SECONDS: usize = 300;
+/// Minimum recording duration. Anything shorter returns `TooShort` and
+/// is discarded silently (avoids transcribing 0.1s button-smash presses).
 const MIN_DURATION_SECS: f32 = 0.5;
+/// Minimum peak amplitude (in i16 range, peak = 32767). Below this we
+/// assume silence/background and return `TooQuiet` rather than wasting
+/// GPU cycles on Whisper detecting hallucinated speech.
 const MIN_AMPLITUDE: i16 = 500;
 
+/// Result of one push-to-talk recording cycle. The worker pattern-matches
+/// on this to decide between transcribing, adding a "[Truncated]" prefix,
+/// or silently resetting the tray to Ready.
 pub enum RecordingResult {
+    /// Normal recording completed within the duration + amplitude thresholds.
+    /// Samples and archived WAV path both present.
     Audio { samples: Vec<f32>, path: PathBuf },
+    /// Recording was below MIN_DURATION_SECS. Discard.
     TooShort,
+    /// Recording was above MIN_DURATION but peak amplitude below MIN_AMPLITUDE.
+    /// Probably silence or a hot mic with no speech. Discard.
     TooQuiet,
+    /// Recording hit MAX_RECORDING_SECONDS while the user was still holding
+    /// the hotkey. Samples are up to the cap; transcription is prefixed
+    /// with "[Truncated]" so the user knows to rehearse shorter.
     MaxLength { samples: Vec<f32>, path: PathBuf },
 }
 
@@ -33,6 +54,17 @@ unsafe impl Send for Audio {}
 unsafe impl Sync for Audio {}
 
 impl Audio {
+    /// Open the default input device and start a cpal stream that fills the
+    /// internal buffer when `start_recording()` has been called.
+    ///
+    /// Fails with a helpful error if no default input device exists:
+    /// distinguishes "no devices at all" (hardware/driver missing) from
+    /// "devices exist but no default set" (PulseAudio misconfiguration,
+    /// with `pactl set-default-source` hint).
+    ///
+    /// The stream is driven by cpal on its own high-priority audio thread.
+    /// Calling code only interacts with `start_recording`, `stop_recording`,
+    /// and `set_buffer_full_callback`.
     pub fn new() -> anyhow::Result<Self> {
         let host = cpal::default_host();
         let device = match host.default_input_device() {
@@ -133,10 +165,22 @@ impl Audio {
         })
     }
 
+    /// Register a callback that fires when the recording buffer first reaches
+    /// MAX_RECORDING_SECONDS during an active recording. The callback is used
+    /// to show a desktop notification ("release the key — recording limit
+    /// reached") so the user knows further holding does nothing.
+    ///
+    /// Only fires once per recording — the `buffer_full` atomic is set the
+    /// first time the boundary is crossed and not reset until `start_recording`.
     pub fn set_buffer_full_callback<F: Fn() + Send + 'static>(&self, f: F) {
         *self.buffer_full_callback.lock().unwrap() = Some(Box::new(f));
     }
 
+    /// Begin a new recording. Clears the buffer and flips the recording flag
+    /// so the cpal callback starts appending samples. Called on hotkey press.
+    ///
+    /// Safe to call while a previous recording is still being transcribed
+    /// (transcription works from a cloned Vec<f32>, not the live buffer).
     pub fn start_recording(&self) {
         let mut buf = self.buffer.lock().unwrap();
         buf.clear();
@@ -145,6 +189,19 @@ impl Audio {
         crate::vtt_log!("Recording started");
     }
 
+    /// End the current recording and return the captured samples.
+    ///
+    /// Returns `None` if no recording was in progress. Otherwise returns
+    /// a `RecordingResult` variant:
+    /// - `Audio` for a normal recording that passed the duration + amplitude thresholds
+    /// - `TooShort` if < MIN_DURATION_SECS (discarded, tray resets)
+    /// - `TooQuiet` if peak amplitude < MIN_AMPLITUDE (discarded)
+    /// - `MaxLength` if the buffer hit MAX_RECORDING_SECONDS mid-recording
+    ///   (transcribes with a "[Truncated]" prefix)
+    ///
+    /// Also writes the samples to a /tmp WAV for the debug recordings
+    /// archive. If WAV write fails, transcription proceeds from the in-memory
+    /// samples — disk is not on the critical path.
     pub fn stop_recording(&self) -> Option<RecordingResult> {
         self.recording.store(false, Ordering::SeqCst);
         let was_full = self.buffer_full.load(Ordering::SeqCst);
