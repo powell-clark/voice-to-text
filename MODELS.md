@@ -1,5 +1,27 @@
 # Voice to Text - Model Management Guide
 
+> **⚠️ PARTIALLY STALE — UPDATED: 2025-10-13**
+>
+> This document describes the v1.x model architecture with a dual CT2 +
+> whisper.cpp backend. v2.0 (April 2026) removed the CT2 Python backend
+> entirely and consolidated on in-process whisper-rs (GGML models) for
+> all platforms. ADR-0003 captures the rewrite rationale.
+>
+> **Authoritative sources for current model behaviour:**
+> - `src/models.rs` — the catalogue of supported GGML models with URLs
+>   and sizes (source of truth as of v2.0+)
+> - `src/models.rs::resolve_variant` — how English/multilingual toggles
+>   pick the right variant
+> - `debian/postinst` — which model is pre-downloaded on install
+> - `CHANGELOG.md` — what changed per release
+>
+> Specific staleness below:
+> - "CT2 small" menu entries no longer exist; model menu derives from
+>   `models::MODELS`
+> - `transcribe.c` (old C backend) deleted in v2.0
+> - "small.en ~244MB" is wrong; actual size is 466MB (see models.rs)
+> - Python-based download logic replaced by in-process `models::ensure`
+
 **Purpose**: Complete explanation of model selection, download, and caching behavior across platforms
 
 ---
