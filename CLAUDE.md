@@ -50,9 +50,15 @@ This project uses the consciousness package for autonomous session coordination,
 - ❌ powell-clark (with hyphen)
 
 ## Build Commands
-- **Linux build**: `make -f Makefile.linux` (use Makefile.linux, NOT default Makefile)
-- **macOS build**: `make` (uses default Makefile)
-- **Clean**: `make -f Makefile.linux clean` (Linux) or `make clean` (macOS)
+- **Linux build**: `cargo build --release` (produces `target/release/vtt-linux`)
+- **Linux .deb**: `bash scripts/release-local.sh [--install]`
+- **Linux PPA release**: `bash scripts/release-ppa.sh` (pbuilder hard-gate, auto-dput)
+- **macOS build**: `make` (uses default Makefile — legacy Objective-C bundle)
+- **Clean**: `cargo clean` (Linux) or `make clean` (macOS)
+
+Makefile.linux was retired in v2.0 (TASK-VTT032) — the C sources it
+built were replaced by the Rust crate. Any reference to it in older
+docs is stale; see `CHANGELOG.md` for the v2.0 rewrite summary.
 
 ## Git Configuration
 - Author: Emmanuel Powell-Clark <emmanuel@powellclark.com>
