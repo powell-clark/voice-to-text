@@ -60,14 +60,14 @@ Text appears instantly in any application - Slack, Terminal, VS Code, browsers, 
 - **Menu/tray integration** - Configure without opening an app
 
 ### 🚀 Performance
-- **Multiple models** - Balance speed vs accuracy (tiny to large-v3)
-- **GPU acceleration** - 5-10x faster with NVIDIA CUDA
-- **Two backends** - whisper.cpp (lightweight) or faster-whisper (fast)
-- **Optimized English mode** - Uses .en models for better speed
+- **Multiple models** - Balance speed vs accuracy (small to large-v3)
+- **Vulkan GPU acceleration** - Works on NVIDIA, AMD, and Intel GPUs — no CUDA toolkit required
+- **In-process inference** - Model loads once at startup, sub-second transcription per press
+- **Optimized English mode** - Uses .en model variants where available for extra speed
 
 ### 🌍 Languages
-- **English-only mode** - Fastest, uses optimized models
-- **99+ languages** - Auto-detects Chinese, Spanish, French, German, Japanese, Arabic, and more
+- **English-only mode** - Fastest, uses optimized .en variants for small/medium
+- **99+ languages** - Auto-detects Chinese, Spanish, French, German, Japanese, Arabic, and more (via multilingual models)
 
 ---
 
@@ -77,23 +77,27 @@ Click the menu/tray icon to adjust:
 
 | Setting | Options | Default |
 |---------|---------|---------|
-| **Model** | tiny / base / **small** / medium / large-v3 | small |
-| **Backend** | whisper.cpp (W) / faster-whisper (CT2) | CT2 |
+| **Model** | **small** / medium / large-v3-turbo / large-v3 | small |
 | **Language** | English-only / Multilingual | English-only |
-| **Microphone** | System input devices | Default |
 | **Hotkey (Linux)** | Customize recording key | Scroll Lock |
+| **Initial prompt** | Free text (≤240 chars) — primes Whisper for custom vocab | (empty) |
+| **Logging** | On / Off (daily log files under `~/.local/share/voice-to-text/`) | On |
 
 ### Model Comparison
 
 | Model | Size | Speed | Use Case |
 |-------|------|-------|----------|
-| **tiny** | 39 MB | ⚡⚡⚡⚡⚡ | Testing |
-| **base** | 74 MB | ⚡⚡⚡⚡ | Simple dictation |
-| **small** | 244 MB | ⚡⚡⚡ | **Recommended - best balance** |
-| **medium** | 769 MB | ⚡⚡ | Higher accuracy |
-| **large-v3** | 1.5 GB | ⚡ | Maximum accuracy |
+| **small.en / small** | 466 MB | ⚡⚡⚡⚡ | **Recommended — best balance, shipped pre-downloaded** |
+| **medium.en / medium** | 1.4 GB | ⚡⚡⚡ | Higher accuracy, noticeably slower |
+| **large-v3-turbo** | 1.5 GB | ⚡⚡⚡⚡ | Large-model accuracy at small-model speed (multilingual only) |
+| **large-v3** | 2.9 GB | ⚡⚡ | Maximum accuracy (multilingual only) |
 
-**Recommendation:** Start with **CT2 small** in **English-only mode**. Add GPU acceleration if you have NVIDIA hardware.
+Models download on first selection from ggerganov/whisper.cpp. `small.en`
+is pre-downloaded by `postinst` so first-run works offline.
+
+**Recommendation:** Start with **small** in **English-only mode**. Most GPUs
+on Linux (Intel integrated, AMD, NVIDIA) automatically use Vulkan acceleration
+without any driver configuration.
 
 ---
 
@@ -101,21 +105,24 @@ Click the menu/tray icon to adjust:
 
 ### GPU Acceleration (Linux)
 
-For 5-10x faster transcription with NVIDIA GPUs:
+VTT v2.0+ uses Vulkan, which works on any GPU with a modern driver —
+no CUDA toolkit required.
 
 ```bash
-# Install CUDA 12.6
-sudo apt install cuda-toolkit-12-6 libcudnn9-cuda-12
+# Verify Vulkan is working:
+vulkaninfo --summary | head -20
 
-# Add to ~/.bashrc
-export PATH=/usr/local/cuda-12.6/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib64:$LD_LIBRARY_PATH
+# If missing, install driver + runtime:
+#   NVIDIA: sudo apt install libvulkan1 mesa-vulkan-drivers nvidia-driver-550
+#   AMD:    sudo apt install libvulkan1 mesa-vulkan-drivers
+#   Intel:  sudo apt install libvulkan1 mesa-vulkan-drivers
 
-# Restart service
+# Restart VTT to pick up the new driver:
 systemctl --user restart vtt
 ```
 
-Verify: `python3.12 -c "import ctranslate2; print(ctranslate2.get_cuda_device_count())"`
+First transcription after model switch takes a few seconds as the model
+loads into VRAM; subsequent transcriptions are sub-second.
 
 ### Service Management (Linux)
 
@@ -125,9 +132,11 @@ systemctl --user start vtt
 systemctl --user stop vtt
 systemctl --user restart vtt
 
-# View logs
+# View logs (daily rotated files, kept 7 days)
 journalctl --user -u vtt -f
-tail -f ~/.local/share/voice-to-text/vtt.log
+tail -f ~/.local/share/voice-to-text/vtt-$(date +%Y-%m-%d).log
+
+# Open today's log from the tray: right-click icon → Logs → Today
 
 # Disable auto-start
 systemctl --user disable vtt
@@ -160,25 +169,26 @@ open VTT.app
 
 ### Linux
 
-**Requirements:** Ubuntu 24.04+, GCC 11+, Python 3.12+
+**Requirements:** Ubuntu 24.04+ (jammy 22.04 also supported), Rust stable (1.75+ via rustup).
 
 ```bash
 git clone https://github.com/powell-clark/voice-to-text.git
 cd voice-to-text
 
-# Install dependencies
-sudo apt install build-essential pkg-config portaudio19-dev \
-  libx11-dev libxtst-dev libxext-dev libgtk-3-dev \
-  libayatana-appindicator3-dev libnotify-dev \
-  python3.12 python3-pip
+# Install system build deps (matches debian/control)
+sudo apt install build-essential pkg-config cmake glslc \
+  libgtk-3-dev libayatana-appindicator3-dev \
+  libasound2-dev libvulkan-dev libxtst-dev libnotify-bin
 
-# Install Python backend
-python3.12 -m pip install --break-system-packages faster-whisper ctranslate2
+# Install rustup if you don't have Rust (Ubuntu's cargo 1.75 can't build our dep tree):
+#   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Build
-make -f Makefile.linux
-./vtt-linux
+cargo build --release
+./target/release/vtt-linux
 ```
+
+To build a .deb locally for a friend: `bash scripts/release-local.sh --install`.
 
 ---
 
@@ -272,28 +282,41 @@ sudo apt install voice-to-text=2.0.5  # pin a specific version if needed
 
 ## Architecture
 
+Since v2.0 (April 2026), the whole application is a single Rust crate.
+The older C + Python + ObjC hybrid was removed in favour of in-process
+whisper-rs inference. See `CONSCIOUSNESS/adr/0003-whisper-rs-in-process-model.md`
+for the rewrite rationale.
+
 ```
 src/
-├── common/              # Cross-platform shared code
-│   ├── logging.c/h     # Debug logging
-│   ├── queue.c/h       # Audio buffer management
-│   ├── settings.c/h    # Configuration handling
-│   └── transcribe.py   # Python transcription backend
-├── macos/              # macOS implementation
-│   └── VTTDaemon.m     # Menu bar app + daemon
-└── linux/              # Linux implementation
-    ├── audio.c         # PortAudio recording
-    ├── keyboard.c      # X11 global hotkey hook
-    ├── typing.c        # XTest text injection
-    └── gui.c           # GTK3 system tray
+├── main.rs             # Daemon entry — arg parsing, signal handling,
+│                         hotkey wiring, transcription worker loop
+├── audio.rs            # cpal 16 kHz capture + bounded-buffer accumulation
+├── hotkey/             # Global push-to-talk key
+│   ├── mod.rs          # KeyEvent / HotkeyCmd types
+│   ├── linux.rs        # X11 XGrabKey + XTestFakeKeyEvent
+│   └── portable.rs     # rdev-backed macOS/Windows variant
+├── logging.rs          # Daily-rotated log files under XDG data dir
+├── models.rs           # GGML model catalogue + HuggingFace download
+├── settings.rs         # settings.conf parser / writer
+├── transcribe.rs       # Thin bridge to whisper.rs
+├── tray/               # System tray icon + menu
+│   ├── mod.rs          # UiMessage types shared across platforms
+│   ├── linux.rs        # libappindicator + GTK menu
+│   └── portable.rs     # tray-icon + muda (macOS/Windows stubs)
+├── typing.rs           # enigo Key::Unicode text injection
+└── whisper.rs          # WhisperEngine wrapper around whisper-rs
 ```
 
-**Tech Stack:**
-- **Audio:** PortAudio (cross-platform recording)
-- **Transcription:** whisper.cpp (C++) or faster-whisper (Python)
-- **Models:** OpenAI Whisper (tiny/base/small/medium/large-v3)
-- **UI:** macOS Cocoa / Linux GTK3
-- **Input:** X11 XTest (Linux) / Accessibility API (macOS)
+**Tech stack:**
+- **Audio**: cpal (cross-platform)
+- **Transcription**: whisper-rs 0.16 with Vulkan (Linux/Windows) or
+  Metal (macOS) GPU features
+- **Models**: GGML-format Whisper from ggerganov/whisper.cpp
+- **Tray**: libappindicator + gtk-rs (Linux) / tray-icon + muda
+  (macOS/Windows)
+- **Input injection**: enigo with X11 backend on Linux, native on mac/Win
+- **Hotkey capture**: X11 XGrabKey (Linux) / rdev (macOS/Windows)
 
 ---
 
@@ -360,10 +383,11 @@ Bypass once with `git push --no-verify` only in genuine emergencies.
 ## Credits
 
 Built with:
-- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) by Georgi Gerganov
-- [faster-whisper](https://github.com/guillaumekln/faster-whisper) by Guillaume Klein
-- [CTranslate2](https://github.com/OpenNMT/CTranslate2) by OpenNMT
-- [OpenAI Whisper](https://github.com/openai/whisper) models
+- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) by Georgi Gerganov — the GGML inference engine we call via whisper-rs
+- [whisper-rs](https://github.com/tazz4843/whisper-rs) — Rust bindings for whisper.cpp
+- [cpal](https://github.com/RustAudio/cpal) — cross-platform audio I/O
+- [enigo](https://github.com/enigo-rs/enigo) — cross-platform text injection
+- [OpenAI Whisper](https://github.com/openai/whisper) — the underlying speech model
 
 ---
 
