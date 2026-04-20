@@ -10,6 +10,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Cancel older runs on the same ref when a newer one starts. Saves CI
+# minutes when pushing quickly in succession (common during autonomous
+# or long sessions). The latest push's CI is authoritative anyway.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
