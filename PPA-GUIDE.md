@@ -115,7 +115,7 @@ If you get signing errors, ensure your GPG key email matches debian/changelog.
 
 ```bash
 # Upload to your PPA (replace YOURUSERNAME)
-dput ppa:powell-clark/voice-to-text ../voice-to-text_1.0.1-1_source.changes
+dput ppa:powellclark/voice-to-text ../voice-to-text_1.0.1-1_source.changes
 ```
 
 First time setup for dput:
@@ -176,7 +176,7 @@ git push
 debuild -S -sa
 
 # Upload to PPA
-dput ppa:powell-clark/voice-to-text ../voice-to-text_1.0.2-1_source.changes
+dput ppa:powellclark/voice-to-text ../voice-to-text_1.0.2-1_source.changes
 ```
 
 ## Supporting Multiple Ubuntu Releases
@@ -192,13 +192,13 @@ To support multiple Ubuntu releases (e.g., noble, jammy, focal):
 dch -v 1.0.1-1~jammy1
 # Change the distribution line in debian/changelog from "noble" to "jammy"
 debuild -S -sa
-dput ppa:powell-clark/voice-to-text ../voice-to-text_1.0.1-1~jammy1_source.changes
+dput ppa:powellclark/voice-to-text ../voice-to-text_1.0.1-1~jammy1_source.changes
 
 # For focal (20.04)
 dch -v 1.0.1-1~focal1
 # Change distribution to "focal"
 debuild -S -sa
-dput ppa:powell-clark/voice-to-text ../voice-to-text_1.0.1-1~focal1_source.changes
+dput ppa:powellclark/voice-to-text ../voice-to-text_1.0.1-1~focal1_source.changes
 ```
 
 ### Option 2: PPA Copy Packages
@@ -210,7 +210,7 @@ Use Launchpad's "Copy packages" feature to copy from noble to other releases.
 Once published, users can install with:
 
 ```bash
-sudo add-apt-repository ppa:powell-clark/voice-to-text
+sudo add-apt-repository ppa:powellclark/voice-to-text
 sudo apt update
 sudo apt install voice-to-text
 ```

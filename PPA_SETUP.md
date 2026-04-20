@@ -10,7 +10,7 @@ A **PPA** (Personal Package Archive) is a repository hosted on Launchpad that al
 
 ```bash
 # Users can install with:
-sudo add-apt-repository ppa:powell-clark/voice-to-text
+sudo add-apt-repository ppa:powellclark/voice-to-text
 sudo apt update
 sudo apt install voice-to-text
 
@@ -308,7 +308,7 @@ For older Ubuntu versions not in the PPA:
 
 ```bash
 # Use backportpackage tool
-backportpackage -d focal -u ppa:powell-clark/voice-to-text voice-to-text
+backportpackage -d focal -u ppa:powellclark/voice-to-text voice-to-text
 ```
 
 ---
