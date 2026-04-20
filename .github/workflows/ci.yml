@@ -69,3 +69,14 @@ jobs:
         run: |
           file target/release/vtt-linux | grep -q "ELF 64-bit LSB.*x86-64"
           ldd target/release/vtt-linux | grep -q "libvulkan.so.1"
+
+  audit:
+    name: cargo audit (security advisories)
+    # Runs in parallel with the main check job — doesn't need system deps or
+    # a full build, just scans Cargo.lock against the RustSec advisory DB.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
