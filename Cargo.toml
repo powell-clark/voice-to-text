@@ -48,7 +48,6 @@ x11 = { version = "2.21", features = ["xlib"] }
 libappindicator = "0.9"
 gtk = "0.18"
 glib = "0.18"
-gdk = "0.18"
 whisper-rs = { version = "0.16", default-features = false, features = ["vulkan"] }
 
 # ─── Windows ────────────────────────────────────────────────────
