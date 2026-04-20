@@ -518,7 +518,8 @@ fn show_about_dialog() {
          Version {}\n\
          Free, open-source voice-to-text transcription\n\
          https://github.com/powell-clark/voice-to-text\n\n\
-         Press Scroll Lock to start/stop recording",
+         Hold your hotkey (see tray menu) and speak.\n\
+         Release to transcribe.",
         env!("CARGO_PKG_VERSION")
     );
     let label = gtk::Label::new(Some(&about_text));
