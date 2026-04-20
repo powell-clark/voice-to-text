@@ -94,7 +94,14 @@ fn purge_old_logs(log_dir: &Path) {
         }
     }
 
-    // Remove legacy vtt.log files
+    remove_legacy_vtt_logs(log_dir);
+}
+
+/// Delete the pre-2.0 single-file log + its rotation siblings. Pre-2.0 used
+/// one rolling `vtt.log` / `vtt.log.1` / `vtt.log.2` / `vtt.log.3` — 2.0 moved
+/// to per-day files (vtt-YYYY-MM-DD.log). After an upgrade the legacy files
+/// hang around otherwise, confusing the Logs submenu filter.
+fn remove_legacy_vtt_logs(log_dir: &Path) {
     fs::remove_file(log_dir.join("vtt.log")).ok();
     for i in 1..=3 {
         fs::remove_file(log_dir.join(format!("vtt.log.{}", i))).ok();
@@ -141,5 +148,48 @@ mod tests {
         // marker in the middle is fine. This matches the current purge logic.
         assert!(is_daily_log_filename("vtt-anything.log"));
         assert!(is_daily_log_filename("vtt-.log"));
+    }
+
+    #[test]
+    fn remove_legacy_vtt_logs_deletes_all_rotation_siblings() {
+        use tempfile::tempdir;
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+
+        // Create the four legacy files the pre-2.0 logger could produce.
+        fs::write(root.join("vtt.log"), b"legacy current").unwrap();
+        fs::write(root.join("vtt.log.1"), b"legacy rotated 1").unwrap();
+        fs::write(root.join("vtt.log.2"), b"legacy rotated 2").unwrap();
+        fs::write(root.join("vtt.log.3"), b"legacy rotated 3").unwrap();
+
+        // Also create a daily file and an unrelated file that must survive.
+        fs::write(root.join("vtt-2026-04-20.log"), b"daily").unwrap();
+        fs::write(root.join("settings.conf"), b"unrelated").unwrap();
+
+        remove_legacy_vtt_logs(root);
+
+        assert!(!root.join("vtt.log").exists());
+        assert!(!root.join("vtt.log.1").exists());
+        assert!(!root.join("vtt.log.2").exists());
+        assert!(!root.join("vtt.log.3").exists());
+        assert!(
+            root.join("vtt-2026-04-20.log").exists(),
+            "daily log must survive legacy cleanup"
+        );
+        assert!(
+            root.join("settings.conf").exists(),
+            "unrelated files must survive"
+        );
+    }
+
+    #[test]
+    fn remove_legacy_vtt_logs_missing_files_is_safe_noop() {
+        use tempfile::tempdir;
+        let dir = tempdir().unwrap();
+        // Empty directory — none of the legacy files exist. Should not panic
+        // or error; the .ok() swallows ENOENT.
+        remove_legacy_vtt_logs(dir.path());
+        // Sanity: directory is still empty and exists.
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0);
     }
 }
