@@ -137,7 +137,7 @@ pub fn start_monitor<F>(initial_keycode: u8, callback: F) -> anyhow::Result<mpsc
 where
     F: Fn(KeyEvent) + Send + 'static,
 {
-    let (cmd_tx, _cmd_rx) = mpsc::channel();
+    let (cmd_tx, cmd_rx) = mpsc::channel();
     let target = Arc::new(AtomicU32::new(initial_keycode as u32));
 
     let target_clone = target.clone();
@@ -169,11 +169,10 @@ where
 
     // Handle commands in a separate thread
     let target_for_cmd = target;
-    let cmd_tx_clone = cmd_tx.clone();
     thread::Builder::new()
         .name("hotkey-cmd".into())
         .spawn(move || {
-            while let Ok(cmd) = _cmd_rx.recv() {
+            while let Ok(cmd) = cmd_rx.recv() {
                 match cmd {
                     HotkeyCmd::SetKeycode(kc) => {
                         target_for_cmd.store(kc as u32, Ordering::Relaxed);
@@ -187,5 +186,5 @@ where
             }
         })?;
 
-    Ok(cmd_tx_clone)
+    Ok(cmd_tx)
 }
