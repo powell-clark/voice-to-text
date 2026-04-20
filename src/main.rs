@@ -69,7 +69,15 @@ fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|| PathBuf::from("/tmp"))
         .join("voice-to-text");
 
-    // Initialize logging
+    // Singleton lock BEFORE logging::init so failed start attempts (another
+    // instance already running) don't pollute the daily log with banner
+    // lines. Error surfaces on stderr via anyhow's Display impl, which is
+    // what the user sees when launching from a terminal anyway.
+    // (Unix only — Windows needs CreateMutexW, see TASK-VTT044)
+    #[cfg(unix)]
+    let _lock_fd = singleton_lock(&config_dir)?;
+
+    // Initialize logging (now we know we're the only instance)
     logging::init(&config_dir);
     vtt_log!("===========================================");
     vtt_log!(
@@ -82,10 +90,6 @@ fn main() -> anyhow::Result<()> {
     // Without `log_backend` / `tracing_backend` features, these hooks discard
     // the noisy model-init and per-transcription log lines whisper.cpp emits.
     whisper_rs::install_logging_hooks();
-
-    // Singleton lock (Unix only — Windows needs CreateMutexW, see TASK-VTT044)
-    #[cfg(unix)]
-    let _lock_fd = singleton_lock(&config_dir)?;
 
     // Signal handler (Unix only — Windows needs SetConsoleCtrlHandler, see TASK-VTT045)
     let running = Arc::new(AtomicBool::new(true));
