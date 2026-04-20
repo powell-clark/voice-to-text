@@ -5,17 +5,14 @@ set -e
 
 case "$1" in
     purge)
-        # On purge, remove user data directories
-        echo "Purging voice-to-text user data..."
-
-        # Note: This runs as root, so we can't easily remove user-specific files
-        # Users should manually clean up ~/.local/share/voice-to-text and
-        # ~/.cache/huggingface/hub if desired
-
-        echo "User data locations that can be manually removed:"
-        echo "  ~/.local/share/voice-to-text (settings and logs)"
-        echo "  ~/.cache/huggingface/hub (downloaded AI models)"
-        echo "  ~/.config/systemd/user/vtt.service (if manually created)"
+        # On purge, point users at per-user data locations they can remove.
+        # We can't remove them from here (this runs as root, the data is
+        # per-user under $HOME).
+        echo "Purging voice-to-text (system files only)."
+        echo ""
+        echo "To remove your per-user data as well:"
+        echo "  rm -rf ~/.local/share/voice-to-text  # settings, logs, recordings"
+        echo "  rm -rf ~/.cache/voice-to-text/models # downloaded GGML models"
         ;;
 
     remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
