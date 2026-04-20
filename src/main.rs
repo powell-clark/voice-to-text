@@ -856,4 +856,84 @@ mod tests {
         assert_eq!(migrate_legacy_model_name("  small  "), "small");
         assert_eq!(migrate_legacy_model_name("CT2  small"), "small");
     }
+
+    #[test]
+    fn prune_recordings_deletes_oldest_when_over_cap() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        // Create 5 .wav files with ascending mtimes (old..new). Sleep between
+        // writes so the filesystem's mtime resolution (typically 1ms on ext4,
+        // but up to 1s on older filesystems) can distinguish them.
+        for i in 0..5 {
+            let path = root.join(format!("vtt_recording_{:03}.wav", i));
+            std::fs::write(&path, b"fake wav bytes").unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+
+        prune_recordings(root, 2);
+
+        // After pruning, only the 2 newest should remain.
+        let remaining: Vec<String> = std::fs::read_dir(root)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(remaining.len(), 2, "got {:?}", remaining);
+        // Files 003 and 004 are newest (written last, so most recent mtimes).
+        assert!(remaining.iter().any(|n| n.contains("003")));
+        assert!(remaining.iter().any(|n| n.contains("004")));
+    }
+
+    #[test]
+    fn prune_recordings_noop_when_at_or_under_cap() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        for i in 0..3 {
+            std::fs::write(root.join(format!("vtt_recording_{:03}.wav", i)), b"fake").unwrap();
+        }
+        prune_recordings(root, 5);
+        assert_eq!(
+            std::fs::read_dir(root).unwrap().count(),
+            3,
+            "pruning under cap should touch nothing"
+        );
+    }
+
+    #[test]
+    fn prune_recordings_ignores_non_wav_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("vtt_recording_1.wav"), b"fake").unwrap();
+        std::fs::write(root.join("vtt_recording_2.wav"), b"fake").unwrap();
+        std::fs::write(root.join("vtt_recording_3.wav"), b"fake").unwrap();
+        std::fs::write(root.join("notes.txt"), b"user notes").unwrap();
+        std::fs::write(root.join("README"), b"keep").unwrap();
+
+        prune_recordings(root, 1);
+
+        // Two .wav files deleted, non-wav files untouched.
+        let remaining: Vec<String> = std::fs::read_dir(root)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(remaining.contains(&"notes.txt".to_string()));
+        assert!(remaining.contains(&"README".to_string()));
+        let wav_count = remaining.iter().filter(|n| n.ends_with(".wav")).count();
+        assert_eq!(
+            wav_count, 1,
+            "only 1 .wav should remain, got: {:?}",
+            remaining
+        );
+    }
+
+    #[test]
+    fn prune_recordings_missing_directory_is_safe_noop() {
+        // Should not panic or error if the directory doesn't exist yet.
+        let dir = tempfile::tempdir().unwrap();
+        let nonexistent = dir.path().join("not-a-dir");
+        prune_recordings(&nonexistent, 10);
+        // No assertion needed — we just want to confirm it doesn't panic.
+    }
 }
