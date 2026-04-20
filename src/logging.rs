@@ -77,7 +77,7 @@ fn purge_old_logs(log_dir: &Path) {
         for entry in entries.flatten() {
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            if !name.starts_with("vtt-") || !name.ends_with(".log") {
+            if !is_daily_log_filename(&name) {
                 continue;
             }
             if let Ok(meta) = entry.metadata() {
@@ -101,10 +101,45 @@ fn purge_old_logs(log_dir: &Path) {
     }
 }
 
+/// Pure: does the filename look like one of our daily log files
+/// (`vtt-YYYY-MM-DD.log`)? Used by purge_old_logs to decide what to touch.
+fn is_daily_log_filename(name: &str) -> bool {
+    name.starts_with("vtt-") && name.ends_with(".log")
+}
+
 /// Convenience macro for formatted logging
 #[macro_export]
 macro_rules! vtt_log {
     ($($arg:tt)*) => {
         $crate::logging::log(&format!($($arg)*))
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_daily_log_filename_accepts_real_format() {
+        assert!(is_daily_log_filename("vtt-2026-04-20.log"));
+        assert!(is_daily_log_filename("vtt-2025-12-31.log"));
+    }
+
+    #[test]
+    fn is_daily_log_filename_rejects_legacy_and_unrelated() {
+        assert!(!is_daily_log_filename("vtt.log"));
+        assert!(!is_daily_log_filename("vtt.log.1"));
+        assert!(!is_daily_log_filename("vtt-linux.pid"));
+        assert!(!is_daily_log_filename("settings.conf"));
+        assert!(!is_daily_log_filename("vtt-linux.lock"));
+        assert!(!is_daily_log_filename(""));
+    }
+
+    #[test]
+    fn is_daily_log_filename_accepts_liberal_middle() {
+        // Intentionally permissive — we key on prefix+suffix so any date or
+        // marker in the middle is fine. This matches the current purge logic.
+        assert!(is_daily_log_filename("vtt-anything.log"));
+        assert!(is_daily_log_filename("vtt-.log"));
+    }
 }
