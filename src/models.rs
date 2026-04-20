@@ -86,14 +86,19 @@ pub fn find(name: &str) -> Option<&'static ModelInfo> {
 }
 
 /// Resolve the model name to use given the menu selection and language mode.
-/// For "small" and "medium", English mode picks the ".en" variant; multilingual mode
-/// picks the bare name. For "large-v3-turbo" and "large-v3", always multilingual
-/// (upstream doesn't ship English-only GGML variants for these).
+/// For base names where an `.en` variant exists in MODELS (currently "small"
+/// and "medium"), English mode picks it; multilingual mode picks the bare
+/// name. For "large-v3-turbo" and "large-v3", upstream doesn't ship English-
+/// only GGML variants, so we always return the base name.
+///
+/// Derives the has-`.en` check from MODELS rather than hardcoding — adding
+/// a future `.en` variant to MODELS automatically wires it in here.
 pub fn resolve_variant(menu_name: &str, language: &str) -> String {
     let base = menu_name.trim_end_matches(".en");
-    let has_en_variant = matches!(base, "tiny" | "base" | "small" | "medium");
+    let en_name = format!("{}.en", base);
+    let has_en_variant = MODELS.iter().any(|m| m.name == en_name);
     if language == "en" && has_en_variant {
-        format!("{}.en", base)
+        en_name
     } else {
         base.to_string()
     }
