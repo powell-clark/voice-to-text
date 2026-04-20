@@ -13,7 +13,7 @@ if [ ! -d "$HOOKS_DST" ]; then
     exit 1
 fi
 
-for hook in pre-push; do
+for hook in pre-push commit-msg; do
     src="$HOOKS_SRC/$hook"
     dst="$HOOKS_DST/$hook"
     if [ ! -f "$src" ]; then

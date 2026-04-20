@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Git commit-msg hook — enforces the project's commit-message conventions.
+#
+# Install via scripts/git-hooks/install.sh.
+#
+# Rules enforced:
+# 1. NEVER include "Co-Authored-By: Claude" or any AI/bot attribution
+#    (CLAUDE.md project policy — those trailers must not appear in git
+#    history).
+# 2. Append "Authored-By: Emmanuel Powell-Clark <emmanuel@powellclark.com>"
+#    if missing, since that's the project's canonical trailer.
+#
+# Bypass with `git commit --no-verify` if you really need to (not for AI
+# attribution — that rule is absolute).
+
+set -e
+
+MSG_FILE="$1"
+MSG_CONTENT=$(cat "$MSG_FILE")
+
+# Rule 1: forbid AI attribution trailers.
+if echo "$MSG_CONTENT" | grep -qiE "co-authored-by.*claude|generated with claude|🤖.*claude|co-authored-by.*anthropic"; then
+    echo "ERROR: commit message contains AI/bot attribution." >&2
+    echo "       Project policy (CLAUDE.md): these trailers must not appear" >&2
+    echo "       in git history. Remove the 'Co-Authored-By: Claude' or" >&2
+    echo "       'Generated with Claude Code' lines and commit again." >&2
+    exit 1
+fi
+
+# Rule 2: append Authored-By trailer if missing. We avoid rewriting the
+# file unnecessarily (no-op commit hooks are a weird source of noise).
+AUTHOR_TRAILER="Authored-By: Emmanuel Powell-Clark <emmanuel@powellclark.com>"
+if ! echo "$MSG_CONTENT" | grep -qiE "^authored-by:"; then
+    # Append the trailer. Use a blank line separator if the last non-blank
+    # line isn't already a trailer line, so we don't produce a malformed
+    # trailer block like "Title\nAuthored-By: ..." without a body.
+    last_non_blank=$(echo "$MSG_CONTENT" | tac | awk 'NF {print; exit}')
+    if [[ "$last_non_blank" =~ ^[A-Z][A-Za-z0-9-]+:\  ]]; then
+        # Already a trailer at the end — just append our line.
+        printf '%s\n' "$AUTHOR_TRAILER" >> "$MSG_FILE"
+    else
+        # Insert a blank line then the trailer.
+        printf '\n%s\n' "$AUTHOR_TRAILER" >> "$MSG_FILE"
+    fi
+fi
