@@ -7,9 +7,40 @@
 # Rationale: CI on GitHub will fail the same way if fmt/clippy/test/build
 # fails. Failing locally first is cheaper and stops you from turning main
 # red for everyone else.
+#
+# Fast-path: if the commits being pushed don't touch any Rust files,
+# Cargo.toml, Cargo.lock, or the workflow/hook scripts themselves,
+# skip the cargo checks — they can't possibly fail from a doc-only
+# or CONSCIOUSNESS-only change. Saves ~20 seconds per push on
+# markdown-heavy sessions.
 
 set -e
 cd "$(git rev-parse --show-toplevel)"
+
+# git sends push info on stdin as: <local ref> <local sha> <remote ref> <remote sha>
+# We ignore the specific refs and check against origin/main for changed files.
+remote_sha=$(git rev-parse origin/main 2>/dev/null || echo "")
+local_sha=$(git rev-parse HEAD)
+
+if [ -n "$remote_sha" ] && [ "$remote_sha" != "$local_sha" ]; then
+    changed_files=$(git diff --name-only "$remote_sha" "$local_sha" 2>/dev/null || echo "")
+else
+    # No remote or no new commits — nothing to check (shouldn't happen on push)
+    changed_files=""
+fi
+
+# Does the diff touch anything that could affect the cargo build?
+touches_rust=false
+if echo "$changed_files" | grep -qE '^(src/.*\.rs$|Cargo\.toml$|Cargo\.lock$|\.github/workflows/.*\.yml$|scripts/git-hooks/.*)$'; then
+    touches_rust=true
+fi
+
+if [ "$touches_rust" = false ] && [ -n "$changed_files" ]; then
+    echo "[pre-push] no Rust/Cargo/workflow/hook files changed — skipping cargo checks"
+    echo "[pre-push] (changed: $(echo "$changed_files" | head -3 | tr '\n' ' ' | sed 's/ $//')$([ $(echo "$changed_files" | wc -l) -gt 3 ] && echo " ...")"
+    echo "[pre-push] pushing"
+    exit 0
+fi
 
 echo "[pre-push] cargo fmt --check"
 cargo fmt --all -- --check
