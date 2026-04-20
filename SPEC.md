@@ -4,6 +4,23 @@
 **Last Updated**: 2025-10-13
 **Purpose**: Define uniform feature set across macOS, Linux, and future platforms
 
+> **⚠️ PARTIALLY STALE — pre-v2.0 spec.** Written in October 2025 when VTT
+> was a C/Python hybrid. Many implementation details below describe the
+> pre-2.0 CT2 backend which no longer exists. High-level feature intent
+> is still broadly accurate, but verify against:
+>
+> - Actual code: `src/` modules are the source of truth for behaviour
+> - `CHANGELOG.md` for what each release has shipped
+> - `CONSCIOUSNESS/stories/` for what's currently planned
+> - `CONSCIOUSNESS/adr/` for architectural decisions (ADR-0003 captures
+>   the v2.0 Python-to-Rust rewrite)
+>
+> Specific known staleness:
+> - "10 seconds on macOS (testing)" — actual cap is 300s on both platforms
+> - "[Truncated - 300s limit]" prefix — actual prefix is "[Truncated] "
+> - References to CT2/faster-whisper backend — removed in v2.0
+> - References to `transcribe.c` / Python process spawning — removed in v2.0
+
 ---
 
 ## 1. Executive Summary
