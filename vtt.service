@@ -10,8 +10,7 @@ Restart=on-failure
 RestartSec=5
 
 # Environment - inherit from user session
-PassEnvironment=DISPLAY XAUTHORITY WAYLAND_DISPLAY
-Environment=PYTHONPATH=/usr/share/voice-to-text
+PassEnvironment=DISPLAY XAUTHORITY WAYLAND_DISPLAY XDG_SESSION_TYPE
 
 # Logging
 StandardOutput=journal
