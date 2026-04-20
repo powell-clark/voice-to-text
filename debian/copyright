@@ -4,12 +4,16 @@ Upstream-Contact: Emmanuel Powell-Clark <emmanuel@powellclark.com>
 Source: https://github.com/powell-clark/voice-to-text
 
 Files: *
-Copyright: 2025 Emmanuel Powell-Clark
+Copyright: 2025-2026 Emmanuel Powell-Clark
 License: Apache-2.0
 
-Files: third_party/whisper.cpp/*
-Copyright: 2022-2024 Georgi Gerganov and contributors
-License: MIT
+Files: vtt-linux.prebuilt
+Copyright: 2025-2026 Emmanuel Powell-Clark
+ Includes statically-linked code from the following projects, vendored
+ via the whisper-rs crate at build time:
+   whisper.cpp — Copyright 2022-2026 Georgi Gerganov and contributors (MIT)
+   ggml        — Copyright 2022-2026 Georgi Gerganov and contributors (MIT)
+License: Apache-2.0 and MIT
 
 License: Apache-2.0
  Licensed under the Apache License, Version 2.0 (the "License");
