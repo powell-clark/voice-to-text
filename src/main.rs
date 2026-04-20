@@ -619,9 +619,19 @@ fn singleton_lock(config_dir: &std::path::Path) -> anyhow::Result<std::fs::File>
 
 fn cleanup_old_wavs() {
     let cutoff = std::time::SystemTime::now() - Duration::from_secs(3600);
+    let cleaned = cleanup_old_wavs_in(std::path::Path::new("/tmp"), cutoff);
+    if cleaned > 0 {
+        vtt_log!("Cleaned up {} old WAV files from /tmp", cleaned);
+    }
+}
 
-    if let Ok(entries) = std::fs::read_dir("/tmp") {
-        let mut cleaned = 0;
+/// Pure-ish: delete `vtt_recording_*.wav` files in `dir` older than `cutoff`.
+/// Returns the count actually deleted. Extracted so the filtering logic is
+/// testable with a tempdir — the production entry point `cleanup_old_wavs()`
+/// wraps this with the hardcoded `/tmp` and a 1-hour cutoff.
+fn cleanup_old_wavs_in(dir: &std::path::Path, cutoff: std::time::SystemTime) -> usize {
+    let mut cleaned = 0;
+    if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             let name = entry.file_name();
             let name = name.to_string_lossy();
@@ -636,10 +646,8 @@ fn cleanup_old_wavs() {
                 }
             }
         }
-        if cleaned > 0 {
-            vtt_log!("Cleaned up {} old WAV files from /tmp", cleaned);
-        }
     }
+    cleaned
 }
 
 #[cfg(unix)]
@@ -953,5 +961,68 @@ mod tests {
         let nonexistent = dir.path().join("not-a-dir");
         prune_recordings(&nonexistent, 10);
         // No assertion needed — we just want to confirm it doesn't panic.
+    }
+
+    #[test]
+    fn cleanup_old_wavs_in_deletes_only_old_matching_files() {
+        use std::time::{Duration, SystemTime};
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        // Mix of files:
+        //  - vtt_recording_fresh.wav (current — should survive)
+        //  - vtt_recording_old.wav (cutoff rewound 2h — should be deleted)
+        //  - other-app.wav (not ours — must survive regardless of age)
+        //  - vtt_recording_note.txt (wrong extension — survives)
+        std::fs::write(root.join("vtt_recording_fresh.wav"), b"fresh").unwrap();
+        std::fs::write(root.join("vtt_recording_old.wav"), b"old").unwrap();
+        std::fs::write(root.join("other-app.wav"), b"other").unwrap();
+        std::fs::write(root.join("vtt_recording_note.txt"), b"note").unwrap();
+
+        // Cutoff = "now + 1 second" makes every existing file appear "old"
+        // relative to the cutoff, except we want to preserve "fresh" — so
+        // we instead use a cutoff in the PAST (1 second ago). Only files
+        // with mtime < cutoff are deleted. Since all files were just created
+        // with mtime == now, NONE are older than 1-second-ago.
+        let past_cutoff = SystemTime::now() - Duration::from_secs(1);
+        let deleted = cleanup_old_wavs_in(root, past_cutoff);
+        assert_eq!(
+            deleted, 0,
+            "with past cutoff, nothing should be deleted (all files are fresh)"
+        );
+
+        // Now use a cutoff in the future — every file is "older than the future".
+        // But only vtt_recording_*.wav should be deleted.
+        let future_cutoff = SystemTime::now() + Duration::from_secs(60);
+        let deleted = cleanup_old_wavs_in(root, future_cutoff);
+        assert_eq!(
+            deleted, 2,
+            "both vtt_recording_*.wav files should be deleted, non-matching preserved"
+        );
+
+        let remaining: Vec<String> = std::fs::read_dir(root)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(remaining.contains(&"other-app.wav".to_string()));
+        assert!(remaining.contains(&"vtt_recording_note.txt".to_string()));
+        assert!(!remaining.contains(&"vtt_recording_fresh.wav".to_string()));
+        assert!(!remaining.contains(&"vtt_recording_old.wav".to_string()));
+    }
+
+    #[test]
+    fn cleanup_old_wavs_in_missing_dir_is_safe_noop() {
+        let dir = tempfile::tempdir().unwrap();
+        let nonexistent = dir.path().join("nonexistent");
+        let deleted = cleanup_old_wavs_in(&nonexistent, std::time::SystemTime::now());
+        assert_eq!(deleted, 0);
+    }
+
+    #[test]
+    fn cleanup_old_wavs_in_empty_dir_returns_zero() {
+        let dir = tempfile::tempdir().unwrap();
+        let deleted = cleanup_old_wavs_in(dir.path(), std::time::SystemTime::now());
+        assert_eq!(deleted, 0);
     }
 }
