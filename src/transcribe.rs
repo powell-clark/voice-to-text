@@ -2,8 +2,6 @@
 //! v2.0.0 replaces the pre-2.0 transcribe_ct2 / transcribe_whisper_cpp subprocess
 //! paths with in-process whisper-rs inference via WhisperEngine.
 
-use std::path::Path;
-
 use crate::whisper::WhisperEngine;
 
 /// Transcribe f32 PCM samples using the engine. Returns None on empty/error.
@@ -35,25 +33,5 @@ pub fn transcribe_samples(
     }
 }
 
-/// Read a 16kHz mono WAV file into a Vec<f32>. Used when the worker receives a
-/// path-based WorkItem (from the debug recordings archive or a --file mode).
-pub fn load_wav(path: &Path) -> anyhow::Result<Vec<f32>> {
-    let mut reader = hound::WavReader::open(path)?;
-    let spec = reader.spec();
-    if spec.sample_rate != 16000 || spec.channels != 1 {
-        anyhow::bail!(
-            "WAV must be 16kHz mono, got {}Hz {}ch",
-            spec.sample_rate,
-            spec.channels
-        );
-    }
-    let samples: Vec<f32> = match spec.sample_format {
-        hound::SampleFormat::Int => reader
-            .samples::<i16>()
-            .filter_map(Result::ok)
-            .map(|s| s as f32 / 32768.0)
-            .collect(),
-        hound::SampleFormat::Float => reader.samples::<f32>().filter_map(Result::ok).collect(),
-    };
-    Ok(samples)
-}
+// load_wav() removed 2026-04-20 — was planned for --file mode (TASK-VTT023)
+// which never shipped. Reintroduce from git history if --file is implemented.

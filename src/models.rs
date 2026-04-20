@@ -21,7 +21,10 @@ pub struct ModelInfo {
     pub url: &'static str,
     /// Approximate size for UI display
     pub size_mb: u32,
-    /// true = multilingual, false = English-only (.en) variant
+    /// true = multilingual, false = English-only (.en) variant.
+    /// Read by the catalogue-invariant test and retained for future code
+    /// that wants to filter the model list without re-parsing the ".en" suffix.
+    #[allow(dead_code)]
     pub multilingual: bool,
 }
 

@@ -11,8 +11,8 @@ const MIN_AMPLITUDE: i16 = 500;
 
 pub enum RecordingResult {
     Audio { samples: Vec<f32>, path: PathBuf },
-    TooShort(f32),
-    TooQuiet(i16),
+    TooShort,
+    TooQuiet,
     MaxLength { samples: Vec<f32>, path: PathBuf },
 }
 
@@ -24,7 +24,6 @@ pub struct Audio {
     recording: Arc<AtomicBool>,
     buffer_full: Arc<AtomicBool>,
     buffer_full_callback: BufferFullCallback,
-    max_samples: usize,
 }
 
 // Safety: cpal::Stream is Send but not marked as such in all versions.
@@ -73,21 +72,14 @@ impl Audio {
                     Ok(b) => b,
                     Err(_) => return, // Skip frame if locked (avoids blocking audio thread)
                 };
-                let space = max.saturating_sub(buf.len());
-                if space == 0 {
-                    if !full_clone.load(Ordering::Relaxed) {
-                        full_clone.store(true, Ordering::Relaxed);
-                        if let Ok(cb) = cb_clone.try_lock() {
-                            if let Some(ref f) = *cb {
-                                f();
-                            }
-                        }
-                    }
-                    return;
+
+                // compute_append is pure and unit-tested — see its tests in this
+                // module for the boundary cases (exact fill, overflow, already full).
+                let (take, became_full) = compute_append(buf.len(), data.len(), max);
+                if take > 0 {
+                    buf.extend_from_slice(&data[..take]);
                 }
-                let n = data.len().min(space);
-                buf.extend_from_slice(&data[..n]);
-                if buf.len() >= max && !full_clone.load(Ordering::Relaxed) {
+                if became_full && !full_clone.load(Ordering::Relaxed) {
                     full_clone.store(true, Ordering::Relaxed);
                     if let Ok(cb) = cb_clone.try_lock() {
                         if let Some(ref f) = *cb {
@@ -114,7 +106,6 @@ impl Audio {
             recording,
             buffer_full,
             buffer_full_callback,
-            max_samples,
         })
     }
 
@@ -141,7 +132,7 @@ impl Audio {
         // Check minimum duration
         if duration < MIN_DURATION_SECS {
             crate::vtt_log!("Recording too short ({:.2}s)", duration);
-            return Some(RecordingResult::TooShort(duration));
+            return Some(RecordingResult::TooShort);
         }
 
         // Check amplitude (convert to i16 range for comparison)
@@ -154,7 +145,7 @@ impl Audio {
 
         if max_amp < MIN_AMPLITUDE {
             crate::vtt_log!("Audio too quiet (amplitude {})", max_amp);
-            return Some(RecordingResult::TooQuiet(max_amp));
+            return Some(RecordingResult::TooQuiet);
         }
 
         crate::vtt_log!(

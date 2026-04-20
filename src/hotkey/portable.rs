@@ -118,8 +118,10 @@ mod tests {
         // Round-trip: every keycode that maps to a specific rdev key must also
         // have a human-readable label — otherwise the tray's hotkey menu shows
         // "Unknown" for keys the user actively selected.
-        let mapped = [0, 78, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 95, 96,
-                      127, 118, 110, 115, 112, 117, 66, 77];
+        let mapped = [
+            0, 78, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 95, 96, 127, 118, 110, 115, 112, 117,
+            66, 77,
+        ];
         for kc in mapped {
             let name = get_key_name(kc);
             assert_ne!(
