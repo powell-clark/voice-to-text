@@ -264,6 +264,21 @@ mod tests {
             s.hotkey_keycode, 0,
             "5 is below the XKB keycode floor of 8, should be ignored"
         );
+
+        // Boundary: 8 and 255 are both inside the accepted range.
+        std::fs::write(dir.path().join("settings.conf"), "hotkey=8\n").unwrap();
+        assert_eq!(Settings::load(dir.path()).hotkey_keycode, 8);
+
+        std::fs::write(dir.path().join("settings.conf"), "hotkey=255\n").unwrap();
+        assert_eq!(Settings::load(dir.path()).hotkey_keycode, 255);
+
+        // Boundary: 256 is above u8's max, should be ignored.
+        std::fs::write(dir.path().join("settings.conf"), "hotkey=256\n").unwrap();
+        assert_eq!(Settings::load(dir.path()).hotkey_keycode, 0);
+
+        // Malformed: non-numeric should fall back to default 0.
+        std::fs::write(dir.path().join("settings.conf"), "hotkey=notanumber\n").unwrap();
+        assert_eq!(Settings::load(dir.path()).hotkey_keycode, 0);
     }
 
     #[test]
