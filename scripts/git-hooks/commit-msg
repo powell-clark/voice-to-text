@@ -11,8 +11,13 @@ set -e
 
 MSG_FILE="$1"
 
-# Rule 1: forbid AI attribution.
-if grep -qiE "co-authored-by.*claude|generated with claude|co-authored-by.*anthropic" "$MSG_FILE"; then
+# Rule 1: forbid AI attribution. Covers:
+#   - Co-Authored-By: Claude / Anthropic / ChatGPT / Copilot / etc.
+#   - 🤖 Generated with Claude Code / Generated with ChatGPT / etc.
+#   - Any 'generated with <AI tool>' variant commonly added by bots
+if grep -qiE \
+    "co-authored-by.*(claude|anthropic|chatgpt|openai|copilot|codex|cursor)|generated with (claude|chatgpt|openai|copilot|codex|cursor|anthropic)|🤖 *generated" \
+    "$MSG_FILE"; then
     echo "ERROR: commit message contains AI/bot attribution." >&2
     echo "       Remove those trailers and commit again (CLAUDE.md policy)." >&2
     exit 1
