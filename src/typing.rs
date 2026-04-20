@@ -6,14 +6,17 @@ use std::time::Duration;
 const INITIAL_DELAY_MS: u64 = 75;
 const KEYSTROKE_DELAY_MS: u64 = 4;
 
-pub struct Typer {
-    // Enigo is created per-use since it holds X11 connection state
-    // that shouldn't be shared across threads
-}
+/// Zero-sized "typer" handle. Holds no state because each call to
+/// `type_text` creates a fresh `Enigo` instance — `Enigo` owns an X11
+/// connection that isn't safe to share across threads, so stashing one
+/// in the struct would complicate the worker thread handoff. The upfront
+/// cost of `Enigo::new` is negligible (< 1 ms) relative to a
+/// transcription, so per-call creation is simpler and correct.
+pub struct Typer;
 
 impl Typer {
     pub fn new() -> anyhow::Result<Self> {
-        Ok(Typer {})
+        Ok(Typer)
     }
 
     pub fn type_text(&self, text: &str, newline_type: NewlineType) {
