@@ -1,5 +1,12 @@
 # PPA Setup Guide for Voice to Text
 
+> **⚠️ PARTIALLY STALE — Makefile-based build references.** The one-time
+> Launchpad/GPG setup steps below are still accurate. The day-to-day
+> release process has been replaced by `scripts/release-ppa.sh` (pbuilder
+> hard-gate + bytemark mirror + auto-dput). See that script's header
+> comments for the current flow. Makefile.linux was retired in v2.0 when
+> the codebase moved to pure Rust.
+
 This guide explains how to set up and maintain a PPA (Personal Package Archive) for distributing Voice to Text on Ubuntu/Debian.
 
 ---

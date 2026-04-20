@@ -1,6 +1,19 @@
 # PPA Setup and Upload Guide
 
-This guide explains how to build and upload voice-to-text to a Personal Package Archive (PPA) on Launchpad.
+> **⚠️ PARTIALLY STALE — use `scripts/release-ppa.sh` instead.** This guide
+> documents the manual `debuild` + `dput` flow. The actual release process
+> is now `scripts/release-ppa.sh` which does all of this plus:
+> - Pre-flight offline cargo build check
+> - pbuilder hard-gate against noble + jammy chroots before any dput
+> - Bytemark mirror pinning (archive.ubuntu.com round-robin serves
+>   devel/resolute under pinned release names)
+> - apt-based satisfydepends (works around dpkg-deb temp-file bug)
+> - TMPDIR=/tmp hygiene (systemd private tmp paths leak into chroot)
+> - Auto-commit of vtt-linux.prebuilt after rebuild
+>
+> The one-time Launchpad account + GPG setup below is still accurate.
+> But for any actual release, run `./scripts/release-ppa.sh` not the
+> manual steps here.
 
 ## Prerequisites
 
