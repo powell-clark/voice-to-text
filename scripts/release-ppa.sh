@@ -136,6 +136,16 @@ fi
 cp target/release/vtt-linux vtt-linux.prebuilt
 echo "  OK — vtt-linux.prebuilt at $(du -h vtt-linux.prebuilt | cut -f1)"
 
+# Pin Cargo.lock to v3 format. rustup ≥ 1.78 writes v4 by default which
+# Ubuntu Noble cargo 1.75 cannot parse. debian/rules currently doesn't
+# parse the lockfile (ships prebuilt) but we keep v3 defensively so any
+# future source-build Noble path (or a user running cargo --locked on
+# Noble) doesn't break. Matches the release-local.sh guard.
+if grep -q '^version = 4$' Cargo.lock; then
+    sed -i 's/^version = 4$/version = 3/' Cargo.lock
+    echo "  NOTE: downgraded Cargo.lock v4 -> v3 for Noble compat"
+fi
+
 # Commit the prebuilt if it changed so git reflects what ships on PPA.
 # Without this, every release leaves the working tree dirty and the tracked
 # binary drifts behind the published one by a release. Use --allow-empty in
