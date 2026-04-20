@@ -806,8 +806,11 @@ fn show_hotkey_dialog(state: &Rc<RefCell<TrayState>>) {
             if !*key_pressed.borrow() {
                 return glib::Propagation::Stop;
             }
+            // u16 → u8 would silently truncate keycodes > 255 (not valid X11
+            // hardware keycodes but possible on exotic keyboards or via
+            // emulated input). Reject them explicitly instead.
             let keycode = match *captured.borrow() {
-                Some(kc) if kc >= 8 => kc as u8,
+                Some(kc) if (8..=255).contains(&kc) => kc as u8,
                 _ => return glib::Propagation::Stop,
             };
 
