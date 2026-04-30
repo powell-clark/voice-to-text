@@ -1,18 +1,3 @@
 {
-  "sessions": {
-    "vtt-main-3d07050c": {
-      "assignment_message_id": null,
-      "conscious_mode": false,
-      "current_activity": null,
-      "current_task": null,
-      "identity": null,
-      "last_activity": "2026-04-20T01:35:49.289Z",
-      "model": null,
-      "pane_id": "10",
-      "role": null,
-      "session_type": "cli",
-      "specialty": null,
-      "started": "2026-04-19T21:39:10.593Z"
-    }
-  }
+  "sessions": {}
 }

@@ -1,5 +1,3 @@
-# Done Tasks
-
 id|title|story_ids|epic_id|feature_ids|doc
 TASK-VTT001|Implement PortAudio recording with quality filters|STORY-VTT001||FEAT-VTT001|
 TASK-VTT002|Integrate faster-whisper with CUDA GPU acceleration|STORY-VTT001||FEAT-VTT002,FEAT-VTT009|

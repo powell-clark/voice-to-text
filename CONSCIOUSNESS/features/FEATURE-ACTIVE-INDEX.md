@@ -1,5 +1,3 @@
-# Active Features
-
 id|status|priority|kano|description|story_ids|task_ids|doc
 FEAT-VTT012|in_review|p1|must-have|Clipboard paste via xclip subprocess instead of broken XSetSelectionOwner|STORY-VTT006|TASK-VTT012|
 FEAT-VTT013|in_review|p1|must-have|X11 key auto-repeat filtering to prevent spurious recordings|STORY-VTT006|TASK-VTT013|

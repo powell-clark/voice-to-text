@@ -1,5 +1,3 @@
-# Backlog Features
-
 id|priority|kano|description|story_ids|task_ids|doc
 FEAT-VTT024|p1|performance|Vulkan GPU acceleration on Linux and Windows — universal NVIDIA plus AMD plus Intel without requiring CUDA Toolkit (Linux done, Windows blocked on port)|STORY-VTT010|TASK-VTT025|FEAT-VTT024.md
 FEAT-VTT025|p1|performance|Metal GPU acceleration on macOS — Intel Radeon and Apple Silicon both supported (blocked on macOS port)|STORY-VTT010|TASK-VTT025|FEAT-VTT025.md

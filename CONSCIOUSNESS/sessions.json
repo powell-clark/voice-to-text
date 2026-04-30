@@ -167,18 +167,36 @@
       "id": "vtt-main-2ba05079",
       "prev": "vtt-main-aa2717d9",
       "started": "2026-04-19 22:38:46.578 gmt+1",
-      "ended": null,
+      "ended": "2026-04-21 07:35:09.343 gmt+1",
       "metrics": {
-        "autonomous_loops": 16,
+        "autonomous_loops": 50,
         "tasks_completed": [],
-        "commits": 66,
-        "turns": 41,
-        "human_prompts": 28,
+        "commits": 81,
+        "turns": 80,
+        "human_prompts": 31,
         "errors": 0,
         "compactions": 0,
         "hooks_latency_ms": {
           "session-init": 52,
           "message-end": 10
+        }
+      }
+    },
+    {
+      "id": "vtt-main-2b22b2b6",
+      "prev": "vtt-main-2ba05079",
+      "started": "2026-04-21 07:35:09.343 gmt+1",
+      "ended": null,
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 0,
+        "human_prompts": 0,
+        "errors": 0,
+        "compactions": 0,
+        "hooks_latency_ms": {
+          "session-init": 52
         },
         "ralph_loops": null
       }

@@ -1,5 +1,3 @@
-# Done Features
-
 id|kano|description|story_ids|task_ids|doc
 FEAT-VTT001|must-have|Push-to-talk voice recording with PortAudio (16kHz mono WAV)|STORY-VTT001|TASK-VTT001|
 FEAT-VTT002|must-have|Whisper transcription with dual backends (whisper.cpp and CTranslate2/faster-whisper)|STORY-VTT001|TASK-VTT002|

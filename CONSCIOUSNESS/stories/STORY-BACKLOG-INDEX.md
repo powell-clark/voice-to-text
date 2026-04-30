@@ -1,5 +1,3 @@
-# Backlog Stories
-
 id|priority|title|epic_id|task_ids|feature_ids|doc
 STORY-VTT012|p1|As Emmanuel I want macOS builds for my 2019 Intel i9 and Apple Silicon so that I can dictate on all my machines|EPIC-VTT002|TASK-VTT040,TASK-VTT041,TASK-VTT042,TASK-VTT043|FEAT-VTT029|
 STORY-VTT013|p1|As Emmanuel I want Windows builds so that my Windows desktop has the same VTT as Linux and Mac|EPIC-VTT002|TASK-VTT044,TASK-VTT045,TASK-VTT046,TASK-VTT047|FEAT-VTT030|
