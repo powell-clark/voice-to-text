@@ -1,3 +1,50 @@
+voice-to-text (2.1.0) noble; urgency=medium
+
+  * fix(typing): switch from enigo Key::Unicode to xdotool type
+    --clearmodifiers — eliminates dropped sentence-starter characters
+    (I, T, Y, C) caused by an XKB keysym remap race condition.
+    Adds xdotool to package Depends; falls back to enigo if missing.
+  * fix(typing): keystroke delay tuned (4ms → 12ms → 20ms, landed at
+    12ms with xdotool) to stop letter drops on slower X servers.
+  * fix(debian): postinst try-restarts vtt-linux on apt upgrade so
+    the new binary actually runs instead of leaving the old one
+    resident until next login.
+  * fix(debian): postrm message points at v2.0 cache paths, not v1.x.
+  * fix(debian): copyright points at vtt-linux.prebuilt, not the
+    excluded third_party/ directory; drop redundant
+    DEB_BUILD_OPTIONS export to silence lintian.
+  * feat(cli): --version / -V and --help / -h flags. Exit cleanly
+    before singleton-lock and GTK init so users can confirm what's
+    installed without launching the tray.
+  * feat(main): singleton-lock error reports the holding PID with a
+    ready-to-paste kill command, instead of a bare "already running".
+  * feat(main): worker-thread death is surfaced to the user via
+    notify-send instead of being silently dropped.
+  * feat(audio): helpful error message when no default input device
+    is configured, pointing at pavucontrol.
+  * feat(main): version logged on startup for easier issue triage.
+  * fix(tray): hotkey capture and press-event both reject keycodes
+    > 255 with a clear message, instead of silently truncating.
+  * fix(tray): About dialog says "Hold and release" rather than
+    "start/stop" — matches actual push-to-talk behaviour.
+  * refactor(tray): model menu derived from the MODELS catalogue
+    instead of a hardcoded list, so adding a model in models.rs is
+    enough to wire it into the UI.
+  * refactor(models): resolve_variant's .en check is derived from
+    MODELS rather than hardcoded.
+  * perf(main): singleton_lock runs before logging::init so failed
+    start attempts no longer pollute the daily log.
+  * chore(service): drop stale PYTHONPATH from vtt.service, pass
+    XDG_SESSION_TYPE for Wayland/X11 detection.
+  * chore(deps): remove unused gdk dependency.
+  * internal: GitHub Actions CI with cargo audit, 63+ unit tests
+    (audio, settings, models, tray, logging, hotkey, transcribe),
+    pre-push hook, ADR-0004 lightweight regression testing,
+    SECURITY.md, dead-code cleanup, lintian fixes, Cargo.lock v3
+    guard in release-ppa.sh.
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Tue, 05 May 2026 15:05:34 +0100
+
 voice-to-text (2.0.5) noble; urgency=medium
 
   * fix(typing): non-ASCII characters (£, é, —) now type directly via

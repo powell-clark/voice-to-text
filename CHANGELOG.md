@@ -9,6 +9,59 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.1.0] — 2026-05-05
+
+### Fixed
+- **Sentence-starter characters dropped (I, T, Y, C)**: switched typing
+  from `enigo` `Key::Unicode` to `xdotool type --clearmodifiers`,
+  which sidesteps the XKB keysym remap race that was eating the first
+  character of many sentences. Keystroke delay tuned to 12 ms.
+  `xdotool` is now a package dependency; falls back to `enigo` if
+  the binary is missing.
+- **`apt upgrade` left old binary running**: postinst now `try-restart`s
+  vtt-linux so the new version actually takes effect immediately.
+- **Hotkey settings silently truncated**: keycode capture and press
+  handler both reject values > 255 with a clear error instead of
+  wrapping into garbage.
+- **Stale postrm message** referenced v1.x cache paths — corrected for
+  v2.0+ layout.
+- **About dialog** now reads "Hold and release" — matches push-to-talk.
+
+### Added
+- **`--version` / `-V` and `--help` / `-h` flags**: print and exit
+  before GTK / singleton init, so users can confirm the installed
+  version from a terminal without launching the tray.
+- **Singleton lock surfaces the holding PID** with a ready-to-paste
+  `kill` command instead of a bare "already running".
+- **Worker-thread death is surfaced via `notify-send`** instead of
+  silently dropped.
+- **Helpful error when no default input device is configured**, with
+  a pointer at `pavucontrol`.
+- **Version logged on startup** for easier issue triage.
+
+### Changed
+- **Tray model menu** is now derived from the `MODELS` catalogue —
+  adding a model in `src/models.rs` automatically wires it into the
+  UI.
+- **`resolve_variant`'s `.en` check** is derived from `MODELS` rather
+  than hardcoded.
+- **`singleton_lock` runs before `logging::init`** so failed start
+  attempts no longer pollute the daily log.
+- **`vtt.service`**: dropped stale `PYTHONPATH`, now passes
+  `XDG_SESSION_TYPE` for Wayland/X11 detection.
+
+### Internal
+- GitHub Actions CI with `cargo audit`, pre-push hook for offline
+  developer checks.
+- 63+ unit tests across audio, settings, models, tray, logging,
+  hotkey, and transcribe modules.
+- ADR-0004 documents the lightweight regression testing approach.
+- SECURITY.md added for responsible disclosure.
+- Dead code cleanup, lintian fixes, unused `gdk` dependency removed.
+- `Cargo.lock` v3 guard added to `scripts/release-ppa.sh`.
+
+---
+
 ## [2.0.5] — 2026-04-20
 
 ### Fixed
