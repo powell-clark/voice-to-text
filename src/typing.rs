@@ -4,7 +4,7 @@ use std::thread;
 use std::time::Duration;
 
 const INITIAL_DELAY_MS: u64 = 75;
-const KEYSTROKE_DELAY_MS: u64 = 12;
+const KEYSTROKE_DELAY_MS: u64 = 20;
 
 /// Zero-sized "typer" handle. Holds no state because each call to
 /// `type_text` creates a fresh `Enigo` instance — `Enigo` owns an X11
