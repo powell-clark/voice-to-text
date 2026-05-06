@@ -94,11 +94,7 @@ fn xdotool_type(text: &str, newline_type: NewlineType) -> bool {
     true
 }
 
-fn enigo_type_chars(
-    enigo: &mut Enigo,
-    text: &str,
-    newline_type: NewlineType,
-) -> (usize, String) {
+fn enigo_type_chars(enigo: &mut Enigo, text: &str, newline_type: NewlineType) -> (usize, String) {
     let mut typed = 0usize;
     let mut fallback = String::new();
 
