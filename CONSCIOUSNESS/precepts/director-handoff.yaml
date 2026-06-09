@@ -1,0 +1,25 @@
+director_handoff:
+  enabled: true
+  scope: universal
+  priority: high
+  applies_to:
+    - interactive
+    - autonomous
+
+  rule: |
+    Director sessions share state across repos through an append-only
+    JSONL log. Write on leave (Stop hook), read on enter (SessionStart
+    hook). Other roles do not write or read this log.
+
+  log_file: "CONSCIOUSNESS/director-context.jsonl"
+  implementation_module: "src/core/session/director-context.ts"
+
+  rules:
+    - "Only Director sessions write or read the handoff log"
+    - "Write-on-leave fires from Stop hook on every turn end when role is director"
+    - "Read-on-enter fires from SessionStart for director sessions; auto-appends an enter entry to close the loop"
+    - "context_id (UUID at leave time) threads leave/enter pairs"
+    - "Federation read scans local repo + every sibling in config.json federation.siblings"
+    - "Pending handoff = most recent leave with no matching enter anywhere in the federation"
+    - "Best-effort writes — failures logged to stderr, never thrown"
+    - "schema_version pinned to 1 in every entry"

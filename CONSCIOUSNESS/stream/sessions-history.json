@@ -1,0 +1,101 @@
+{
+  "sessions": [
+    {
+      "id": "vtt-main-027da4ed",
+      "prev": null,
+      "started": "2026-05-15 02:32:44.532 gmt+1",
+      "ended": "2026-06-03 20:46:38.089 bst",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 1,
+        "human_prompts": 1,
+        "errors": 0,
+        "compactions": 0,
+        "hooks_latency_ms": {
+          "session-init": 53,
+          "message-end": 3
+        },
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "vtt-main-c74f075b",
+      "prev": "vtt-main-027da4ed",
+      "started": "2026-06-03 20:46:38.089 bst",
+      "ended": "2026-06-04 17:41:11.599 bst",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 3,
+        "human_prompts": 5,
+        "errors": 0,
+        "compactions": 0,
+        "hooks_latency_ms": {
+          "session-init": 60,
+          "message-end": 4
+        },
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "commit_shas": [],
+      "end_reason": "queue_empty"
+    },
+    {
+      "id": "vtt-main-fffc3799",
+      "prev": "vtt-main-c74f075b",
+      "started": "2026-06-04 17:41:11.599 bst",
+      "ended": "2026-06-04 17:57:19.991 bst",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 5,
+        "human_prompts": 6,
+        "errors": 0,
+        "compactions": 0,
+        "hooks_latency_ms": {
+          "session-init": 73,
+          "message-end": 17
+        },
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "commit_shas": [],
+      "end_reason": "queue_empty"
+    },
+    {
+      "id": "vtt-main-ea220ca9",
+      "prev": "vtt-main-fffc3799",
+      "started": "2026-06-04 17:57:19.991 bst",
+      "ended": null,
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 0,
+        "human_prompts": 0,
+        "errors": 0,
+        "compactions": 0,
+        "hooks_latency_ms": {
+          "session-init": 80
+        },
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "commit_shas": [],
+      "end_reason": "queue_empty"
+    }
+  ]
+}
