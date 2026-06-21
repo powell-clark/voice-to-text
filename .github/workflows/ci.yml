@@ -77,6 +77,69 @@ jobs:
           file target/release/vtt-linux | grep -q "ELF 64-bit LSB.*x86-64"
           ldd target/release/vtt-linux | grep -q "libvulkan.so.1"
 
+  build-windows:
+    name: build (windows-latest, x86_64-msvc, CPU whisper)
+    # First Windows compile gate (STORY-VTT013 / TASK-VTT063). The repo has
+    # carried a cfg(target_os = "windows") dep block and portable.rs hotkey/
+    # tray modules since the Rust rewrite, but nothing has ever compiled them.
+    # This job is gensho: actual proof the Windows target builds.
+    #
+    # CPU-only whisper (no Vulkan feature in Cargo.toml) → no Vulkan SDK setup.
+    # cmake + MSVC are preinstalled on windows-latest, which is all whisper-rs
+    # needs to build whisper.cpp for CPU.
+    runs-on: windows-latest
+    # The gate is "does it compile", not lint-clean — don't inherit -D warnings.
+    env:
+      RUSTFLAGS: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      # Compile everything — lib, bin, and tests — without running. A green
+      # result here is the actual proof the Windows target builds. Test
+      # execution (which may need audio/display) is a later task once green.
+      - name: cargo build --all-targets
+        run: cargo build --all-targets
+
+  build-macos:
+    name: build (macos-latest, arm64, Metal whisper)
+    # macOS compile gate — free on public repos (GitHub-hosted runner).
+    # Uses the same CPU/Metal Whisper as Cargo.toml's macOS block.
+    # cmake is the only system dep whisper-rs needs; Xcode/Metal are preinstalled.
+    # Gate is "does it compile", not lint-clean — RUSTFLAGS cleared.
+    runs-on: macos-latest
+    env:
+      RUSTFLAGS: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install cmake (whisper.cpp build dep)
+        run: brew install cmake
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: cargo build --all-targets
+        run: cargo build --all-targets
+
   audit:
     name: cargo audit (vulnerabilities only)
     # Scans Cargo.lock against RustSec for actual vulnerabilities.

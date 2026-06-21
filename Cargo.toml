@@ -50,13 +50,25 @@ gtk = "0.18"
 glib = "0.18"
 whisper-rs = { version = "0.16", default-features = false, features = ["vulkan"] }
 
+# ─── Shared by the portable adapters (macOS + Windows) ──────────
+# src/tray/portable.rs names crossbeam_channel::Receiver directly (muda's
+# MenuEvent::receiver() returns one). It is only a transitive dep via
+# muda/tray-icon, so the bare path won't resolve without a direct dep.
+# Linux is unaffected — it uses src/tray/linux.rs (GTK), not portable.rs.
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+crossbeam-channel = "0.5"
+
 # ─── Windows ────────────────────────────────────────────────────
 [target.'cfg(target_os = "windows")'.dependencies]
 enigo = "0.2"
 tray-icon = "0.19"
 muda = "0.15"
 rdev = "0.5"
-whisper-rs = { version = "0.16", default-features = false, features = ["vulkan"] }
+# CPU-only whisper for the first Windows cut (TASK-VTT063). No Vulkan feature
+# → CI needs no Vulkan SDK, and the same CPU path serves Kyle's Snapdragon ARM
+# (TASK-VTT064) where Adreno/Vulkan is unproven. GPU acceleration on Windows
+# is a deliberate follow-up, not a blocker.
+whisper-rs = { version = "0.16", default-features = false }
 
 # ─── macOS ──────────────────────────────────────────────────────
 [target.'cfg(target_os = "macos")'.dependencies]
