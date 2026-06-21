@@ -15,5 +15,5 @@
 # committed Cargo.lock + vendored deps. Emmanuel rebuilds on release and
 # commits the prebuilt so git history matches every published PPA version.
 
-voice-to-text source: source-is-missing [vtt-linux.prebuilt]
+voice-to-text source: source-is-missing [packaging/linux/vtt-linux.prebuilt]
 voice-to-text source: source-is-missing [vtt-linux]

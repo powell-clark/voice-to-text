@@ -1,37 +1,63 @@
-# Voice-to-Text Project Instructions
+# Voice-to-Text
 
-## PPA Information
-- Launchpad account: `powellclark` (NO HYPHEN)
+This is a public repository on GitHub. Keep it secure and professional.
+
+## Build commands
+
+| Platform | Command | Output |
+|----------|---------|--------|
+| Linux    | `cargo build --release` | `target/release/vtt-linux` |
+| macOS    | `cargo build --release` | `target/release/vtt-linux` |
+| Windows  | `cargo build --release` | `target/release/vtt-linux.exe` |
+| All      | `cargo clean` | removes `target/` |
+
+### Windows installer (.msi)
+
+```bash
+cargo wix    # requires: cargo install cargo-wix
+```
+
+### Linux .deb (local, no PPA)
+
+```bash
+bash scripts/release-local.sh [--install]
+```
+
+### Linux PPA release
+
+```bash
+bash scripts/release-ppa.sh   # pbuilder hard-gate, then dput
+```
+
+## PPA information (Linux only)
+
+- Launchpad account: `powellclark` (no hyphen)
 - PPA target: `ppa:powellclark/voice-to-text`
 - dput target: `powellclark-voice-to-text`
+- Pre-built binary: `packaging/linux/vtt-linux.prebuilt`
+  (Ubuntu Noble ships Cargo 1.75, which cannot parse edition-2024 manifests;
+  `release-ppa.sh` rebuilds and re-commits this file automatically on each release)
 
-## Build Commands
-- **Linux build**: `cargo build --release` (produces `target/release/vtt-linux`)
-- **Linux .deb**: `bash scripts/release-local.sh [--install]`
-- **Linux PPA release**: `bash scripts/release-ppa.sh` (pbuilder hard-gate, auto-dput)
-- **macOS build**: `make` (uses default Makefile — legacy Objective-C bundle)
-- **Clean**: `cargo clean` (Linux) or `make clean` (macOS)
+## Packaging layout
 
-Makefile.linux was retired in v2.0 (TASK-VTT032) — the C sources it
-built were replaced by the Rust crate. Any reference to it in older
-docs is stale; see `CHANGELOG.md` for the v2.0 rewrite summary.
+```
+packaging/linux/     — vtt-linux.prebuilt + vtt.service (Launchpad + systemd)
+packaging/windows/   — notes; wix/ stays at root (cargo-wix tool convention)
+packaging/macos/     — placeholder for planned .app bundle
+debian/              — Debian package metadata (must stay at root for dpkg)
+wix/                 — WiX installer template (must stay at root for cargo-wix)
+```
 
-## Commit Messages
-- Use conventional commit style (feat:, fix:, chore:, etc.)
-- Keep them concise and focused on "why" not "what"
+## Commit messages
 
-# Claude Code Guidelines for voice-to-text Project
+Use conventional commit style (`feat:`, `fix:`, `chore:`, etc.).
+Focus on the *why*, not the *what*.
 
-## Multi-Machine Development Workflow
+## Multi-machine workflow
 
-**CRITICAL**: This repository has Claude Code running on three machines simultaneously:
-- **macOS** - Primary development machine
-- **Linux** - Testing and Linux-specific development
-- **Windows** - Testing and Windows-specific development
+Claude Code runs on three machines (macOS, Linux, Windows), all on `main`.
 
-Both machines work on the `main` branch. To avoid conflicts:
-
-1. **Always pull before starting work**: `git pull origin main`
-2. **Commit frequently**: Small, focused commits
-3. **Push regularly**: Share changes immediately after committing
-4. **Pull after pushing**: Check for any updates from the other machine
+1. `git pull origin main` before starting work
+2. Commit small and focused
+3. Push after each commit
+4. Pull again after pushing to pick up cross-machine changes
