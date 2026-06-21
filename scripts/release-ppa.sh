@@ -43,7 +43,7 @@ done
 
 echo "=== Pre-flight checks ==="
 
-DIRTY=$(git diff --name-only HEAD -- src/ debian/ Cargo.toml vtt.service scripts/ | head -20)
+DIRTY=$(git diff --name-only HEAD -- src/ debian/ Cargo.toml packaging/linux/vtt.service packaging/linux/vtt-linux.prebuilt scripts/ | head -20)
 if [ -n "$DIRTY" ] && [ "$FORCE" = false ]; then
     echo "ERROR: Uncommitted source changes:"
     echo "$DIRTY"
@@ -124,8 +124,8 @@ echo ""
 #
 # Since 2.0.2, PPA releases ship the pre-built binary (Ubuntu LTS
 # cargo 1.75 cannot build the modern Rust dep tree). Build the binary
-# locally with rustup 1.91 and copy it to vtt-linux.prebuilt which
-# debian/rules will install verbatim.
+# locally with rustup 1.91 and copy it to packaging/linux/vtt-linux.prebuilt
+# which debian/rules will install verbatim.
 
 echo "[1/${STEP_TOTAL:-?}] Building release binary with local rustup..."
 cargo build --release --offline 2>&1 | tail -5
@@ -133,8 +133,8 @@ if [ ! -x target/release/vtt-linux ]; then
     echo "  FAIL — build did not produce target/release/vtt-linux"
     exit 1
 fi
-cp target/release/vtt-linux vtt-linux.prebuilt
-echo "  OK — vtt-linux.prebuilt at $(du -h vtt-linux.prebuilt | cut -f1)"
+cp target/release/vtt-linux packaging/linux/vtt-linux.prebuilt
+echo "  OK — packaging/linux/vtt-linux.prebuilt at $(du -h packaging/linux/vtt-linux.prebuilt | cut -f1)"
 
 # Pin Cargo.lock to v3 format. rustup ≥ 1.78 writes v4 by default which
 # Ubuntu Noble cargo 1.75 cannot parse. debian/rules currently doesn't
@@ -150,9 +150,9 @@ fi
 # Without this, every release leaves the working tree dirty and the tracked
 # binary drifts behind the published one by a release. Use --allow-empty in
 # case the binary is byte-identical (unlikely but possible with SOURCE_DATE_EPOCH).
-if ! git diff --quiet vtt-linux.prebuilt; then
-    git add vtt-linux.prebuilt
-    git commit -m "build: refresh vtt-linux.prebuilt for v${VERSION} release" 2>&1 | tail -2
+if ! git diff --quiet packaging/linux/vtt-linux.prebuilt; then
+    git add packaging/linux/vtt-linux.prebuilt
+    git commit -m "build: refresh packaging/linux/vtt-linux.prebuilt for v${VERSION} release" 2>&1 | tail -2
     git push origin main 2>&1 | tail -2
 fi
 echo ""
