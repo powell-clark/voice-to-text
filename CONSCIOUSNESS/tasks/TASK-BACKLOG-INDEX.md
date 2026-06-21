@@ -1,4 +1,5 @@
 id|priority|title|story_ids|epic_id|feature_ids|doc|blocked_by|blocks|assignee|parent_task_id|sequence
+TASK-VTT070|p2|Vendor refresh — upgrade rustls-webpki to >=0.103.13 to close RUSTSEC-2026-0104||DIRECT-VTT002||||
 TASK-VTT056|p0|Monitor v2.0.5 in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT056.md
 TASK-VTT062|p2|Wire Settings.selected_device_index through to audio::Audio::new() so users with multiple mics can pick one from the tray — field is saved to settings.conf but currently unused; audio.rs hardcodes default_input_device()||DIRECT-VTT002||TASK-VTT062.md
 TASK-VTT060|p1|Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT060.md

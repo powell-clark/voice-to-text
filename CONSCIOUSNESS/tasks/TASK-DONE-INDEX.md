@@ -44,6 +44,7 @@ TASK-VTT057|Cargo unit tests for pure logic — 20 tests added across settings, 
 TASK-VTT058|GitHub Actions CI — fmt + clippy + test + build on every push and PR, ubuntu-24.04|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT058.md
 TASK-VTT059|Local git pre-push hook matching CI — installed via scripts/git-hooks/install.sh|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT059.md
 TASK-VTT061|Local build-archives/ disk cleanup — reduced from 5.7 GB to 24 MB, kept only 2.0.4 + 2.0.5 artefacts|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|
+TASK-VTT063|Windows x86-64 compile-green and CI build job|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT063.md
 TASK-VTT065|PGPS neurologist repair — EPIC→DIRECT rename, feature index migration, FK heals, schema.json fix, repo tidy||DIRECT-VTT002|||
 TASK-VTT034|Build release binary, deploy to /usr/bin/vtt-linux, restart service, verify transcription quality — completed as part of v2.0.0 release|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT034.md
 TASK-VTT039|dput 2.0.0 to the Launchpad PPA, apt install locally, verify end-to-end transcription — completed as part of v2.0.0 release|STORY-VTT011|DIRECT-VTT002|FEAT-VTT027|TASK-VTT039.md
