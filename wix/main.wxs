@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  cargo-wix installer for Voice to Text.
+  Build: cargo wix (requires WiX Toolset 3.x on PATH)
+  UpgradeCode is permanent — do not change between releases.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           Name="Voice to Text"
+           Language="1033"
+           Version="$(var.Version)"
+           Manufacturer="Powell-Clark Limited"
+           UpgradeCode="{4F8F8C5A-3E12-4B9D-8F7A-C6B5D2E91F03}">
+
+    <Package InstallerVersion="450"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Platform="x64"
+             Description="Free offline push-to-talk voice transcription"
+             Manufacturer="Powell-Clark Limited" />
+
+    <MajorUpgrade
+      Schedule="afterInstallInitialize"
+      DowngradeErrorMessage="A newer version of Voice to Text is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="Complete" Title="Voice to Text" Level="1">
+      <ComponentGroupRef Id="Binaries" />
+      <ComponentGroupRef Id="Shortcuts" />
+    </Feature>
+  </Product>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="APPLICATIONFOLDER" Name="Voice to Text" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="VttMenuFolder" Name="Voice to Text" />
+      </Directory>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="Binaries" Directory="APPLICATIONFOLDER">
+      <Component Id="VttBinary" Guid="{7B1E4F2A-8C9D-4E3B-A5F6-D1C7E2B89043}">
+        <!--
+          The cargo binary is named vtt-linux.exe on all platforms (from [[bin]] name).
+          WiX renames it to vtt.exe on install — users see "vtt.exe" in Program Files.
+        -->
+        <File Id="VttExe"
+              Name="vtt.exe"
+              Source="$(var.CargoTargetBinDir)\vtt-linux.exe"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="Shortcuts" Directory="VttMenuFolder">
+      <Component Id="VttShortcut" Guid="{C3D4E5F6-A890-4BCD-8F12-345678901234}">
+        <Shortcut Id="VttStartMenu"
+                  Name="Voice to Text"
+                  Description="Push-to-talk offline voice transcription"
+                  Target="[APPLICATIONFOLDER]vtt.exe"
+                  WorkingDirectory="APPLICATIONFOLDER" />
+        <RemoveFolder Id="VttMenuFolderCleanup"
+                      Directory="VttMenuFolder"
+                      On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\Powell-Clark\Voice to Text"
+                       Name="Installed"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
