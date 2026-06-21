@@ -1,83 +1,47 @@
 # Release Process
 
-## Manual Release (Current - saves $5-6 per release)
+Distribution: Ubuntu/Debian via Launchpad PPA (`ppa:powellclark/voice-to-text`).
 
-Auto-release via GitHub Actions is **disabled** to avoid macOS CI costs ($0.08/min).
-
-### How to release
-
-On your Mac:
+## How to release (PPA)
 
 ```bash
-# 1. Make your changes and commit
-git add .
-git commit -m "feat: your changes"
-git push
+# 1. Build the release binary locally
+cargo build --release
+cp target/release/vtt-linux vtt-linux.prebuilt
 
-# 2. Build the app
-make clean && make package
+# 2. Bump version in Cargo.toml and debian/changelog, then commit + push
 
-# 3. Create GitHub release with the artifact
-git tag v0.4.0
-git push origin v0.4.0
-gh release create v0.4.0 VTT.app.tar.gz --generate-notes
-
-# 4. Update the Homebrew cask manually
-SHA256=$(shasum -a 256 VTT.app.tar.gz | awk '{print $1}')
-echo "SHA256: $SHA256"
-# Edit homebrew-voice-to-text/Casks/voice-to-text.rb with new version and SHA
+# 3. Run the PPA release script (pbuilder gate + dput)
+bash scripts/release-ppa.sh
 ```
 
-Users can then install/upgrade with:
+`vtt-linux.prebuilt` is committed to the repo because Ubuntu Noble ships
+Cargo 1.75, which cannot parse edition 2024 manifests. The Launchpad build
+step installs the pre-built binary rather than building from source. This
+follows the Google Chrome / Zoom pattern for proprietary .debs. Revert to
+the cargo-build path when Ubuntu ships a newer toolchain (expected 25.04+)
+— see `debian/rules` git history commit efa5d75.
+
+## Development workflow (local .deb)
+
 ```bash
-brew upgrade voice-to-text
+bash scripts/release-local.sh --install
 ```
 
-## Development workflow
+This builds via `cargo build --release`, packages a `.deb`, and installs it.
 
-For local development (no release):
+## macOS (legacy)
+
+The Objective-C macOS bundle (`VTT.app`) predates the Rust rewrite (v2.0).
+The macOS dev helper is at `scripts/install-dev.sh`.  
+Homebrew Cask definitions live in `Casks/` — currently unmaintained.
+
+## GitHub Actions CI runner (macOS, optional)
+
+To run macOS CI jobs locally without paying GitHub's $0.08/min:
+
 ```bash
-make && ./install-dev.sh
+# Get a runner token from:
+# https://github.com/powell-clark/voice-to-text/settings/actions/runners
+bash scripts/setup-runner.sh YOUR_TOKEN_HERE
 ```
-
-For testing the build before releasing:
-```bash
-make package
-# This creates VTT.app.tar.gz locally
-```
-
----
-
-## Optional: Re-enable Automated Releases
-
-To restore automated releases without CI costs, set up a self-hosted runner on your Mac:
-
-### 1. Get runner token
-- Go to: https://github.com/powell-clark/voice-to-text/settings/actions/runners
-- Click "New self-hosted runner" → macOS
-- Copy the token
-
-### 2. Set up runner on your Mac
-```bash
-./setup-runner.sh YOUR_TOKEN_HERE
-```
-
-### 3. Start the runner
-```bash
-# Run manually:
-cd ~/actions-runner && ./run.sh
-
-# Or install as service (runs on startup):
-cd ~/actions-runner && ./svc.sh install && ./svc.sh start
-```
-
-### 4. Re-enable the workflow
-Edit `.github/workflows/release.yml` and uncomment the tag trigger:
-```yaml
-on:
-  push:
-    tags:
-      - 'v*'
-```
-
-Then releasing is automatic again - just push a tag.
