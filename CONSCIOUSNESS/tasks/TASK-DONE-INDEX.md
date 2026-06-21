@@ -43,3 +43,4 @@ TASK-VTT061|Local build-archives/ disk cleanup — reduced from 5.7 GB to 24 MB,
 TASK-VTT065|PGPS neurologist repair — EPIC→DIRECT rename, feature index migration, FK heals, schema.json fix, repo tidy||DIRECT-VTT002|||
 TASK-VTT034|Build release binary, deploy to /usr/bin/vtt-linux, restart service, verify transcription quality — completed as part of v2.0.0 release|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT034.md
 TASK-VTT039|dput 2.0.0 to the Launchpad PPA, apt install locally, verify end-to-end transcription — completed as part of v2.0.0 release|STORY-VTT011|DIRECT-VTT002|FEAT-VTT027|TASK-VTT039.md
+TASK-VTT068|done|p1|Claude Code tooling parity with Consciousness|||||TASK-VTT068.md||||
