@@ -39,6 +39,21 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
     if args.iter().any(|a| a == "--help" || a == "-h") {
+        #[cfg(target_os = "windows")]
+        println!(
+            "voice-to-text {} — push-to-talk offline transcription\n\n\
+             Usage: vtt-windows [options]\n\n\
+             Options:\n  \
+             -V, --version    Print version and exit\n  \
+             -h, --help       Print this help and exit\n\n\
+             With no options, launches the tray icon. Hold the configured\n\
+             hotkey (default: Scroll Lock) and speak. Release to transcribe.\n\n\
+             Config:   %LOCALAPPDATA%\\voice-to-text\\settings.conf\n\
+             Logs:     %LOCALAPPDATA%\\voice-to-text\\vtt-YYYY-MM-DD.log\n\
+             Models:   %LOCALAPPDATA%\\voice-to-text\\models\\ggml-*.bin",
+            env!("CARGO_PKG_VERSION")
+        );
+        #[cfg(not(target_os = "windows"))]
         println!(
             "voice-to-text {} — push-to-talk offline transcription\n\n\
              Usage: vtt-linux [options]\n\n\
@@ -104,7 +119,7 @@ fn main() -> anyhow::Result<()> {
         });
     }
 
-    // Clean up old WAV files from /tmp
+    // Clean up old WAV files from the system temp directory
     cleanup_old_wavs();
 
     // Load settings
@@ -656,16 +671,17 @@ fn singleton_lock(config_dir: &std::path::Path) -> anyhow::Result<std::fs::File>
 
 fn cleanup_old_wavs() {
     let cutoff = std::time::SystemTime::now() - Duration::from_secs(3600);
-    let cleaned = cleanup_old_wavs_in(std::path::Path::new("/tmp"), cutoff);
+    let tmp = std::env::temp_dir();
+    let cleaned = cleanup_old_wavs_in(&tmp, cutoff);
     if cleaned > 0 {
-        vtt_log!("Cleaned up {} old WAV files from /tmp", cleaned);
+        vtt_log!("Cleaned up {} old WAV files from {}", cleaned, tmp.display());
     }
 }
 
 /// Pure-ish: delete `vtt_recording_*.wav` files in `dir` older than `cutoff`.
 /// Returns the count actually deleted. Extracted so the filtering logic is
 /// testable with a tempdir — the production entry point `cleanup_old_wavs()`
-/// wraps this with the hardcoded `/tmp` and a 1-hour cutoff.
+/// wraps this with `std::env::temp_dir()` and a 1-hour cutoff.
 fn cleanup_old_wavs_in(dir: &std::path::Path, cutoff: std::time::SystemTime) -> usize {
     let mut cleaned = 0;
     if let Ok(entries) = std::fs::read_dir(dir) {
