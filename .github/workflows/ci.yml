@@ -147,6 +147,13 @@ jobs:
     # on gtk-rs GTK3 bindings (RUSTSEC-2024-0412 through -0420 mark these
     # unmaintained — gtk4-rs is the future but porting is a separate major
     # effort tracked elsewhere). Runs in parallel with the main check job.
+    #
+    # RUSTSEC-2026-0104 — rustls-webpki 0.103.12: reachable panic in CRL
+    # (certificate revocation list) parsing. Our only use of rustls is via
+    # reqwest for model downloads from huggingface.co. We do not enable CRL
+    # checking in that reqwest client, so this code path is not reachable.
+    # Fix: upgrade rustls-webpki to >=0.103.13 when the vendored dep allows
+    # it (deps are vendored; TASK-VTT070 tracks the vendor refresh).
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
