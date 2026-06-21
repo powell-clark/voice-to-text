@@ -13,3 +13,4 @@ REVIEW-CCC016|task|TASK-VTT063|agent|vtt-main-8db8f9db|bypass-approved|1|2026-06
 REVIEW-CCC017|task|TASK-VTT063|agent|vtt-main-8db8f9db|auto-approved|1|2026-06-21 10:49:35.049 gmt|
 REVIEW-CCC018|task|TASK-VTT071|agent|vtt-main-ea3598e0|bypass-approved|1|2026-06-21T14:30:00+01:00|auto-close: entity gate is auto-flow
 REVIEW-CCC019|task|TASK-VTT071|agent|vtt-main-8db8f9db|auto-approved|1|2026-06-21 11:11:55.768 gmt|
+REVIEW-CCC020|task|TASK-VTT074|agent|vtt-main-fa83408c|bypass-approved|1|2026-06-21T16:57:00+01:00|auto-close: entity gate is auto-flow
