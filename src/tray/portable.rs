@@ -1,6 +1,5 @@
 /// Portable tray implementation using tray-icon + muda (macOS + Windows)
 use super::{UiMessage, UiSender};
-use crate::hotkey;
 use crate::logging;
 use crate::settings::Settings;
 use std::path::Path;
@@ -12,6 +11,9 @@ use tray_icon::{TrayIcon, TrayIconBuilder};
 
 pub struct Tray {
     _tray_icon: TrayIcon,
+    cmd_rx: mpsc::Receiver<MenuCmd>,
+    ids: MenuIds,
+    settings: Arc<RwLock<Settings>>,
 }
 
 struct MenuIds {
@@ -21,6 +23,15 @@ struct MenuIds {
     models: Vec<(CheckMenuItem, String)>,
     lang_en: CheckMenuItem,
     lang_multi: CheckMenuItem,
+}
+
+// Commands from the event-matching thread (Send-safe) to the main thread.
+enum MenuCmd {
+    Quit,
+    About,
+    LoggingToggle,
+    LanguageSel(String),
+    ModelSel(String),
 }
 
 impl Tray {
@@ -107,19 +118,16 @@ impl Tray {
         // Quit
         let quit = MenuItem::new("Quit", true, None);
         menu.append(&quit)?;
+        drop(status); // status-item label updates go via UiMessage; not needed here
 
-        // Create tray icon (simple colored dot)
-        let icon = create_icon(0, 180, 0); // Green = ready
+        // Create tray icon
+        let icon = create_icon(0, 180, 0);
         let tray_icon = TrayIconBuilder::new()
             .with_menu(Box::new(menu))
             .with_tooltip("Voice to Text")
             .with_icon(icon)
             .build()?;
 
-        // UI channel
-        let (ui_tx, ui_rx) = mpsc::channel::<UiMessage>();
-
-        // Gather menu item IDs
         let ids = MenuIds {
             quit,
             about,
@@ -129,19 +137,54 @@ impl Tray {
             lang_multi,
         };
 
-        // Menu event handler thread
-        let menu_rx = MenuEvent::receiver().clone();
-        let settings_clone = settings.clone();
+        // muda::MenuId wraps String so it is Clone + Send.
+        // The MenuItem/CheckMenuItem/Submenu objects contain Rc<MenuId> and are NOT Send.
+        // Solution: clone just the IDs into the event-matching thread; keep the items
+        // in the Tray struct so poll_menu() can call set_checked/set_text on the main thread.
+        let quit_id = ids.quit.id().clone();
+        let about_id = ids.about.id().clone();
+        let logging_id = ids.logging.id().clone();
+        let lang_en_id = ids.lang_en.id().clone();
+        let lang_multi_id = ids.lang_multi.id().clone();
+        let model_ids: Vec<(muda::MenuId, String)> = ids
+            .models
+            .iter()
+            .map(|(item, name)| (item.id().clone(), name.clone()))
+            .collect();
+
+        let (cmd_tx, cmd_rx) = mpsc::channel::<MenuCmd>();
+        let menu_event_rx = MenuEvent::receiver().clone();
+
         std::thread::Builder::new()
             .name("menu-events".into())
-            .spawn(move || {
-                handle_menu_events(&menu_rx, ids, settings_clone, status, lang_sub, model_sub);
+            .spawn(move || loop {
+                if let Ok(event) = menu_event_rx.recv() {
+                    let id = event.id().clone();
+                    let cmd = if id == quit_id {
+                        Some(MenuCmd::Quit)
+                    } else if id == about_id {
+                        Some(MenuCmd::About)
+                    } else if id == logging_id {
+                        Some(MenuCmd::LoggingToggle)
+                    } else if id == lang_en_id {
+                        Some(MenuCmd::LanguageSel("en".into()))
+                    } else if id == lang_multi_id {
+                        Some(MenuCmd::LanguageSel("auto".into()))
+                    } else {
+                        model_ids
+                            .iter()
+                            .find(|(mid, _)| *mid == id)
+                            .map(|(_, name)| MenuCmd::ModelSel(name.clone()))
+                    };
+                    if let Some(cmd) = cmd {
+                        if cmd_tx.send(cmd).is_err() {
+                            break;
+                        }
+                    }
+                }
             })?;
 
-        // UI update handler (polls mpsc in a thread, updates tray)
-        // Note: on macOS/Windows, tray icon updates must happen from the right thread.
-        // For now, status updates are logged since tray-icon doesn't support
-        // dynamic label changes easily after creation.
+        let (ui_tx, ui_rx) = mpsc::channel::<UiMessage>();
         std::thread::Builder::new()
             .name("ui-updates".into())
             .spawn(move || {
@@ -160,83 +203,63 @@ impl Tray {
         Ok((
             Tray {
                 _tray_icon: tray_icon,
+                cmd_rx,
+                ids,
+                settings,
             },
             ui_tx,
         ))
     }
-}
 
-fn handle_menu_events(
-    menu_rx: &crossbeam_channel::Receiver<MenuEvent>,
-    ids: MenuIds,
-    settings: Arc<RwLock<Settings>>,
-    _status: MenuItem,
-    _lang_sub: Submenu,
-    _model_sub: Submenu,
-) {
-    loop {
-        if let Ok(event) = menu_rx.recv() {
-            let id = event.id().clone();
-
-            // Quit
-            if id == *ids.quit.id() {
-                crate::vtt_log!("Quit requested");
-                std::process::exit(0);
-            }
-
-            // About
-            if id == *ids.about.id() {
-                crate::vtt_log!("About: Voice to Text 2.0 (Rust) — https://github.com/powell-clark/voice-to-text");
-            }
-
-            // Logging toggle
-            if id == *ids.logging.id() {
-                let mut s = settings.write().unwrap();
-                s.logging_enabled = !s.logging_enabled;
-                logging::set_enabled(s.logging_enabled);
-                ids.logging.set_text(if s.logging_enabled {
-                    "Logging: On"
-                } else {
-                    "Logging: Off"
-                });
-                crate::vtt_log!(
-                    "Logging {}",
-                    if s.logging_enabled {
-                        "enabled"
+    /// Process pending menu commands. Call from the main event loop at ~10 Hz.
+    pub fn poll_menu(&mut self) {
+        while let Ok(cmd) = self.cmd_rx.try_recv() {
+            match cmd {
+                MenuCmd::Quit => {
+                    crate::vtt_log!("Quit requested");
+                    std::process::exit(0);
+                }
+                MenuCmd::About => {
+                    crate::vtt_log!(
+                        "About: Voice to Text — https://github.com/powell-clark/voice-to-text"
+                    );
+                }
+                MenuCmd::LoggingToggle => {
+                    let mut s = self.settings.write().unwrap();
+                    s.logging_enabled = !s.logging_enabled;
+                    logging::set_enabled(s.logging_enabled);
+                    self.ids.logging.set_text(if s.logging_enabled {
+                        "Logging: On"
                     } else {
-                        "disabled"
+                        "Logging: Off"
+                    });
+                    crate::vtt_log!(
+                        "Logging {}",
+                        if s.logging_enabled {
+                            "enabled"
+                        } else {
+                            "disabled"
+                        }
+                    );
+                }
+                MenuCmd::LanguageSel(lang) => {
+                    let is_en = lang == "en";
+                    self.settings.write().unwrap().selected_language = lang;
+                    self.ids.lang_en.set_checked(is_en);
+                    self.ids.lang_multi.set_checked(!is_en);
+                    self.settings.read().unwrap().save().ok();
+                    crate::vtt_log!(
+                        "Language changed to {}",
+                        if is_en { "English" } else { "Multilingual" }
+                    );
+                }
+                MenuCmd::ModelSel(name) => {
+                    self.settings.write().unwrap().selected_model = name.clone();
+                    for (item, item_name) in &self.ids.models {
+                        item.set_checked(*item_name == name);
                     }
-                );
-            }
-
-            // Language
-            if id == *ids.lang_en.id() {
-                settings.write().unwrap().selected_language = "en".into();
-                ids.lang_en.set_checked(true);
-                ids.lang_multi.set_checked(false);
-                settings.read().unwrap().save().ok();
-                crate::vtt_log!("Language changed to English");
-            }
-            if id == *ids.lang_multi.id() {
-                settings.write().unwrap().selected_language = "auto".into();
-                ids.lang_en.set_checked(false);
-                ids.lang_multi.set_checked(true);
-                settings.read().unwrap().save().ok();
-                crate::vtt_log!("Language changed to Multilingual");
-            }
-
-            // Model selection
-            for (item, name) in &ids.models {
-                if id == *item.id() {
-                    settings.write().unwrap().selected_model = name.clone();
-                    // Uncheck all, check selected
-                    for (other, _) in &ids.models {
-                        other.set_checked(false);
-                    }
-                    item.set_checked(true);
-                    settings.read().unwrap().save().ok();
+                    self.settings.read().unwrap().save().ok();
                     crate::vtt_log!("Model changed to {}", name);
-                    break;
                 }
             }
         }
