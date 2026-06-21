@@ -29,6 +29,15 @@ bash scripts/release-local.sh [--install]
 bash scripts/release-ppa.sh   # pbuilder hard-gate, then dput
 ```
 
+### Other scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/vendor_whisper.sh` | Vendor `whisper.cpp` into `third_party/` |
+| `scripts/setup-runner.sh` | Set up the macOS GitHub Actions self-hosted runner |
+| `scripts/install-dev.sh` | Set up the local dev environment |
+| `scripts/git-hooks/` | Git hooks (install via `install-dev.sh`) |
+
 ## PPA information (Linux only)
 
 - Launchpad account: `powellclark` (no hyphen)
