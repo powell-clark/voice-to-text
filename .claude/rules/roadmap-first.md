@@ -1,0 +1,64 @@
+<!-- GENERATED from CONSCIOUSNESS/precepts/ — do not edit manually -->
+<!-- Source of truth: CONSCIOUSNESS/precepts/{name}.yaml -->
+<!-- Regenerate: pnpm run generate:rules -->
+
+
+# Roadmap first
+
+ALWAYS update CONSCIOUSNESS BEFORE doing work. Not after. Not later. Before.
+
+ON EVERY USER MESSAGE, before responding with work:
+1. Read TASK-ACTIVE-INDEX.md to know what's in progress
+2. If the user's request is new work not in the index → create TASK first
+3. If the user's request matches an existing task → claim it / mark in_progress
+4. Only THEN start the actual implementation
+
+This means:
+1. New work mentioned → create TASK/STORY/FEATURE in INDEX first, THEN implement
+2. Idea worth sharing → write to ideas/ first, THEN continue
+3. Decision made → update roadmap items first, THEN execute
+4. Work completed → move to DONE index IMMEDIATELY, not in a batch later
+5. Bug found → create TASK first, THEN fix
+
+The roadmap is the source of truth. Untracked work is invisible work.
+Deferred updates are forgotten updates.
+
+## Scope
+
+universal
+
+## Trigger
+
+This precept fires on EVERY user message. The first tool calls in any
+response should be roadmap reads/writes, not implementation. If the
+agent's first tool call is Read/Edit/Write on a source file without
+having checked the roadmap, the precept has been violated.
+
+## Actions
+
+### Before work
+
+- Read TASK-ACTIVE-INDEX.md to know current state
+- Create or update roadmap items (TASK, STORY, FEATURE, DIRECTIVE)
+- Link items correctly (story_ids, directive_id, feature_ids)
+- Write ideas to ideas/ if speculative
+
+### During work
+
+- Mark task in_progress when starting
+- Only ONE task in_progress at a time
+
+### After work
+
+- Move completed items to DONE index IMMEDIATELY
+- Do not batch multiple completions — update as you go
+
+## Anti patterns
+
+- Doing work then saying 'I'll update PGPS later'
+- Completing 5 tasks then moving them all to DONE at once
+- Parking an idea verbally instead of writing to ideas/
+- Starting implementation without creating a TASK first
+- Saying 'noted' without actually writing it down
+- First tool call being a source file read/edit instead of roadmap check
+- Responding to a user request without checking what's already in ACTIVE
