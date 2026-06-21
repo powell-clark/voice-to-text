@@ -31,15 +31,15 @@ built or tested on Windows. This spec closes the gap.
 
 ### Known gaps (blocking a Windows build)
 
-| Gap | Location | Severity |
-|-----|----------|----------|
-| Singleton lock is `#[cfg(unix)]` only; Windows skips it | `src/main.rs:77` | Medium — multiple instances can run |
-| Ctrl+C / signal handler is `#[cfg(unix)]` only | `src/main.rs:96` | Medium — graceful shutdown missing |
-| `cleanup_old_wavs` hardcodes `/tmp` | `src/main.rs:659` | Low — temp files accumulate in wrong dir |
-| Binary target name is `vtt-linux` in `Cargo.toml` | `Cargo.toml:10` | High — must be renamed or made conditional |
-| Help text references Linux paths and binary name | `src/main.rs:43-54` | Low — cosmetic, wrong paths shown |
-| Buffer-full notification is a no-op on non-Linux | `src/main.rs:127-150` | Low — feature parity |
-| No Windows CI job | `.github/workflows/ci.yml` | High — nothing is verified |
+| Gap | Location | Severity | Status |
+|-----|----------|----------|--------|
+| Singleton lock is `#[cfg(unix)]` only; Windows skips it | `src/main.rs` | Medium — multiple instances can run | **Fixed** — `singleton_lock_windows()` via `CreateMutexW` |
+| Ctrl+C / signal handler is `#[cfg(unix)]` only | `src/main.rs` | Medium — graceful shutdown missing | **Fixed** — `setup_ctrl_handler()` via `SetConsoleCtrlHandler` |
+| `cleanup_old_wavs` hardcodes `/tmp` | `src/main.rs` | Low — temp files accumulate in wrong dir | **Fixed** — uses `std::env::temp_dir()` |
+| Help text references Linux paths and binary name | `src/main.rs` | Low — cosmetic, wrong paths shown | **Fixed** — `#[cfg(target_os = "windows")]` conditional paths |
+| Binary target name is `vtt-linux` in `Cargo.toml` | `Cargo.toml:10` | High — must be renamed or made conditional | Open — rename or post-build step |
+| Buffer-full notification is a no-op on non-Linux | `src/main.rs` | Low — feature parity | Open — tracked as STORY-VTT013 |
+| No Windows CI job | `.github/workflows/ci.yml` | High — nothing is verified | Open — see CI Job Specification below |
 
 ---
 
@@ -102,30 +102,26 @@ correct but cosmetically wrong.
 
 ## Code Changes Required Before CI Can Pass
 
-### 1. Singleton lock — `src/main.rs`
+### 1. Singleton lock — `src/main.rs` ✅ Implemented
 
-The current `singleton_lock` is wrapped in `#[cfg(unix)]`. Windows needs a
-`CreateMutex`-based equivalent. Until implemented, the guard simply does nothing on
-Windows (existing behaviour — not a blocker for a first CI pass).
+`singleton_lock_windows()` uses `CreateMutexW` with a named mutex
+(`Global\VoiceToTextSingleton`). Returns an error if the mutex already exists
+(another instance running). The handle is stored in a static `AtomicUsize` so it
+lives for the process lifetime — Windows releases it automatically on exit.
 
-Tracked as TASK-VTT044 (referenced in code comment at line 77).
+No new crate dependencies; implemented via raw `extern "system"` FFI.
 
-### 2. Signal handler — `src/main.rs`
+### 2. Signal handler — `src/main.rs` ✅ Implemented
 
-`ctrlc_handler` is `#[cfg(unix)]`. The Windows path falls through to a busy-loop
-(`loop { sleep(100ms); if !running { break; } }`), which is already in the code at
-lines 319-328. Ctrl+C will terminate the process via the default Windows handler
-(abrupt exit). Acceptable for a first build; tracked as TASK-VTT045.
+`setup_ctrl_handler()` calls `SetConsoleCtrlHandler` with a handler that sets the
+shared `running` flag to `false` on `CTRL_C_EVENT` (0), `CTRL_BREAK_EVENT` (1), or
+`CTRL_CLOSE_EVENT` (2). The main loop's existing `loop { sleep(100ms); if !running
+{ break; } }` then exits cleanly. No new crate dependencies; raw `extern "system"`
+FFI.
 
-### 3. Temp directory for WAV cleanup — `src/main.rs:659`
+### 3. Temp directory for WAV cleanup ✅ Implemented
 
-```rust
-fn cleanup_old_wavs() {
-    let cutoff = ...;
-    let cleaned = cleanup_old_wavs_in(std::path::Path::new("/tmp"), cutoff);
-```
-
-This hardcodes `/tmp`, which does not exist on Windows. Fix:
+Was: `cleanup_old_wavs_in(std::path::Path::new("/tmp"), cutoff)` — hardcoded `/tmp`, which does not exist on Windows. Fixed to:
 
 ```rust
 fn cleanup_old_wavs() {
@@ -138,13 +134,13 @@ fn cleanup_old_wavs() {
 }
 ```
 
-This is the only **code change required** before `cargo build --release` can succeed
+This was the only **code change required** before `cargo build --release` can succeed
 on Windows (assuming Vulkan SDK is present). All other gaps are either already
 compile-gated or are runtime-only issues.
 
-### 4. Help text paths — `src/main.rs:43-54`
+### 4. Help text paths ✅ Implemented
 
-Update the help text to show Windows paths conditionally:
+Help text now shows Windows paths conditionally:
 
 ```rust
 #[cfg(target_os = "windows")]
@@ -269,15 +265,18 @@ This spec covers only build and test. The `scripts/release-local.sh` and
 - [ ] `cargo clippy --release -- -D warnings` produces no errors on `windows-2022`
 - [ ] The produced binary prints the correct version via `--version`
 - [ ] The Windows CI job runs in parallel with the existing Ubuntu job on every PR to `main`
-- [ ] The `cleanup_old_wavs` function uses `std::env::temp_dir()` instead of `/tmp`
+- [x] The `cleanup_old_wavs` function uses `std::env::temp_dir()` instead of `/tmp`
+- [x] Help text shows platform-correct paths (`%LOCALAPPDATA%` on Windows)
+- [x] Singleton lock prevents multiple instances on Windows (`CreateMutexW`)
+- [x] Graceful shutdown on Ctrl+C/Ctrl+Break on Windows (`SetConsoleCtrlHandler`)
 
 ---
 
 ## Implementation Order
 
-1. Fix `cleanup_old_wavs` to use `std::env::temp_dir()` — unblocks the build
-2. Add the `windows-2022` CI job — catches any remaining issues automatically
-3. Fix help text paths (cosmetic, low priority)
-4. Implement singleton lock via `CreateMutexW` — TASK-VTT044
-5. Implement `SetConsoleCtrlHandler` — TASK-VTT045
+1. ✅ Fix `cleanup_old_wavs` to use `std::env::temp_dir()` — unblocks the build
+2. ✅ Fix help text paths — cosmetic
+3. ✅ Implement singleton lock via `CreateMutexW` (no new deps, raw FFI)
+4. ✅ Implement `SetConsoleCtrlHandler` (no new deps, raw FFI)
+5. Add the `windows-2022` CI job — catches any remaining issues automatically
 6. Windows toast notifications — STORY-VTT013

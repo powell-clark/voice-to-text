@@ -88,9 +88,10 @@ fn main() -> anyhow::Result<()> {
     // instance already running) don't pollute the daily log with banner
     // lines. Error surfaces on stderr via anyhow's Display impl, which is
     // what the user sees when launching from a terminal anyway.
-    // (Unix only — Windows needs CreateMutexW, see TASK-VTT044)
     #[cfg(unix)]
     let _lock_fd = singleton_lock(&config_dir)?;
+    #[cfg(target_os = "windows")]
+    singleton_lock_windows()?;
 
     // Initialize logging (now we know we're the only instance)
     logging::init(&config_dir);
@@ -106,7 +107,6 @@ fn main() -> anyhow::Result<()> {
     // the noisy model-init and per-transcription log lines whisper.cpp emits.
     whisper_rs::install_logging_hooks();
 
-    // Signal handler (Unix only — Windows needs SetConsoleCtrlHandler, see TASK-VTT045)
     let running = Arc::new(AtomicBool::new(true));
     #[cfg(unix)]
     {
@@ -118,6 +118,8 @@ fn main() -> anyhow::Result<()> {
             glib::idle_add_once(gtk::main_quit);
         });
     }
+    #[cfg(target_os = "windows")]
+    setup_ctrl_handler(running.clone());
 
     // Clean up old WAV files from the system temp directory
     cleanup_old_wavs();
@@ -723,6 +725,79 @@ fn ctrlc_handler<F: Fn() + Send + 'static>(f: F) {
             f();
         })
         .ok();
+}
+
+// ─── Windows platform helpers ────────────────────────────────────
+
+/// Named-mutex singleton guard for Windows.
+/// Creates `Global\VoiceToTextSingleton`; returns an error if another instance
+/// already holds the mutex. The handle is stored in a static so it lives for
+/// the process lifetime — Windows releases it automatically on process exit.
+#[cfg(target_os = "windows")]
+fn singleton_lock_windows() -> anyhow::Result<()> {
+    extern "system" {
+        fn CreateMutexW(
+            lp_mutex_attributes: *mut std::ffi::c_void,
+            b_initial_owner: i32,
+            lp_name: *const u16,
+        ) -> *mut std::ffi::c_void;
+        fn GetLastError() -> u32;
+    }
+
+    const ERROR_ALREADY_EXISTS: u32 = 183;
+
+    let name: Vec<u16> = "Global\\VoiceToTextSingleton\0".encode_utf16().collect();
+    let handle = unsafe { CreateMutexW(std::ptr::null_mut(), 1, name.as_ptr()) };
+
+    if handle.is_null() {
+        anyhow::bail!("Failed to create singleton mutex");
+    }
+    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        anyhow::bail!(
+            "Another instance of voice-to-text is already running. \
+             Find it in Task Manager and end it before starting a new one."
+        );
+    }
+
+    // Store the handle in a static so it is never dropped during the process
+    // lifetime. Windows interprets an open handle as "this process holds the
+    // mutex", which is the singleton guarantee we need.
+    static MUTEX_HANDLE: std::sync::atomic::AtomicUsize =
+        std::sync::atomic::AtomicUsize::new(0);
+    MUTEX_HANDLE.store(handle as usize, Ordering::Relaxed);
+
+    Ok(())
+}
+
+/// Install a `SetConsoleCtrlHandler` that sets `running = false` on Ctrl+C,
+/// Ctrl+Break, or console-close so the main loop exits cleanly.
+#[cfg(target_os = "windows")]
+fn setup_ctrl_handler(running: Arc<AtomicBool>) {
+    extern "system" {
+        fn SetConsoleCtrlHandler(
+            handler_routine: Option<unsafe extern "system" fn(u32) -> i32>,
+            add: i32,
+        ) -> i32;
+    }
+
+    static RUNNING: std::sync::OnceLock<Arc<AtomicBool>> = std::sync::OnceLock::new();
+    let _ = RUNNING.set(running);
+
+    unsafe extern "system" fn ctrl_handler(ctrl_type: u32) -> i32 {
+        // CTRL_C_EVENT=0, CTRL_BREAK_EVENT=1, CTRL_CLOSE_EVENT=2
+        if ctrl_type <= 2 {
+            eprintln!("Control signal received, shutting down");
+            if let Some(r) = RUNNING.get() {
+                r.store(false, Ordering::SeqCst);
+            }
+            return 1; // TRUE — handled; suppress default termination
+        }
+        0 // FALSE — pass to next handler
+    }
+
+    unsafe {
+        SetConsoleCtrlHandler(Some(ctrl_handler), 1);
+    }
 }
 
 /// Pure: build the final text that gets typed, given the transcription.
