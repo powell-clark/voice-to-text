@@ -48,4 +48,5 @@ TASK-VTT063|Windows x86-64 compile-green and CI build job|STORY-VTT013|DIRECT-VT
 TASK-VTT065|PGPS neurologist repair — EPIC→DIRECT rename, feature index migration, FK heals, schema.json fix, repo tidy||DIRECT-VTT002|||
 TASK-VTT034|Build release binary, deploy to /usr/bin/vtt-linux, restart service, verify transcription quality — completed as part of v2.0.0 release|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT034.md
 TASK-VTT039|dput 2.0.0 to the Launchpad PPA, apt install locally, verify end-to-end transcription — completed as part of v2.0.0 release|STORY-VTT011|DIRECT-VTT002|FEAT-VTT027|TASK-VTT039.md
+TASK-VTT071|Repo organisation — packaging/ layout and CLAUDE.md rewrite||DIRECT-VTT002||
 TASK-VTT068|done|p1|Claude Code tooling parity with Consciousness|||||TASK-VTT068.md||||
