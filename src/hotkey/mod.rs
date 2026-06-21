@@ -17,4 +17,4 @@ pub use linux::{get_key_name, start_monitor};
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod portable;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-pub use portable::{get_key_name, start_monitor};
+pub use portable::start_monitor;
