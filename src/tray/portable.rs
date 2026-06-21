@@ -1,10 +1,10 @@
 /// Portable tray implementation using tray-icon + muda (macOS + Windows)
 use super::{UiMessage, UiSender};
-use crate::hotkey::{self, HotkeyCmd};
+use crate::hotkey;
 use crate::logging;
 use crate::settings::Settings;
 use std::path::Path;
-use std::sync::mpsc::{self, Sender};
+use std::sync::mpsc;
 use std::sync::{Arc, RwLock};
 
 use muda::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
@@ -135,7 +135,7 @@ impl Tray {
         std::thread::Builder::new()
             .name("menu-events".into())
             .spawn(move || {
-                handle_menu_events(menu_rx, ids, settings_clone, status, lang_sub, model_sub);
+                handle_menu_events(&menu_rx, ids, settings_clone, status, lang_sub, model_sub);
             })?;
 
         // UI update handler (polls mpsc in a thread, updates tray)
