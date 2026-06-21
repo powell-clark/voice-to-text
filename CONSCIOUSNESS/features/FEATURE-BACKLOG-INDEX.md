@@ -2,7 +2,7 @@ id|priority|kano|description|story_ids|task_ids|doc
 FEAT-VTT024|p1|performance|Vulkan GPU acceleration on Linux and Windows — universal NVIDIA plus AMD plus Intel without requiring CUDA Toolkit (Linux done, Windows blocked on port)|STORY-VTT010|TASK-VTT025|FEAT-VTT024.md
 FEAT-VTT025|p1|performance|Metal GPU acceleration on macOS — Intel Radeon and Apple Silicon both supported (blocked on macOS port)|STORY-VTT010|TASK-VTT025|FEAT-VTT025.md
 FEAT-VTT029|p1|must-have|macOS .app bundle with accessibility permissions flow for Intel Radeon and Apple Silicon|STORY-VTT012|TASK-VTT040,TASK-VTT041,TASK-VTT042,TASK-VTT043|
-FEAT-VTT030|p1|must-have|Windows .msi installer with Start Menu integration|STORY-VTT013|TASK-VTT044,TASK-VTT045,TASK-VTT046,TASK-VTT047|
+FEAT-VTT030|p1|must-have|Windows .msi installer with Start Menu integration|STORY-VTT013|TASK-VTT044,TASK-VTT045,TASK-VTT046,TASK-VTT047,TASK-VTT063,TASK-VTT064|
 FEAT-VTT031|p2|must-have|GitHub Actions matrix builds producing signed artefacts for all three platforms on every tag|STORY-VTT014|TASK-VTT048,TASK-VTT049|
 FEAT-VTT032|p2|delighter|Silero VAD integration — auto-stop on silence and background-noise suppression|STORY-VTT015|TASK-VTT050|
 FEAT-VTT033|p2|delighter|GTK settings dialog replacing settings.conf hand-editing|STORY-VTT016|TASK-VTT051|

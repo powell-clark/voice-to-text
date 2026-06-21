@@ -12,31 +12,31 @@ TASK-VTT010|Add large-v3-turbo and distil-large-v3 models, trim obsolete models 
 TASK-VTT011|Create hardened PPA release script with pre-flight checks and git tagging|STORY-VTT004||FEAT-VTT016|
 TASK-VTT012|Fix clipboard paste via xclip subprocess replacing broken XSetSelectionOwner|STORY-VTT006||FEAT-VTT012|
 TASK-VTT013|Add X11 key auto-repeat filtering and increase max recording to 5 minutes|STORY-VTT006||FEAT-VTT013,FEAT-VTT014|
-TASK-VTT014|Architecture decision (ADR-0003): whisper-rs in-process replaces CT2-Python subprocess|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
-TASK-VTT015|Scaffold Rust project with cross-platform build (cargo, CI)|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
-TASK-VTT016|Port audio capture to Rust (cpal crate)|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
-TASK-VTT017|Port transcription to Rust (initial port via Python subprocess; replaced by TASK-VTT026 in STORY-VTT010)|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
-TASK-VTT018|Port keyboard simulation to Rust (enigo/rdev)|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
-TASK-VTT019|Port Linux GTK tray to Rust|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
-TASK-VTT020|Port macOS menu bar to Rust (skeleton)|STORY-VTT005|EPIC-VTT002|FEAT-VTT018|
-TASK-VTT024|ADR-0003 approved and committed|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT024.md
-TASK-VTT025|Add whisper-rs 0.16 to Cargo.toml with vulkan (Linux+Windows) and metal (macOS) features; bump crate version to 2.0.0|STORY-VTT010|EPIC-VTT002|FEAT-VTT023,FEAT-VTT024,FEAT-VTT025|TASK-VTT025.md
-TASK-VTT026|Write src/whisper.rs — WhisperEngine owns WhisperContext and WhisperState with load_model, transcribe, switch_model|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT026.md
-TASK-VTT027|Rewrite transcription worker in src/main.rs — owns WhisperEngine, receives samples via channel, produces text via channel|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT027.md
-TASK-VTT028|Route raw f32 samples from audio.rs to worker without WAV round-trip; keep WAV write only for debug recordings archive|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT028.md
-TASK-VTT029|Write src/models.rs — GGML download from huggingface.co with sha256 verify and progress notifications|STORY-VTT010|EPIC-VTT002|FEAT-VTT026|TASK-VTT029.md
-TASK-VTT030|Simplify model menu — flat list small, medium, large-v3-turbo, large-v3; tray shows Loading model / Ready / Transcribing|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT030.md
-TASK-VTT031|Delete Python backend — transcribe.py, python3 from debian/control, transcribe_ct2 and transcribe_whisper_cpp from Rust|STORY-VTT010|EPIC-VTT002|FEAT-VTT023|TASK-VTT031.md
-TASK-VTT032|Delete dead C/ObjC — src/linux/*.c, src/common/*.c, src/macos/*.m (7638 lines); retire Makefile.linux|STORY-VTT010|EPIC-VTT002|FEAT-VTT023|TASK-VTT032.md
-TASK-VTT033|Add #[cfg(unix)] guards to singleton_lock and ctrlc_handler so Windows build compiles|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT033.md
-TASK-VTT035|Rewrite debian/rules — replace Makefile.linux invocation with cargo build --release|STORY-VTT011|EPIC-VTT002|FEAT-VTT027|TASK-VTT035.md
-TASK-VTT036|Update debian/control — drop python3/pip/cmake/g++/make from Depends; add rustc/cargo/libclang-dev/libssl-dev to Build-Depends|STORY-VTT011|EPIC-VTT002|FEAT-VTT027|TASK-VTT036.md
-TASK-VTT037|Write postinst script that downloads ggml-small.en.bin to /usr/share/voice-to-text/models on first install|STORY-VTT011|EPIC-VTT002|FEAT-VTT028|TASK-VTT037.md
-TASK-VTT038|Bump debian/changelog to 2.0.0 with explicit note that the PPA now ships the Rust binary|STORY-VTT011|EPIC-VTT002|FEAT-VTT027|TASK-VTT038.md
-TASK-VTT055|Release v2.0.5 — £/é typing fix + Logs submenu fix — via release-manager with pbuilder hard gate|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT055.md
-TASK-VTT057|Cargo unit tests for pure logic — 20 tests added across settings, main::compose_final_text, tray::format_log_label|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT057.md
-TASK-VTT058|GitHub Actions CI — fmt + clippy + test + build on every push and PR, ubuntu-24.04|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT058.md
-TASK-VTT059|Local git pre-push hook matching CI — installed via scripts/git-hooks/install.sh|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|TASK-VTT059.md
-TASK-VTT061|Local build-archives/ disk cleanup — reduced from 5.7 GB to 24 MB, kept only 2.0.4 + 2.0.5 artefacts|STORY-VTT018|EPIC-VTT002|FEAT-VTT035|
-TASK-VTT034|Build release binary, deploy to /usr/bin/vtt-linux, restart service, verify transcription quality — completed as part of v2.0.0 release|STORY-VTT010|EPIC-VTT002|FEAT-VTT022|TASK-VTT034.md
-TASK-VTT039|dput 2.0.0 to the Launchpad PPA, apt install locally, verify end-to-end transcription — completed as part of v2.0.0 release|STORY-VTT011|EPIC-VTT002|FEAT-VTT027|TASK-VTT039.md
+TASK-VTT014|Architecture decision (ADR-0003): whisper-rs in-process replaces CT2-Python subprocess|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
+TASK-VTT015|Scaffold Rust project with cross-platform build (cargo, CI)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
+TASK-VTT016|Port audio capture to Rust (cpal crate)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
+TASK-VTT017|Port transcription to Rust (initial port via Python subprocess; replaced by TASK-VTT026 in STORY-VTT010)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
+TASK-VTT018|Port keyboard simulation to Rust (enigo/rdev)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
+TASK-VTT019|Port Linux GTK tray to Rust|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
+TASK-VTT020|Port macOS menu bar to Rust (skeleton)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
+TASK-VTT024|ADR-0003 approved and committed|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT024.md
+TASK-VTT025|Add whisper-rs 0.16 to Cargo.toml with vulkan (Linux+Windows) and metal (macOS) features; bump crate version to 2.0.0|STORY-VTT010|DIRECT-VTT002|FEAT-VTT023,FEAT-VTT024,FEAT-VTT025|TASK-VTT025.md
+TASK-VTT026|Write src/whisper.rs — WhisperEngine owns WhisperContext and WhisperState with load_model, transcribe, switch_model|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT026.md
+TASK-VTT027|Rewrite transcription worker in src/main.rs — owns WhisperEngine, receives samples via channel, produces text via channel|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT027.md
+TASK-VTT028|Route raw f32 samples from audio.rs to worker without WAV round-trip; keep WAV write only for debug recordings archive|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT028.md
+TASK-VTT029|Write src/models.rs — GGML download from huggingface.co with sha256 verify and progress notifications|STORY-VTT010|DIRECT-VTT002|FEAT-VTT026|TASK-VTT029.md
+TASK-VTT030|Simplify model menu — flat list small, medium, large-v3-turbo, large-v3; tray shows Loading model / Ready / Transcribing|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT030.md
+TASK-VTT031|Delete Python backend — transcribe.py, python3 from debian/control, transcribe_ct2 and transcribe_whisper_cpp from Rust|STORY-VTT010|DIRECT-VTT002|FEAT-VTT023|TASK-VTT031.md
+TASK-VTT032|Delete dead C/ObjC — src/linux/*.c, src/common/*.c, src/macos/*.m (7638 lines); retire Makefile.linux|STORY-VTT010|DIRECT-VTT002|FEAT-VTT023|TASK-VTT032.md
+TASK-VTT033|Add #[cfg(unix)] guards to singleton_lock and ctrlc_handler so Windows build compiles|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT033.md
+TASK-VTT035|Rewrite debian/rules — replace Makefile.linux invocation with cargo build --release|STORY-VTT011|DIRECT-VTT002|FEAT-VTT027|TASK-VTT035.md
+TASK-VTT036|Update debian/control — drop python3/pip/cmake/g++/make from Depends; add rustc/cargo/libclang-dev/libssl-dev to Build-Depends|STORY-VTT011|DIRECT-VTT002|FEAT-VTT027|TASK-VTT036.md
+TASK-VTT037|Write postinst script that downloads ggml-small.en.bin to /usr/share/voice-to-text/models on first install|STORY-VTT011|DIRECT-VTT002|FEAT-VTT028|TASK-VTT037.md
+TASK-VTT038|Bump debian/changelog to 2.0.0 with explicit note that the PPA now ships the Rust binary|STORY-VTT011|DIRECT-VTT002|FEAT-VTT027|TASK-VTT038.md
+TASK-VTT055|Release v2.0.5 — £/é typing fix + Logs submenu fix — via release-manager with pbuilder hard gate|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT055.md
+TASK-VTT057|Cargo unit tests for pure logic — 20 tests added across settings, main::compose_final_text, tray::format_log_label|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT057.md
+TASK-VTT058|GitHub Actions CI — fmt + clippy + test + build on every push and PR, ubuntu-24.04|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT058.md
+TASK-VTT059|Local git pre-push hook matching CI — installed via scripts/git-hooks/install.sh|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT059.md
+TASK-VTT061|Local build-archives/ disk cleanup — reduced from 5.7 GB to 24 MB, kept only 2.0.4 + 2.0.5 artefacts|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|
+TASK-VTT034|Build release binary, deploy to /usr/bin/vtt-linux, restart service, verify transcription quality — completed as part of v2.0.0 release|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT034.md
+TASK-VTT039|dput 2.0.0 to the Launchpad PPA, apt install locally, verify end-to-end transcription — completed as part of v2.0.0 release|STORY-VTT011|DIRECT-VTT002|FEAT-VTT027|TASK-VTT039.md
