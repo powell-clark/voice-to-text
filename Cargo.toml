@@ -2,9 +2,16 @@
 name = "voice-to-text"
 version = "2.1.0"
 edition = "2021"
+authors = ["Emmanuel Powell-Clark <emmanuel@powellclark.com>"]
 description = "Free, world-class voice-to-text for Ubuntu, macOS and Windows"
 license = "MIT"
 repository = "https://github.com/powell-clark/voice-to-text"
+
+[package.metadata.wix]
+upgrade-guid = "4F8F8C5A-3E12-4B9D-8F7A-C6B5D2E91F03"
+path-guid = "7B1E4F2A-8C9D-4E3B-A5F6-D1C7E2B89043"
+license = false
+eula = false
 
 [[bin]]
 name = "vtt-linux"

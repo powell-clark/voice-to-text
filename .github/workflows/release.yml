@@ -70,11 +70,56 @@ jobs:
           files: target/release/vtt-linux
           generate_release_notes: true
           body: |
-            ## Install via PPA (Ubuntu)
+            ## Install on Ubuntu (PPA)
 
             ```bash
             sudo add-apt-repository ppa:powellclark/voice-to-text
             sudo apt install voice-to-text
             ```
 
-            Or download `vtt-linux` from this release and place it at `/usr/bin/vtt-linux`.
+            Or download `vtt-linux` and place it at `/usr/bin/vtt-linux`.
+
+            ## Install on Windows 11
+
+            Download `voice-to-text-installer.msi` and run it.
+            Installs to `C:\Program Files\Voice to Text\` with a Start Menu shortcut.
+
+  build-windows-msi:
+    name: Build Windows .msi installer
+    needs: build-and-release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Install WiX Toolset 3.x
+        run: choco install wixtoolset -y --no-progress
+
+      - name: Install cargo-wix
+        run: cargo install --locked cargo-wix
+
+      - name: Build release binary
+        run: cargo build --release
+        env:
+          RUSTFLAGS: ""
+
+      - name: Build .msi installer
+        run: cargo wix --no-build --output "target\wix\voice-to-text-installer.msi"
+
+      - name: Upload .msi to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target\wix\voice-to-text-installer.msi
