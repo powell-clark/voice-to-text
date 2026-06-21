@@ -165,9 +165,14 @@ fn main() -> anyhow::Result<()> {
     // The returned Tray wraps the AppIndicator Rc but we immediately discard
     // it — the indicator survives because Tray::new also installed a
     // glib::timeout_add_local closure that holds its own clone of the Rc.
-    // Keeping this discard explicit so future readers don't `?` or `_` the
-    // struct away and wonder why the tray disappears.
+    // On Linux, GTK owns the event loop so the Tray struct can be discarded
+    // after construction. On macOS/Windows we must keep it alive and call
+    // poll_menu() each tick so menu events are processed on the main thread
+    // (muda uses Rc internally — menu items are !Send).
+    #[cfg(target_os = "linux")]
     let (_tray, ui_tx) = tray::Tray::new(settings.clone(), &config_dir)?;
+    #[cfg(not(target_os = "linux"))]
+    let (mut tray, ui_tx) = tray::Tray::new(settings.clone(), &config_dir)?;
 
     // Worker thread — transcribes audio and types result
     let worker_settings = settings.clone();
@@ -326,9 +331,11 @@ fn main() -> anyhow::Result<()> {
 
     #[cfg(not(target_os = "linux"))]
     {
-        // On macOS/Windows, block main thread until signal
+        // macOS/Windows: poll menu events and signal on the main thread.
+        // muda menu items are !Send (Rc-based), so they must be touched here.
         loop {
             thread::sleep(Duration::from_millis(100));
+            tray.poll_menu();
             if !running.load(Ordering::Relaxed) {
                 break;
             }
