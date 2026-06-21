@@ -1,4 +1,7 @@
 id|title|story_ids|epic_id|feature_ids|doc
+TASK-VTT044|Windows singleton — replace flock with CreateMutexW named mutex|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|
+TASK-VTT045|Windows signal handling — replace sigwait with SetConsoleCtrlHandler|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|
+TASK-VTT046|cargo-wix .msi installer with Start Menu shortcut|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|
 TASK-VTT069|macOS CI job, Rust release workflow, stale ObjC scripts removed||DIRECT-VTT002||
 TASK-VTT067|Root-level scripts tidy and RELEASE_SETUP rewrite||DIRECT-VTT002||
 TASK-VTT066|Repo structure tidy — remove empty stale CONSCIOUSNESS dirs and build artifacts||DIRECT-VTT002||TASK-VTT066.md

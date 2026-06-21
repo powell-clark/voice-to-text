@@ -6,3 +6,6 @@ REVIEW-CCC009|task|TASK-VTT067|agent|vtt-main-8db8f9db|auto-approved|1|2026-06-2
 REVIEW-CCC010|task|TASK-VTT068|agent|vtt-main-a0602c78|bypass-approved|1|2026-06-21T11:00:08+01:00|auto-close: entity gate is auto-flow
 REVIEW-CCC011|task|TASK-VTT069|agent|vtt-main-8db8f9db|bypass-approved|1|2026-06-21T11:01:00+01:00|auto-close: entity gate is auto-flow
 REVIEW-CCC012|task|TASK-VTT063|agent|vtt-main-8db8f9db|pending-review|1|2026-06-21T11:30:00+01:00|awaiting CI green on windows-latest job
+REVIEW-CCC013|task|TASK-VTT044|agent|vtt-main-8db8f9db|bypass-approved|1|2026-06-21T11:35:00+01:00|auto-close: entity gate is auto-flow
+REVIEW-CCC014|task|TASK-VTT045|agent|vtt-main-8db8f9db|bypass-approved|1|2026-06-21T11:35:00+01:00|auto-close: entity gate is auto-flow; implemented in same commit as VTT044
+REVIEW-CCC015|task|TASK-VTT046|agent|vtt-main-8db8f9db|bypass-approved|1|2026-06-21T11:50:00+01:00|auto-close: entity gate is auto-flow

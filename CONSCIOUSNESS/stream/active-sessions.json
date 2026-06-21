@@ -1,3 +1,24 @@
 {
-  "sessions": {}
+  "sessions": {
+    "vtt-main-8db8f9db": {
+      "assignment_message_id": null,
+      "canonical_id": "8db8f9db-f8b9-4075-9847-9faeed776fb5",
+      "conscious_mode": false,
+      "context": {
+        "adapter": "claude-code",
+        "pane": "%5",
+        "project": "vtt"
+      },
+      "current_activity": null,
+      "current_task": "TASK-VTT063",
+      "identity": null,
+      "last_activity": "2026-06-21T10:24:48.666Z",
+      "model": null,
+      "pane_id": null,
+      "role": null,
+      "session_type": "cli",
+      "specialty": null,
+      "started": "2026-06-21T09:47:22.370Z"
+    }
+  }
 }
