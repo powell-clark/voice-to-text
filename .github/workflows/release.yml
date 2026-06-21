@@ -1,112 +1,80 @@
 name: Release
 
-# DISABLED - Build locally: make package && gh release create vX.X.X VTT.app.tar.gz
-# Re-enable when self-hosted runner is configured on Mac
+# Fires on version tags (v*) and manual dispatch.
+# Builds the Linux binary on ubuntu-24.04 (matching Launchpad Noble),
+# then creates a GitHub release with vtt-linux as the artifact.
+#
+# PPA upload (dput to Launchpad) still runs locally — it requires
+# Emmanuel's GPG key and cannot run on CI without secret management.
+# After CI creates the release, run scripts/release-ppa.sh locally.
 on:
-  workflow_dispatch:  # Manual trigger only
-  # push:
-  #   tags:
-  #     - 'v*'
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+# One release per tag at a time. If you push two tags quickly,
+# the first run finishes before the second starts.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-and-release:
-    # Use self-hosted macOS runner (free) or comment out to disable CI builds
-    # Build locally instead: make package && gh release create vX.X.X VTT.app.tar.gz
-    runs-on: self-hosted
-    # runs-on: macos-latest  # $0.08/min - EXPENSIVE
+    name: Build Linux binary + create GitHub release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Setup dependencies
+      - name: Install system build deps
         run: |
-          brew install cmake
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libasound2-dev \
+            libvulkan-dev \
+            libxtst-dev \
+            libnotify-bin \
+            pkg-config \
+            cmake \
+            glslc
 
-      - name: Build VTT.app
-        run: |
-          make clean
-          make package
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Calculate SHA256
-        id: sha256
-        run: |
-          SHA256=$(shasum -a 256 VTT.app.tar.gz | awk '{print $1}')
-          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
-          echo "SHA256: $SHA256"
-
-      - name: Get version from tag
-        id: version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
         with:
-          files: VTT.app.tar.gz
+          cache-on-failure: true
+
+      - name: Build release binary
+        run: cargo build --release
+        env:
+          RUSTFLAGS: "-D warnings"
+
+      - name: Verify binary shape
+        run: |
+          file target/release/vtt-linux | grep -q "ELF 64-bit LSB.*x86-64"
+          ldd target/release/vtt-linux | grep -q "libvulkan.so.1"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/release/vtt-linux
+          generate_release_notes: true
           body: |
-            ## Installation
+            ## Install via PPA (Ubuntu)
 
             ```bash
-            brew install powell-clark/voice-to-text/voice-to-text
+            sudo add-apt-repository ppa:powellclark/voice-to-text
+            sudo apt install voice-to-text
             ```
 
-            ## What's Changed
-
-            See commit history for details.
-
-            **SHA256**: `${{ steps.sha256.outputs.sha256 }}`
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout homebrew tap
-        uses: actions/checkout@v4
-        with:
-          repository: powell-clark/homebrew-voice-to-text
-          token: ${{ secrets.TAP_GITHUB_TOKEN }}
-          path: homebrew-tap
-
-      - name: Update cask formula
-        run: |
-          cat > homebrew-tap/Casks/voice-to-text.rb << 'EOF'
-          cask "voice-to-text" do
-            version "${{ steps.version.outputs.version }}"
-            sha256 "${{ steps.sha256.outputs.sha256 }}"
-
-            url "https://github.com/powell-clark/voice-to-text/releases/download/v#{version}/VTT.app.tar.gz"
-            name "VTT"
-            desc "Voice to Text - macOS menu bar app for real-time voice transcription"
-            homepage "https://github.com/powell-clark/voice-to-text"
-
-            app "VTT.app"
-
-            zap trash: [
-              "~/Library/Preferences/com.powellclark.voice-to-text.plist",
-              "/tmp/VTT",
-            ]
-
-            caveats <<~EOS
-              On first run, grant these permissions in System Settings → Privacy & Security:
-                • Microphone - For audio capture
-                • Accessibility - For pasting text
-                • Input Monitoring - For global hotkey
-
-              VTT will automatically download Whisper models when you select a size.
-
-              Usage: Hold Right Option key and speak. Release to transcribe and paste.
-            EOS
-          end
-          EOF
-
-      - name: Commit and push cask update
-        working-directory: homebrew-tap
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/voice-to-text.rb
-          git commit -m "Update voice-to-text to v${{ steps.version.outputs.version }}"
-          git push
+            Or download `vtt-linux` from this release and place it at `/usr/bin/vtt-linux`.

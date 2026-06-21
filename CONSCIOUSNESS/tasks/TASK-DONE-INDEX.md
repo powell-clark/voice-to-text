@@ -1,4 +1,5 @@
 id|title|story_ids|epic_id|feature_ids|doc
+TASK-VTT069|macOS CI job, Rust release workflow, stale ObjC scripts removed||DIRECT-VTT002||
 TASK-VTT067|Root-level scripts tidy and RELEASE_SETUP rewrite||DIRECT-VTT002||
 TASK-VTT066|Repo structure tidy — remove empty stale CONSCIOUSNESS dirs and build artifacts||DIRECT-VTT002||TASK-VTT066.md
 TASK-VTT001|Implement PortAudio recording with quality filters|STORY-VTT001||FEAT-VTT001|
