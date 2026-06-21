@@ -6,7 +6,6 @@ TASK-VTT040|p1|cargo bundle macOS .app with metal feature, Info.plist with NSMic
 TASK-VTT041|p1|Verify transcription on 2019 Intel i9 Mac with Radeon Pro 5500M via Metal|STORY-VTT012|DIRECT-VTT002|FEAT-VTT029|
 TASK-VTT042|p2|Apple Silicon build with coreml + metal features enabled|STORY-VTT012|DIRECT-VTT002|FEAT-VTT029|
 TASK-VTT043|p2|Apple developer signing + notarisation|STORY-VTT012|DIRECT-VTT002|FEAT-VTT029|
-TASK-VTT044|p1|Windows singleton — replace flock with CreateMutexW named mutex|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|
 TASK-VTT045|p1|Windows signal handling — replace sigwait with SetConsoleCtrlHandler|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|
 TASK-VTT046|p1|cargo-wix .msi installer with Start Menu shortcut|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|
 TASK-VTT047|p2|Windows Authenticode code signing|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|

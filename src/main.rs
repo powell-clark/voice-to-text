@@ -73,9 +73,10 @@ fn main() -> anyhow::Result<()> {
     // instance already running) don't pollute the daily log with banner
     // lines. Error surfaces on stderr via anyhow's Display impl, which is
     // what the user sees when launching from a terminal anyway.
-    // (Unix only — Windows needs CreateMutexW, see TASK-VTT044)
     #[cfg(unix)]
     let _lock_fd = singleton_lock(&config_dir)?;
+    #[cfg(windows)]
+    singleton_lock()?;
 
     // Initialize logging (now we know we're the only instance)
     logging::init(&config_dir);
@@ -91,7 +92,6 @@ fn main() -> anyhow::Result<()> {
     // the noisy model-init and per-transcription log lines whisper.cpp emits.
     whisper_rs::install_logging_hooks();
 
-    // Signal handler (Unix only — Windows needs SetConsoleCtrlHandler, see TASK-VTT045)
     let running = Arc::new(AtomicBool::new(true));
     #[cfg(unix)]
     {
@@ -101,6 +101,14 @@ fn main() -> anyhow::Result<()> {
             r.store(false, Ordering::SeqCst);
             #[cfg(target_os = "linux")]
             glib::idle_add_once(gtk::main_quit);
+        });
+    }
+    #[cfg(windows)]
+    {
+        let r = running.clone();
+        ctrlc_handler(move || {
+            eprintln!("Signal received, shutting down");
+            r.store(false, Ordering::SeqCst);
         });
     }
 
@@ -707,6 +715,77 @@ fn ctrlc_handler<F: Fn() + Send + 'static>(f: F) {
             f();
         })
         .ok();
+}
+
+// TASK-VTT044: Windows singleton via named mutex (CreateMutexW).
+// Named mutex in the "Local\" namespace persists for the lifetime of the
+// process — no file descriptor to keep open, OS releases on exit.
+#[cfg(windows)]
+fn singleton_lock() -> anyhow::Result<()> {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+
+    extern "system" {
+        fn CreateMutexW(
+            lp_mutex_attributes: *const std::ffi::c_void,
+            b_initial_owner: i32,
+            lp_name: *const u16,
+        ) -> isize;
+        fn GetLastError() -> u32;
+    }
+
+    const ERROR_ALREADY_EXISTS: u32 = 183;
+
+    let name: Vec<u16> = OsStr::new("Local\\vtt-singleton")
+        .encode_wide()
+        .chain(std::iter::once(0u16))
+        .collect();
+
+    let handle = unsafe { CreateMutexW(std::ptr::null(), 1, name.as_ptr()) };
+    if handle == 0 {
+        anyhow::bail!("Failed to create Windows singleton mutex (CreateMutexW returned NULL)");
+    }
+    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        anyhow::bail!(
+            "Another instance of vtt is already running. \
+             Stop it via Task Manager or run `taskkill /IM vtt.exe /F`."
+        );
+    }
+    // Intentionally keep handle open — it IS the singleton lock.
+    // Windows releases it automatically when the process exits.
+    std::mem::forget(handle);
+    Ok(())
+}
+
+// TASK-VTT045: Windows signal handling via SetConsoleCtrlHandler.
+// Ctrl+C (event 0), Ctrl+Break (1), and console close (2) all call our
+// shutdown closure, matching the Unix SIGINT/SIGTERM behaviour.
+#[cfg(windows)]
+fn ctrlc_handler<F: Fn() + Send + Sync + 'static>(f: F) {
+    use std::sync::OnceLock;
+
+    static HANDLER: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
+
+    extern "system" {
+        fn SetConsoleCtrlHandler(
+            handler_routine: Option<extern "system" fn(u32) -> i32>,
+            add: i32,
+        ) -> i32;
+    }
+
+    extern "system" fn ctrl_handler(ctrl_type: u32) -> i32 {
+        if ctrl_type <= 2 {
+            if let Some(h) = HANDLER.get() {
+                h();
+            }
+        }
+        0
+    }
+
+    HANDLER.get_or_init(|| Box::new(f));
+    unsafe {
+        SetConsoleCtrlHandler(Some(ctrl_handler), 1);
+    }
 }
 
 /// Pure: build the final text that gets typed, given the transcription.
