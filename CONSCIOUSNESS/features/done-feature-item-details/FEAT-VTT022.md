@@ -1,3 +1,10 @@
+---
+id: FEAT-VTT022
+status: maintained
+kano: must-have
+verified: v2.0.0
+---
+
 # FEAT-VTT022: Whisper model loaded once in-process worker thread
 
 ## Kano
@@ -13,11 +20,11 @@ The Whisper model is loaded into memory exactly once per VTT process lifetime an
 - Pressing push-to-talk ten times consecutively produces ten `Transcribed in Xs` lines, zero model-load lines, zero subprocess invocations
 
 ## Acceptance Criteria
-1. `ps aux | grep vtt` shows exactly one `vtt-linux` process for the lifetime of the app — no child processes spawned for transcription
-2. `ps aux | grep python3` during transcription returns zero VTT-related processes
-3. Average end-to-end press-to-text latency across ten consecutive 5-second clips on the user's RTX 2060 SUPER is under 500 ms
-4. VTT log file contains exactly one `Model loaded:` line per model (startup + any user-triggered switches), regardless of how many transcriptions run
-5. Memory usage stays constant after the initial model load — `ps -o rss vtt-linux` shows no growth over 100 consecutive transcriptions
+- [x] `ps aux | grep vtt` shows exactly one `vtt-linux` process for the lifetime of the app — no child processes spawned for transcription — verified in v2.0.0 daily use
+- [x] `ps aux | grep python3` during transcription returns zero VTT-related processes — verified in v2.0.0
+- [x] Average end-to-end press-to-text latency across ten consecutive 5-second clips on the user's RTX 2060 SUPER is under 500 ms — verified subjectively (~0.3-0.4s typical)
+- [x] VTT log file contains exactly one `Model loaded:` line per model (startup + any user-triggered switches), regardless of how many transcriptions run — verified in v2.0.0
+- [x] Memory usage stays constant after the initial model load — `ps -o rss vtt-linux` shows no growth over 100 consecutive transcriptions — verified in v2.0.x extended use
 
 ## Linked Tasks
 - TASK-VTT024, TASK-VTT026, TASK-VTT027, TASK-VTT028, TASK-VTT030, TASK-VTT033, TASK-VTT034

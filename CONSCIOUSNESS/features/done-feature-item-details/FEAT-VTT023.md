@@ -1,3 +1,10 @@
+---
+id: FEAT-VTT023
+status: maintained
+kano: must-have
+verified: v2.0.0
+---
+
 # FEAT-VTT023: Pure Rust transcription — no Python runtime dependency
 
 ## Kano
@@ -13,11 +20,11 @@ The installed VTT package contains no Python scripts, no `pip install` requireme
 - `ldd /usr/bin/vtt-linux` does not link `libpython`
 
 ## Acceptance Criteria
-1. `debian/control` Depends list contains no `python3`, `python3-pip`, `python3-*`, or `pipx` entries
-2. `dpkg -c voice-to-text_2.0.0_amd64.deb` output contains zero `.py` file entries
-3. `grep -rn "python3\|\\.py\\b" debian/ src/` returns zero hits (excluding dead-code archives)
-4. `cargo tree --package voice-to-text` shows no transitive Python dependency
-5. Fresh Docker install on minimal ubuntu:noble: `apt install -y voice-to-text` then `apt list --installed | grep python` returns only pre-existing unrelated entries
+- [x] `debian/control` Depends list contains no `python3`, `python3-pip`, `python3-*`, or `pipx` entries — verified in `debian/control` v2.0.0
+- [x] `dpkg -c voice-to-text_2.0.0_amd64.deb` output contains zero `.py` file entries — verified in TASK-VTT031
+- [x] `grep -rn "python3\|\\.py\\b" debian/ src/` returns zero hits (excluding dead-code archives) — verified post TASK-VTT031, TASK-VTT032
+- [x] `cargo tree --package voice-to-text` shows no transitive Python dependency — verified: no Python crates
+- [ ] Fresh Docker install on minimal ubuntu:noble: `apt install -y voice-to-text` then `apt list --installed | grep python` returns only pre-existing unrelated entries — not yet explicitly tested in Docker; verified via local fresh VM
 
 ## Linked Tasks
 - TASK-VTT025, TASK-VTT031, TASK-VTT032

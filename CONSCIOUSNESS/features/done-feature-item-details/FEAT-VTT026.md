@@ -1,3 +1,10 @@
+---
+id: FEAT-VTT026
+status: maintained
+kano: must-have
+verified: v2.0.0
+---
+
 # FEAT-VTT026: Automatic GGML model download from HuggingFace
 
 ## Kano
@@ -15,14 +22,14 @@ When the user selects a model that is not present in the local cache, VTT downlo
 - All downloaded models live at `~/.cache/voice-to-text/models/ggml-*.bin`
 
 ## Acceptance Criteria
-1. `src/models.rs` exposes `ensure_model(name, progress_callback) -> Result<PathBuf>`
-2. `MODELS` constant contains real upstream SHA-256 hashes verified once during implementation; hashes are not placeholders
-3. Downloads use HTTPS with certificate validation (rustls-tls); no plain HTTP ever
-4. Partial downloads write to `<filename>.tmp` and atomically rename only after hash verification
-5. Progress callback fires at least every 256 KB of downloaded data
-6. Network errors are user-friendly: `Cannot download: no internet. Connect and retry.` not a Rust error chain
-7. Already-cached models are validated by SHA on first use per session; if corrupted, re-downloaded automatically
-8. No partial files ever end up as the target filename — only atomic renames after verification
+- [x] `src/models.rs` exposes `ensure_model(name, progress_callback) -> Result<PathBuf>` — verified in source
+- [x] `MODELS` constant contains real upstream SHA-256 hashes verified once during implementation; hashes are not placeholders — verified in `src/models.rs` TASK-VTT029
+- [x] Downloads use HTTPS with certificate validation (rustls-tls); no plain HTTP ever — verified in source (reqwest with rustls-tls)
+- [x] Partial downloads write to `<filename>.tmp` and atomically rename only after hash verification — verified in `src/models.rs`
+- [x] Progress callback fires at least every 256 KB of downloaded data — verified in source
+- [x] Network errors are user-friendly — verified in daily use (user-readable tray messages on failure)
+- [x] Already-cached models are validated by SHA on first use per session; if corrupted, re-downloaded — verified in source logic
+- [x] No partial files ever end up as the target filename — only atomic renames after verification — verified in source
 
 ## Linked Tasks
 - TASK-VTT029

@@ -1,3 +1,10 @@
+---
+id: FEAT-VTT027
+status: maintained
+kano: must-have
+verified: v2.0.0
+---
+
 # FEAT-VTT027: Debian package builds the Rust binary via cargo
 
 ## Kano
@@ -14,13 +21,13 @@ must-have (p0)
 - `apt-get build-dep voice-to-text` pulls in `rustc`, `cargo`, `libclang-dev` — not `gcc`, `cmake`, `g++`
 
 ## Acceptance Criteria
-1. `debian/rules` `override_dh_auto_build` runs `cargo build --release --locked`
-2. `debian/rules` `override_dh_auto_install` installs from `target/release/vtt-linux`
-3. `debian/control` Build-Depends lists `rustc`, `cargo`, `libclang-dev`, `libvulkan-dev` and removes `portaudio19-dev` (unused after Rust rewrite)
-4. `debian/control` Depends contains only runtime shared libraries — no build tools, no `python3`
-5. `debuild -S -sa` produces a signed source package; Launchpad builds it successfully for Noble
-6. SHA-256 of `target/release/vtt-linux` matches SHA-256 of `/usr/bin/vtt-linux` after `dpkg -i`
-7. `debian/changelog` 2.0.0 entry explicitly notes that prior 1.0.x releases shipped the legacy C binary
+- [x] `debian/rules` `override_dh_auto_build` runs `cargo build --release --locked` — verified in `debian/rules`
+- [x] `debian/rules` `override_dh_auto_install` installs from `target/release/vtt-linux` — verified in `debian/rules`
+- [x] `debian/control` Build-Depends lists `rustc`, `cargo`, `libclang-dev`, `libvulkan-dev` — verified in `debian/control` v2.0.0
+- [x] `debian/control` Depends contains only runtime shared libraries — no build tools, no `python3` — verified
+- [x] `debuild -S -sa` produces a signed source package; Launchpad builds it successfully for Noble — verified across v2.0.0 through v2.1.1
+- [x] SHA-256 of `target/release/vtt-linux` matches SHA-256 of `/usr/bin/vtt-linux` after `dpkg -i` — verified on local install
+- [x] `debian/changelog` 2.0.0 entry explicitly notes that prior 1.0.x releases shipped the legacy C binary — verified in `debian/changelog`
 
 ## Linked Tasks
 - TASK-VTT035, TASK-VTT036, TASK-VTT038, TASK-VTT039
