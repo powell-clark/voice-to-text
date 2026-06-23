@@ -1,11 +1,11 @@
 ---
 id: FEAT-VTT009
-status: done
+status: removed
 superseded_by: FEAT-VTT024
 kano: performance
 ---
 
-# FEAT-VTT009: CUDA GPU acceleration with cuDNN auto-detection (done — superseded)
+# FEAT-VTT009: CUDA GPU acceleration with cuDNN auto-detection (removed — superseded)
 
 ## Description
 **SUPERSEDED.** The original Python backend used CTranslate2 with CUDA and cuDNN for GPU-accelerated inference on NVIDIA cards. This required the CUDA Toolkit and cuDNN libraries to be installed. After the Rust rewrite (ADR-0003), whisper-rs uses Vulkan for GPU acceleration, which works on NVIDIA, AMD, and Intel GPUs without the CUDA Toolkit.

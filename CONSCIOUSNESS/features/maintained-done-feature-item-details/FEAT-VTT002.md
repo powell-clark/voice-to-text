@@ -1,11 +1,11 @@
 ---
 id: FEAT-VTT002
-status: done
+status: removed
 superseded_by: FEAT-VTT022, FEAT-VTT023
 kano: must-have
 ---
 
-# FEAT-VTT002: Whisper transcription with dual backends (done — superseded)
+# FEAT-VTT002: Whisper transcription with dual backends (removed — superseded)
 
 ## Description
 **SUPERSEDED.** The original VTT supported two transcription backends: whisper.cpp (C++ via subprocess) and CTranslate2/faster-whisper (Python). Both required spawning a subprocess per recording. This dual-backend architecture was retired in ADR-0003 (v2.0.0).

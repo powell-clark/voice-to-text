@@ -1,11 +1,11 @@
 ---
 id: FEAT-VTT003
-status: done
+status: removed
 superseded_by: FEAT-VTT029
 kano: must-have
 ---
 
-# FEAT-VTT003: macOS menu bar app with Cocoa native UI (done — superseded)
+# FEAT-VTT003: macOS menu bar app with Cocoa native UI (removed — superseded)
 
 ## Description
 **SUPERSEDED.** The original macOS UI was an Objective-C Cocoa menu bar app (`src/macos/*.m`). This code was deleted in TASK-VTT032 (7638 lines of C/ObjC removed in v2.0.0). The Rust macOS port (skeleton) exists in the codebase but has not been compiled, signed, or distributed.

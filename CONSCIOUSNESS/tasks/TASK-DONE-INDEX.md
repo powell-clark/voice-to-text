@@ -52,3 +52,4 @@ TASK-VTT071|Repo organisation — packaging/ layout and CLAUDE.md rewrite||DIREC
 TASK-VTT068|Claude Code tooling parity with Consciousness||DIRECT-VTT002||
 TASK-VTT074|Backlog grooming — sequence keys, dependency edges, detail cards||DIRECT-VTT002||TASK-VTT074.md
 TASK-VTT077|Feature card audit — maintained vs done split, full ACs, verification markers||DIRECT-VTT002||TASK-VTT077.md
+TASK-VTT078|Feature terminal index conformance — single folder, precise card statuses||DIRECT-VTT002||TASK-VTT078.md

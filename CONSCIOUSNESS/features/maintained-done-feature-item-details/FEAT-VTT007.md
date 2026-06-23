@@ -1,10 +1,11 @@
 ---
 id: FEAT-VTT007
-status: done
+status: deprecated
+superseded_by: FEAT-VTT029
 kano: must-have
 ---
 
-# FEAT-VTT007: Homebrew cask distribution for macOS (done — not currently maintained)
+# FEAT-VTT007: Homebrew cask distribution for macOS (deprecated — Python-era, not maintained for Rust)
 
 ## Description
 **DONE / NOT ACTIVELY MAINTAINED.** A Homebrew cask formula was created for the original Python version of VTT. The formula is not currently updated for the Rust rewrite. There is no distributed macOS Rust binary, so users cannot install a working VTT via Homebrew today.
