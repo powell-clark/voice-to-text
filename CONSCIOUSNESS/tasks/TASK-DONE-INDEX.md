@@ -1,7 +1,7 @@
 id|title|story_ids|epic_id|feature_ids|doc
-TASK-VTT044|Windows singleton — replace flock with CreateMutexW named mutex|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|
-TASK-VTT045|Windows signal handling — replace sigwait with SetConsoleCtrlHandler|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|
-TASK-VTT046|cargo-wix .msi installer with Start Menu shortcut|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|
+TASK-VTT044|Windows singleton — replace flock with CreateMutexW named mutex|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|
+TASK-VTT045|Windows signal handling — replace sigwait with SetConsoleCtrlHandler|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|
+TASK-VTT046|cargo-wix .msi installer with Start Menu shortcut|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|
 TASK-VTT069|macOS CI job, Rust release workflow, stale ObjC scripts removed||DIRECT-VTT002||
 TASK-VTT067|Root-level scripts tidy and RELEASE_SETUP rewrite||DIRECT-VTT002||
 TASK-VTT066|Repo structure tidy — remove empty stale CONSCIOUSNESS dirs and build artifacts||DIRECT-VTT002||TASK-VTT066.md
@@ -44,7 +44,7 @@ TASK-VTT057|Cargo unit tests for pure logic — 20 tests added across settings, 
 TASK-VTT058|GitHub Actions CI — fmt + clippy + test + build on every push and PR, ubuntu-24.04|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT058.md
 TASK-VTT059|Local git pre-push hook matching CI — installed via scripts/git-hooks/install.sh|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT059.md
 TASK-VTT061|Local build-archives/ disk cleanup — reduced from 5.7 GB to 24 MB, kept only 2.0.4 + 2.0.5 artefacts|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|
-TASK-VTT063|Windows x86-64 compile-green and CI build job|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT063.md
+TASK-VTT063|Windows x86-64 compile-green and CI build job|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT063.md
 TASK-VTT065|PGPS neurologist repair — EPIC→DIRECT rename, feature index migration, FK heals, schema.json fix, repo tidy||DIRECT-VTT002|||
 TASK-VTT034|Build release binary, deploy to /usr/bin/vtt-linux, restart service, verify transcription quality — completed as part of v2.0.0 release|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT034.md
 TASK-VTT039|dput 2.0.0 to the Launchpad PPA, apt install locally, verify end-to-end transcription — completed as part of v2.0.0 release|STORY-VTT011|DIRECT-VTT002|FEAT-VTT027|TASK-VTT039.md
@@ -53,3 +53,4 @@ TASK-VTT068|Claude Code tooling parity with Consciousness||DIRECT-VTT002||
 TASK-VTT074|Backlog grooming — sequence keys, dependency edges, detail cards||DIRECT-VTT002||TASK-VTT074.md
 TASK-VTT077|Feature card audit — maintained vs done split, full ACs, verification markers||DIRECT-VTT002||TASK-VTT077.md
 TASK-VTT078|Feature terminal index conformance — single folder, precise card statuses||DIRECT-VTT002||TASK-VTT078.md
+TASK-VTT081|Split directives by platform; ready Windows handoff||DIRECT-VTT002||TASK-VTT081.md

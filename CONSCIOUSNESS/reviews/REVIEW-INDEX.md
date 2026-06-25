@@ -17,3 +17,4 @@ REVIEW-CCC020|task|TASK-VTT074|agent|vtt-main-fa83408c|bypass-approved|1|2026-06
 REVIEW-CCC020|task|TASK-VTT074|agent|vtt-main-e81a04c7|auto-approved|1|2026-06-23 13:53:10.274 gmt|
 REVIEW-CCC021|task|TASK-VTT077|agent|vtt-main-90dc67dc|bypass-approved|1|2026-06-23T14:53:28+00:00|auto-close: entity gate is auto-approve
 REVIEW-CCC022|task|TASK-VTT078|agent|vtt-main-90dc67dc|bypass-approved|1|2026-06-23T15:51:43+00:00|auto-close: entity gate is auto-approve
+REVIEW-CCC23|task|TASK-VTT081|agent|vtt-main-7871c871|bypass-approved|1|2026-06-25 15:36:00.912 gmt|auto-close: grooming task, reversible, entity gate is auto-approve
