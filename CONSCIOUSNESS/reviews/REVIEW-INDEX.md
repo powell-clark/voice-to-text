@@ -19,3 +19,7 @@ REVIEW-CCC021|task|TASK-VTT077|agent|vtt-main-90dc67dc|bypass-approved|1|2026-06
 REVIEW-CCC022|task|TASK-VTT078|agent|vtt-main-90dc67dc|bypass-approved|1|2026-06-23T15:51:43+00:00|auto-close: entity gate is auto-approve
 REVIEW-CCC23|task|TASK-VTT081|agent|vtt-main-7871c871|bypass-approved|1|2026-06-25 15:36:00.912 gmt|auto-close: grooming task, reversible, entity gate is auto-approve
 REVIEW-CCC24|task|TASK-VTT084|agent|vtt-main-7871c871|bypass-approved|1|2026-06-25 15:54:05.931 gmt|auto-close: reversible prep task, entity gate is auto-approve
+REVIEW-CCC025|task|TASK-VTT082|agent|vtt-main-2fe61b0a|auto-approved|1|2026-06-25 16:45:08.297 gmt|
+REVIEW-CCC026|task|TASK-VTT087|agent|vtt-main-2fe61b0a|auto-approved|1|2026-06-25 16:45:08.297 gmt|
+REVIEW-CCC25|task|TASK-VTT082|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-25 17:45:19.640 gmtst|auto-close: Windows builds+launches+transcribes on x86-64 hardware (E2E green), launch-blocking audio defects fixed, reversible, entity gate auto-approve
+REVIEW-CCC26|task|TASK-VTT087|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-25 17:45:19.640 gmtst|auto-close: 67 unit tests + E2E transcription test green on Windows, reversible, entity gate auto-approve

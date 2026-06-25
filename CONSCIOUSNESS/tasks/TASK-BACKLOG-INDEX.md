@@ -1,4 +1,5 @@
 id|priority|title|story_ids|epic_id|feature_ids|doc|blocked_by|blocks|assignee|parent_task_id|sequence
+TASK-VTT086|p2|Fix portable tray model submenu — legacy names don't match catalogue|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT086.md|||||b2
 TASK-VTT056|p0|Monitor v2.0.5 in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT056.md|||||b0
 TASK-VTT070|p1|Vendor refresh — upgrade rustls-webpki to >=0.103.13 to close RUSTSEC-2026-0104||DIRECT-VTT002||TASK-VTT070.md|||||b1
 TASK-VTT060|p1|Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT060.md|||||b2
@@ -25,6 +26,5 @@ TASK-VTT075|p3|PGPS validation error wall is overwhelming for new users — need
 TASK-VTT076|p3|Telemetry opt-in should be default at install — 30-day retention agreed at walkthrough, no opt-out required||||TASK-VTT076.md|||||b2b||
 TASK-VTT079|p2|Upstream — feature-index status column splits PGPS display but fails validator (dist build inconsistency)||DIRECT-VTT002||TASK-VTT079.md|||||b3
 TASK-VTT080|p3|Features and testing are not connected — add per-feature test-status tracking (last_tested field and/or verification reviews)||||TASK-VTT080.md|||||b2c||
-TASK-VTT082|p0|Build and smoke-test VTT on Windows x86-64 hardware|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT082.md|||||b2d||
 TASK-VTT083|p3|Story and task indexes still use 'epic_id' column header instead of 'directive_id' (naming-precision residue; drives fk-asymmetry validator warnings)||||TASK-VTT083.md|||||b2e||
 TASK-VTT085|p2|Upgrade quinn-proto to >=0.11.15 — close RUSTSEC-2026-0185 (high) reddening CI||DIRECT-VTT002||TASK-VTT085.md|||||b2f||

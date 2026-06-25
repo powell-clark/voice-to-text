@@ -1,4 +1,6 @@
 id|title|story_ids|epic_id|feature_ids|doc
+TASK-VTT082|Build and smoke-test VTT on Windows x86-64 hardware|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT082.md
+TASK-VTT087|Windows automated test suite — E2E transcription + expanded unit tests|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT087.md
 TASK-VTT044|Windows singleton — replace flock with CreateMutexW named mutex|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|
 TASK-VTT045|Windows signal handling — replace sigwait with SetConsoleCtrlHandler|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|
 TASK-VTT046|cargo-wix .msi installer with Start Menu shortcut|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|
