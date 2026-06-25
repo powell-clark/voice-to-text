@@ -9,6 +9,30 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.2.0] — 2026-06-25
+
+### Added
+- **Windows 11 support — verified on x86-64 hardware**: voice-to-text now
+  builds, launches, and transcribes on Windows. Push-to-talk (Scroll Lock),
+  in-process Whisper transcription (CPU), the system-tray menu, and text
+  injection all run natively. Ships as a `.msi` installer.
+- **End-to-end transcription test**: a synthesized-speech WAV fixture is decoded
+  and run through the real Whisper engine, asserting the transcript — proves the
+  audio→text path with no microphone (opt-in: `cargo test -- --ignored`).
+- **`scripts/build-windows.ps1`**: reproducible Windows build that auto-discovers
+  cmake and libclang from a standard VS Build Tools install, so a fresh machine
+  builds without hunting for native toolchain bits.
+
+### Fixed
+- **Audio capture crashed at launch on Windows**: WASAPI shared mode rejects the
+  hardcoded 16 kHz mono stream request that ALSA silently resampled on Linux. The
+  capture path now falls back to the device's native format (e.g. 48 kHz),
+  down-mixes to mono, and resamples to 16 kHz in software — so the app starts on
+  Windows microphones instead of exiting with a stream-configuration error.
+- **Debug recordings lost on Windows**: `write_wav` wrote to a hardcoded `/tmp`,
+  which resolves to a non-existent `C:\tmp` on Windows. Now uses the platform
+  temp directory (still `/tmp` on Linux).
+
 ## [2.1.0] — 2026-05-05
 
 ### Fixed

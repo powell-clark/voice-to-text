@@ -106,55 +106,105 @@ impl Audio {
         let buffer_full = Arc::new(AtomicBool::new(false));
         let buffer_full_callback: BufferFullCallback = Arc::new(Mutex::new(None));
 
-        let buf_clone = buffer.clone();
-        let rec_clone = recording.clone();
-        let full_clone = buffer_full.clone();
-        let cb_clone = buffer_full_callback.clone();
         let max = max_samples;
+        let err_cb = |err| eprintln!("Audio stream error: {}", err);
 
-        let config = StreamConfig {
+        // Attempt 1: ask the device for 16 kHz mono f32 directly. ALSA (Linux)
+        // accepts this and resamples internally, so the Linux path is unchanged.
+        let preferred = StreamConfig {
             channels: 1,
             sample_rate: SampleRate(SAMPLE_RATE),
             buffer_size: cpal::BufferSize::Default,
         };
 
-        let stream = device.build_input_stream(
-            &config,
-            move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                if !rec_clone.load(Ordering::Relaxed) {
-                    return;
+        let stream = {
+            let (b, r, f, c) = (
+                buffer.clone(),
+                recording.clone(),
+                buffer_full.clone(),
+                buffer_full_callback.clone(),
+            );
+            match device.build_input_stream(
+                &preferred,
+                move |data: &[f32], _: &cpal::InputCallbackInfo| ingest(&b, &r, &f, &c, max, data),
+                err_cb,
+                None,
+            ) {
+                Ok(s) => {
+                    crate::vtt_log!("Audio stream opened (native 16 kHz mono)");
+                    s
                 }
-                let mut buf = match buf_clone.try_lock() {
-                    Ok(b) => b,
-                    Err(_) => return, // Skip frame if locked (avoids blocking audio thread)
-                };
-
-                // compute_append is pure and unit-tested — see its tests in this
-                // module for the boundary cases (exact fill, overflow, already full).
-                let (take, became_full) = compute_append(buf.len(), data.len(), max);
-                if take > 0 {
-                    buf.extend_from_slice(&data[..take]);
-                }
-                if became_full && !full_clone.load(Ordering::Relaxed) {
-                    full_clone.store(true, Ordering::Relaxed);
-                    if let Ok(cb) = cb_clone.try_lock() {
-                        if let Some(ref f) = *cb {
-                            f();
+                // Attempt 2: WASAPI shared mode (Windows) rejects any non-native
+                // format. Open the device's native config and downmix + resample
+                // to 16 kHz mono in the capture callback.
+                Err(direct_err) => {
+                    let native = device.default_input_config().map_err(|e| {
+                        anyhow::anyhow!(
+                            "no native input config ({e}); 16 kHz direct also failed: {direct_err}"
+                        )
+                    })?;
+                    let rate = native.sample_rate().0;
+                    let channels = native.channels() as usize;
+                    let fmt = native.sample_format();
+                    let cfg: StreamConfig = native.into();
+                    crate::vtt_log!(
+                        "16 kHz mono unsupported ({direct_err}); native {} Hz {} ch {:?} -> resample to 16 kHz",
+                        rate,
+                        channels,
+                        fmt
+                    );
+                    match fmt {
+                        cpal::SampleFormat::F32 => {
+                            let (b, r, f, c) = (
+                                buffer.clone(),
+                                recording.clone(),
+                                buffer_full.clone(),
+                                buffer_full_callback.clone(),
+                            );
+                            device.build_input_stream(
+                                &cfg,
+                                move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                                    let mono = downmix_to_mono(data, channels);
+                                    let rs = resample_to_16k(&mono, rate);
+                                    ingest(&b, &r, &f, &c, max, &rs);
+                                },
+                                err_cb,
+                                None,
+                            )?
                         }
+                        cpal::SampleFormat::I16 => {
+                            let (b, r, f, c) = (
+                                buffer.clone(),
+                                recording.clone(),
+                                buffer_full.clone(),
+                                buffer_full_callback.clone(),
+                            );
+                            device.build_input_stream(
+                                &cfg,
+                                move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                                    let floats: Vec<f32> =
+                                        data.iter().map(|&s| s as f32 / 32768.0).collect();
+                                    let mono = downmix_to_mono(&floats, channels);
+                                    let rs = resample_to_16k(&mono, rate);
+                                    ingest(&b, &r, &f, &c, max, &rs);
+                                },
+                                err_cb,
+                                None,
+                            )?
+                        }
+                        other => anyhow::bail!(
+                            "unsupported input sample format {:?} (device {} Hz {} ch)",
+                            other,
+                            rate,
+                            channels
+                        ),
                     }
                 }
-            },
-            |err| {
-                eprintln!("Audio stream error: {}", err);
-            },
-            None,
-        )?;
+            }
+        };
 
         stream.play()?;
-        crate::vtt_log!(
-            "Audio stream opened (zero-latency mode, {} Hz)",
-            SAMPLE_RATE
-        );
+        crate::vtt_log!("Audio capture started (target {} Hz mono)", SAMPLE_RATE);
 
         Ok(Audio {
             _stream: stream,
@@ -199,7 +249,7 @@ impl Audio {
     /// - `MaxLength` if the buffer hit MAX_RECORDING_SECONDS mid-recording
     ///   (transcribes with a "[Truncated]" prefix)
     ///
-    /// Also writes the samples to a /tmp WAV for the debug recordings
+    /// Also writes the samples to a temp-dir WAV for the debug recordings
     /// archive. If WAV write fails, transcription proceeds from the in-memory
     /// samples — disk is not on the critical path.
     pub fn stop_recording(&self) -> Option<RecordingResult> {
@@ -261,10 +311,14 @@ impl Audio {
 }
 
 fn write_wav(samples: &[f32]) -> anyhow::Result<PathBuf> {
+    // Use the platform temp dir, not a hardcoded "/tmp" — on Windows "/tmp"
+    // resolves to a non-existent "C:\tmp" and the write fails (debug recordings
+    // silently lost, warning logged every transcription). temp_dir() returns
+    // "/tmp" on Linux (unless $TMPDIR overrides) so Linux behaviour is unchanged.
     let tmp = tempfile::Builder::new()
         .prefix("vtt_recording_")
         .suffix(".wav")
-        .tempfile_in("/tmp")?;
+        .tempfile_in(std::env::temp_dir())?;
 
     let path = tmp.path().to_path_buf();
 
@@ -285,6 +339,72 @@ fn write_wav(samples: &[f32]) -> anyhow::Result<PathBuf> {
     tmp.keep()?;
 
     Ok(path)
+}
+
+/// Append captured 16 kHz mono f32 samples into the shared recording buffer,
+/// honouring the recording flag, the lock-skip rule (never block the audio
+/// thread), and the buffer-full transition. Shared by the direct-16k and the
+/// native-resampled capture callbacks.
+fn ingest(
+    buffer: &Mutex<Vec<f32>>,
+    recording: &AtomicBool,
+    buffer_full: &AtomicBool,
+    cb: &Mutex<Option<Box<dyn Fn() + Send>>>,
+    max: usize,
+    data: &[f32],
+) {
+    if !recording.load(Ordering::Relaxed) {
+        return;
+    }
+    let mut buf = match buffer.try_lock() {
+        Ok(b) => b,
+        Err(_) => return, // Skip frame if locked (avoids blocking audio thread)
+    };
+    let (take, became_full) = compute_append(buf.len(), data.len(), max);
+    if take > 0 {
+        buf.extend_from_slice(&data[..take]);
+    }
+    if became_full && !buffer_full.load(Ordering::Relaxed) {
+        buffer_full.store(true, Ordering::Relaxed);
+        if let Ok(cb) = cb.try_lock() {
+            if let Some(ref f) = *cb {
+                f();
+            }
+        }
+    }
+}
+
+/// Average interleaved frames down to a single mono channel. `channels <= 1`
+/// returns the input unchanged (already mono).
+fn downmix_to_mono(data: &[f32], channels: usize) -> Vec<f32> {
+    if channels <= 1 {
+        return data.to_vec();
+    }
+    data.chunks(channels)
+        .map(|frame| frame.iter().sum::<f32>() / frame.len() as f32)
+        .collect()
+}
+
+/// Linear-interpolation resample from `in_rate` to 16 kHz. Per-chunk (phase is
+/// not carried across callbacks); for speech-to-text the boundary artefacts are
+/// inaudible to Whisper. `in_rate == 16000` or empty input returns a copy.
+fn resample_to_16k(input: &[f32], in_rate: u32) -> Vec<f32> {
+    if in_rate == SAMPLE_RATE || input.is_empty() {
+        return input.to_vec();
+    }
+    let ratio = SAMPLE_RATE as f64 / in_rate as f64;
+    let out_len = ((input.len() as f64) * ratio).round() as usize;
+    let mut out = Vec::with_capacity(out_len);
+    let last = input.len() - 1;
+    for i in 0..out_len {
+        let src = i as f64 / ratio;
+        let idx = src as usize;
+        let frac = (src - idx as f64) as f32;
+        let a = input[idx.min(last)];
+        let b = input[(idx + 1).min(last)];
+        out.push(a + (b - a) * frac);
+    }
+    out
 }
 
 /// Pure: given the current buffer length, an incoming chunk size, and the
@@ -361,6 +481,54 @@ mod tests {
         let (take, full) = compute_append(max - 100, 160, max);
         assert_eq!(take, 100, "only 100 samples fit in the last slice");
         assert!(full, "buffer is at capacity after the append");
+    }
+
+    #[test]
+    fn downmix_mono_is_passthrough() {
+        let s = vec![0.1, -0.2, 0.3];
+        assert_eq!(downmix_to_mono(&s, 1), s);
+        assert_eq!(downmix_to_mono(&s, 0), s, "0 channels treated as mono");
+    }
+
+    #[test]
+    fn downmix_stereo_averages_frame_pairs() {
+        // Interleaved L,R,L,R: (1.0,-1.0)->0.0  (0.5,0.5)->0.5
+        let stereo = vec![1.0, -1.0, 0.5, 0.5];
+        assert_eq!(downmix_to_mono(&stereo, 2), vec![0.0, 0.5]);
+    }
+
+    #[test]
+    fn resample_same_rate_is_passthrough() {
+        let s = vec![0.0, 0.5, -0.5, 1.0];
+        assert_eq!(resample_to_16k(&s, SAMPLE_RATE), s);
+        assert!(resample_to_16k(&[], 48_000).is_empty());
+    }
+
+    #[test]
+    fn resample_downsamples_48k_to_16k_thirds_the_length() {
+        // 48 kHz -> 16 kHz is a 1:3 decimation; 300 in -> ~100 out.
+        let input: Vec<f32> = (0..300).map(|i| (i as f32 * 0.01).sin()).collect();
+        let out = resample_to_16k(&input, 48_000);
+        assert!(
+            (out.len() as i32 - 100).abs() <= 1,
+            "expected ~100 samples, got {}",
+            out.len()
+        );
+        // Endpoints are preserved (no NaN, bounded).
+        assert!((out[0] - input[0]).abs() < 1e-6);
+        assert!(out.iter().all(|s| s.is_finite()));
+    }
+
+    #[test]
+    fn resample_upsamples_8k_to_16k_doubles_the_length() {
+        let input: Vec<f32> = (0..50).map(|i| i as f32 / 50.0).collect();
+        let out = resample_to_16k(&input, 8_000);
+        assert!(
+            (out.len() as i32 - 100).abs() <= 1,
+            "expected ~100 samples, got {}",
+            out.len()
+        );
+        assert!(out.iter().all(|s| s.is_finite()));
     }
 
     #[test]
