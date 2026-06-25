@@ -10,7 +10,30 @@ transcribe, and inject text on Windows in front of a human?
 
 Read STORY-VTT013 (Windows builds) before starting.
 
-## Runbook (for the Windows session)
+## Verified from Linux (2026-06-25, TASK-VTT084)
+
+- Windows CI job is **green** on current main (`windows-latest, x86_64-msvc, CPU
+  whisper`) — the code compiles on Windows now.
+- No `todo!`/`unimplemented!` stubs in any Windows/shared path.
+- Text injection rides on `enigo` (cross-platform), audio on `cpal` (WASAPI),
+  tray on `tray-icon`, hotkey on `rdev` — all present for Windows.
+- Binary name is `vtt-linux.exe` ([[bin]] name = vtt-linux).
+- CI's red `cargo audit` job is unrelated (RUSTSEC-2026-0185 / quinn-proto,
+  tracked as TASK-VTT085) — not a build blocker.
+
+## Quick path
+
+From the repo root in PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\smoke-test-windows.ps1
+```
+
+It pulls, builds release, confirms the binary, and prints the manual checklist.
+Prerequisites (install once): Rust (rustup), VS Build Tools C++ workload (MSVC
+linker), LLVM/Clang for bindgen (set LIBCLANG_PATH if needed).
+
+## Runbook (manual, what the script automates + the human checks)
 
 1. `git pull origin main`
 2. `cargo build --release` — produces `target/release/vtt-linux.exe`

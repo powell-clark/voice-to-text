@@ -17,7 +17,7 @@ TASK-VTT052|p2|Design persistent Python daemon protocol (stdin/stdout line-delim
 TASK-VTT053|p2|Implement transcribe_daemon.py with faster-whisper persistent model and IPC loop|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT053.md|TASK-VTT052||||be
 TASK-VTT054|p2|Settings toggle CT2 vs native backend; spawn daemon at startup when enabled; fall back to whisper-rs if daemon crashes|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT054.md|TASK-VTT053||||bf
 TASK-VTT023|p3|Add --file flag for batch audio transcription|STORY-VTT009|DIRECT-VTT002|FEAT-VTT021|TASK-VTT023.md|||||bg
-TASK-VTT021|p3|Windows WASAPI/Win32/SendInput (superseded by TASK-VTT044 to TASK-VTT047)|STORY-VTT007|DIRECT-VTT004|FEAT-VTT019|TASK-VTT021.md|||||bh
+TASK-VTT021|p5|Windows WASAPI/Win32/SendInput (superseded by TASK-VTT044 to TASK-VTT047)|STORY-VTT007|DIRECT-VTT004|FEAT-VTT019|TASK-VTT021.md|||||bh
 TASK-VTT022|p3|Remove whisper.cpp backend (CANCELLED — ADR-0003 keeps whisper.cpp as sole backend)|STORY-VTT008|DIRECT-VTT002|FEAT-VTT020|TASK-VTT022.md|||||bi
 TASK-VTT072|p3|Unknown command /consciousness:sequence — is it part of pgps or a separate command?||||TASK-VTT072.md|||||a0
 TASK-VTT073|p3|Can't connect to APGPS — ap.consciousness.london unreachable despite being authenticated||||TASK-VTT073.md|||||a1
@@ -25,4 +25,6 @@ TASK-VTT075|p3|PGPS validation error wall is overwhelming for new users — need
 TASK-VTT076|p3|Telemetry opt-in should be default at install — 30-day retention agreed at walkthrough, no opt-out required||||TASK-VTT076.md|||||b2b||
 TASK-VTT079|p2|Upstream — feature-index status column splits PGPS display but fails validator (dist build inconsistency)||DIRECT-VTT002||TASK-VTT079.md|||||b3
 TASK-VTT080|p3|Features and testing are not connected — add per-feature test-status tracking (last_tested field and/or verification reviews)||||TASK-VTT080.md|||||b2c||
-TASK-VTT082|p1|Build and smoke-test VTT on Windows x86-64 hardware|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT082.md|||||b2d||
+TASK-VTT082|p0|Build and smoke-test VTT on Windows x86-64 hardware|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT082.md|||||b2d||
+TASK-VTT083|p3|Story and task indexes still use 'epic_id' column header instead of 'directive_id' (naming-precision residue; drives fk-asymmetry validator warnings)||||TASK-VTT083.md|||||b2e||
+TASK-VTT085|p2|Upgrade quinn-proto to >=0.11.15 — close RUSTSEC-2026-0185 (high) reddening CI||DIRECT-VTT002||TASK-VTT085.md|||||b2f||
