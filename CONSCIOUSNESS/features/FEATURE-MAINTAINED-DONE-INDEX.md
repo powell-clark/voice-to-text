@@ -1,11 +1,11 @@
 id|kano|description|story_ids|task_ids|doc
 FEAT-VTT001|must-have|[maintained] Push-to-talk voice recording (16kHz mono cpal raw f32 to Whisper worker)|STORY-VTT001|TASK-VTT001,TASK-VTT016|FEAT-VTT001.md
 FEAT-VTT002|must-have|[removed v2.0.0 ADR-0003] Whisper transcription dual backends — superseded by FEAT-VTT022 and FEAT-VTT023|STORY-VTT001|TASK-VTT002,TASK-VTT031,TASK-VTT032|FEAT-VTT002.md
-FEAT-VTT003|must-have|[removed v2.0.0] macOS menu bar app Cocoa native UI — ObjC deleted; Rust macOS in backlog FEAT-VTT029|STORY-VTT001|TASK-VTT003,TASK-VTT020,TASK-VTT032|FEAT-VTT003.md
+FEAT-VTT003|must-have|[superseded] macOS menu-bar app — original Objective-C UI (v0.3.x) replaced by the cross-platform Rust tray in v2.0.0; native Mac UI is wanted and continues as FEAT-VTT029 under DIRECT-VTT003|STORY-VTT001|TASK-VTT003,TASK-VTT020,TASK-VTT032|FEAT-VTT003.md
 FEAT-VTT004|must-have|[maintained] Linux system tray with GTK3 and AppIndicator|STORY-VTT001|TASK-VTT004,TASK-VTT019|FEAT-VTT004.md
 FEAT-VTT005|must-have|[maintained] Text injection into focused application via XTest on Linux (macOS skeleton exists not distributed)|STORY-VTT001|TASK-VTT005,TASK-VTT018|FEAT-VTT005.md
 FEAT-VTT006|performance|[maintained] Multi-language support with 99-language auto-detection|STORY-VTT001|TASK-VTT006|FEAT-VTT006.md
-FEAT-VTT007|must-have|[deprecated] Homebrew cask distribution for macOS — Python-era not maintained for Rust; superseded when FEAT-VTT029 ships|STORY-VTT002|TASK-VTT007|FEAT-VTT007.md
+FEAT-VTT007|must-have|[superseded] Homebrew cask (Python v0.3.x era, delivered) — Homebrew install for macOS is wanted and stays; Rust-era cask tracked as FEAT-VTT036 under DIRECT-VTT003|STORY-VTT002|TASK-VTT007|FEAT-VTT007.md
 FEAT-VTT008|must-have|[maintained] APT PPA distribution for Ubuntu (Noble + Jammy)|STORY-VTT002|TASK-VTT008,TASK-VTT039|FEAT-VTT008.md
 FEAT-VTT009|performance|[removed v2.0.0] CUDA GPU acceleration — superseded by Vulkan via whisper-rs FEAT-VTT024|STORY-VTT001|TASK-VTT002,TASK-VTT031|FEAT-VTT009.md
 FEAT-VTT010|delighter|[maintained] Configurable hotkey voice prefix and initial prompt via settings.conf|STORY-VTT001||FEAT-VTT010.md

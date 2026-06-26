@@ -2,6 +2,7 @@ id|priority|kano|description|story_ids|task_ids|doc
 FEAT-VTT024|p1|performance|Vulkan GPU acceleration on Linux and Windows — universal NVIDIA plus AMD plus Intel without requiring CUDA Toolkit (Linux done, Windows blocked on port)|STORY-VTT010|TASK-VTT025,TASK-VTT088|FEAT-VTT024.md
 FEAT-VTT025|p1|performance|Metal GPU acceleration on macOS — Intel Radeon and Apple Silicon both supported (blocked on macOS port)|STORY-VTT010|TASK-VTT025|FEAT-VTT025.md
 FEAT-VTT029|p1|must-have|macOS .app bundle with accessibility permissions flow for Intel Radeon and Apple Silicon|STORY-VTT012|TASK-VTT040,TASK-VTT041,TASK-VTT042,TASK-VTT043|
+FEAT-VTT036|p1|must-have|Homebrew cask distribution for the Rust macOS build — brew install for Apple Silicon and Intel, kept current with each release (replaces the retired Python v0.3.x cask, FEAT-VTT007)|STORY-VTT012||
 FEAT-VTT030|p1|must-have|Windows .msi installer with Start Menu integration|STORY-VTT013|TASK-VTT044,TASK-VTT045,TASK-VTT046,TASK-VTT047,TASK-VTT063,TASK-VTT064,TASK-VTT098,TASK-VTT108,TASK-VTT101,TASK-VTT097,TASK-VTT104,TASK-VTT102,TASK-VTT103,TASK-VTT095,TASK-VTT094,TASK-VTT093,TASK-VTT099,TASK-VTT100,TASK-VTT091,TASK-VTT092,TASK-VTT086,TASK-VTT089,TASK-VTT082,TASK-VTT084|
 FEAT-VTT031|p2|must-have|GitHub Actions matrix builds producing signed artefacts for all three platforms on every tag|STORY-VTT014|TASK-VTT048,TASK-VTT049|
 FEAT-VTT032|p2|delighter|Silero VAD integration — auto-stop on silence and background-noise suppression|STORY-VTT015|TASK-VTT050|
