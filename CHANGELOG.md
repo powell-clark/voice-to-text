@@ -9,6 +9,28 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.3.7] — 2026-06-26
+
+### Fixed
+- **Releases publish smoothly, every time.** The release pipeline no longer
+  hangs when GitHub is short on scarce macOS Intel (`macos-13`) runners. The
+  Intel binary is now a best-effort job that attaches whenever it gets
+  scheduled; un-drafting the release waits only on the three always-available
+  runners (Linux, Windows, Apple-Silicon macOS). v2.3.6 sat as a draft for an
+  hour because its Intel job was stuck in GitHub's queue — that can't block a
+  publish anymore.
+- **A warning can never again fail a release.** The release build now runs with
+  lint off (`RUSTFLAGS` unset); `-D warnings` + clippy stay enforced on every PR
+  by CI. This is the class of bug that silently broke v2.3.4/2.3.5.
+- Every release job now has a timeout, so a hung or queued runner fails fast
+  instead of stalling the whole release indefinitely.
+
+### Note
+- **Windows tray icon:** the icon is registered correctly — Windows 11 hides new
+  notification-area icons in the overflow (`^`) flyout by default. Drag it onto
+  the taskbar once to pin it. A branded app/installer icon is tracked separately
+  (TASK-VTT108).
+
 ## [2.3.6] — 2026-06-26
 
 ### Fixed

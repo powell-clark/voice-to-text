@@ -4,6 +4,17 @@ name: Release
 # Builds the Linux binary on ubuntu-24.04 (matching Launchpad Noble),
 # then creates a GitHub release with vtt-linux as the artifact.
 #
+# Smoothness invariants (TASK-VTT107):
+#   * The release build is "does it compile", NOT lint-clean. Lint (-D warnings
+#     + clippy) is enforced on every PR by ci.yml, so a stray warning must never
+#     fail the job that *publishes* a release (this is what silently broke
+#     v2.3.4/2.3.5). Release jobs therefore run with RUSTFLAGS unset.
+#   * Every job has a timeout so a hung/queued runner can't stall a release.
+#   * publish-release waits only on the three always-available runners
+#     (Linux, Windows, macos-latest/arm64). The scarce macos-13 Intel runner is
+#     decoupled: it attaches its asset best-effort whenever it gets scheduled,
+#     and never blocks the publish.
+#
 # PPA upload (dput to Launchpad) still runs locally — it requires
 # Emmanuel's GPG key and cannot run on CI without secret management.
 # After CI creates the release, run scripts/release-ppa.sh locally.
@@ -23,6 +34,7 @@ jobs:
   build-and-release:
     name: Build Linux binary + create GitHub release
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: write
 
@@ -54,10 +66,12 @@ jobs:
         with:
           cache-on-failure: true
 
+      # No -D warnings here on purpose: lint is a PR gate (ci.yml), not a
+      # release gate. A warning must never fail the job that creates the release.
       - name: Build release binary
         run: cargo build --release
         env:
-          RUSTFLAGS: "-D warnings"
+          RUSTFLAGS: ""
 
       - name: Verify binary shape
         run: |
@@ -85,6 +99,7 @@ jobs:
     name: Build Windows .msi installer
     needs: build-and-release
     runs-on: windows-latest
+    timeout-minutes: 45
     permissions:
       contents: write
     env:
@@ -138,27 +153,16 @@ jobs:
           files: target\wix\voice-to-text-installer.msi
           draft: true
 
-  # macOS ships two native binaries — Intel (x86_64, macos-13 runner) and Apple
-  # Silicon (arm64, macos-latest). Both use the Metal whisper backend. Native
-  # builds (no cross-compile) keep the whisper.cpp/Metal build simple and
-  # low-risk. A single universal binary via lipo is a follow-up (TASK-VTT104);
-  # a signed .app is TASK-VTT040.
-  build-macos:
-    name: Build macOS binary (${{ matrix.label }})
+  # Apple Silicon (arm64) on macos-latest. This is the REQUIRED macOS asset —
+  # macos-latest runners are plentiful, so publish never waits long on it. The
+  # Intel binary is a separate, best-effort job below.
+  build-macos-arm:
+    name: Build macOS binary (Apple Silicon)
     needs: build-and-release
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-latest
+    timeout-minutes: 30
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-13      # Intel x86_64
-            label: Intel
-            asset: vtt-macos-intel
-          - runner: macos-latest  # Apple Silicon arm64
-            label: Apple Silicon
-            asset: vtt-macos-arm64
     env:
       RUSTFLAGS: ""
     steps:
@@ -183,18 +187,68 @@ jobs:
 
       # The [[bin]] name is vtt-linux on every platform; rename per-arch.
       - name: Rename artifact
-        run: cp target/release/vtt-linux ${{ matrix.asset }}
+        run: cp target/release/vtt-linux vtt-macos-arm64
 
-      - name: Upload macOS binary to GitHub release
+      - name: Upload macOS arm64 binary to GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.asset }}
+          files: vtt-macos-arm64
           draft: true
 
+  # Intel x86_64 on macos-13. macos-13 (Intel) runners are scarce and can queue
+  # for a long time, so this job is DECOUPLED from publish-release: it is not in
+  # publish's needs, and it attaches its asset with `gh release upload` (which
+  # never alters the release's draft/latest state) so a late finish quietly adds
+  # the Intel binary to an already-published release instead of re-drafting it.
+  # A universal binary via lipo (TASK-VTT104) is the eventual consolidation.
+  build-macos-intel:
+    name: Build macOS binary (Intel) [best-effort]
+    needs: build-and-release
+    runs-on: macos-13
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      RUSTFLAGS: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install cmake (whisper.cpp build dep)
+        run: brew install cmake
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Rename artifact
+        run: cp target/release/vtt-linux vtt-macos-intel
+
+      # gh release upload (not action-gh-release) so this best-effort, possibly
+      # late job only ADDS the asset and never touches draft/latest state.
+      - name: Attach Intel binary to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" vtt-macos-intel \
+            --repo "${{ github.repository }}" --clobber
+
   publish-release:
-    name: Publish release (un-draft once all assets are uploaded)
-    needs: [build-and-release, build-windows-msi, build-macos]
+    name: Publish release (un-draft once core assets are uploaded)
+    # Intentionally NOT depending on build-macos-intel — the scarce Intel runner
+    # must never block a publish. Intel attaches best-effort (see that job).
+    needs: [build-and-release, build-windows-msi, build-macos-arm]
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
