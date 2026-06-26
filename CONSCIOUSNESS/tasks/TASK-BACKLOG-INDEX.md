@@ -33,4 +33,3 @@ TASK-VTT076|p3|Telemetry opt-in should be default at install — 30-day retentio
 TASK-VTT079|p2|Upstream — feature-index status column splits PGPS display but fails validator (dist build inconsistency)||DIRECT-VTT002||TASK-VTT079.md|||||b3
 TASK-VTT080|p3|Features and testing are not connected — add per-feature test-status tracking (last_tested field and/or verification reviews)||||TASK-VTT080.md|||||b2c||
 TASK-VTT083|p3|Story and task indexes still use 'epic_id' column header instead of 'directive_id' (naming-precision residue; drives fk-asymmetry validator warnings)||||TASK-VTT083.md|||||b2e||
-TASK-VTT085|p2|Upgrade quinn-proto to >=0.11.15 — close RUSTSEC-2026-0185 (high) reddening CI||DIRECT-VTT002||TASK-VTT085.md|||||b2f||

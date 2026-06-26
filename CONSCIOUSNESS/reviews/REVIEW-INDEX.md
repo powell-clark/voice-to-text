@@ -40,3 +40,4 @@ REVIEW-CCC34|task|TASK-VTT099|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-
 REVIEW-CCC35|task|TASK-VTT100|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 14:06:45.649 gmtst|auto-close: rdev hotkey auto-repeat suppressed via pressed-state swap, parity FEAT-VTT013, reversible, entity gate auto-approve
 REVIEW-CCC044|task|TASK-VTT094|agent|vtt-main-2fe61b0a|auto-approved|1|2026-06-26 13:21:07.344 gmt|
 REVIEW-CCC36|task|TASK-VTT094|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 14:21:19.710 gmtst|auto-close: Windows autostart via HKCU Run + tray Start-at-login toggle, builds green, reversible, entity gate auto-approve
+REVIEW-CCC37|task|TASK-VTT085|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 14:59:36.833 gmtst|auto-close: quinn-proto bumped 0.11.14->0.11.15 closing RUSTSEC-2026-0185, audit green, reversible, entity gate auto-approve

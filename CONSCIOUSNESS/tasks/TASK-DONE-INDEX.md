@@ -67,3 +67,4 @@ TASK-VTT077|Feature card audit — maintained vs done split, full ACs, verificat
 TASK-VTT078|Feature terminal index conformance — single folder, precise card statuses||DIRECT-VTT002||TASK-VTT078.md
 TASK-VTT081|Split directives by platform; ready Windows handoff||DIRECT-VTT002||TASK-VTT081.md
 TASK-VTT084|Pre-stage Windows handoff from Linux — verify CI green, add smoke-test script|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT084.md
+TASK-VTT085|Upgrade quinn-proto to >=0.11.15 — close RUSTSEC-2026-0185|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT085.md
