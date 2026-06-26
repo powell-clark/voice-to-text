@@ -72,4 +72,4 @@ TASK-VTT085|Upgrade quinn-proto to >=0.11.15 — close RUSTSEC-2026-0185|STORY-V
 TASK-VTT105|Claude PR-automation workflow parity|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT105.md
 TASK-VTT110|Debian packaging fixes — xclip dep, postinst sha256 verify, postrm purge cleanup||DIRECT-VTT002|FEAT-VTT012,FEAT-VTT028|
 TASK-VTT111|Correct stale feature-card acceptance criteria + add README CI badge||DIRECT-VTT002|FEAT-VTT017,FEAT-VTT027,FEAT-VTT035|
-TASK-VTT109|Consciousness health repair and feature review backfill|STORY-VTT018|DIRECT-VTT002||
+TASK-VTT113|Consciousness health repair and feature review backfill|STORY-VTT018|DIRECT-VTT002||
