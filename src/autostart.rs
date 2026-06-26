@@ -62,6 +62,14 @@ mod imp {
 
 pub use imp::is_enabled;
 
+// `enable` is called directly by the Windows first-run default (TASK-VTT109) in
+// main.rs; re-export it on Windows so the public `autostart::enable()` path
+// resolves. On macOS the stub is reached only via `toggle()`, so no re-export is
+// needed there (and re-exporting it unused would trip dead-code on a -D warnings
+// build).
+#[cfg(target_os = "windows")]
+pub use imp::enable;
+
 /// Flip the autostart registration; returns the new enabled state.
 pub fn toggle() -> anyhow::Result<bool> {
     if is_enabled() {

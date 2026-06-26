@@ -9,6 +9,16 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.3.8] — 2026-06-26
+
+### Changed
+- **Voice to Text now starts at login by default on Windows.** On first launch
+  it registers itself under the per-user `HKCU\...\Run` key so it's ready after
+  a reboot without hunting for the tray toggle. You stay in control: untick
+  **"Start at login"** in the tray menu to turn it off, and that choice sticks
+  (the default is applied exactly once, even across upgrades). Existing installs
+  pick this up on their next launch. (TASK-VTT109)
+
 ## [2.3.7] — 2026-06-26
 
 ### Fixed
