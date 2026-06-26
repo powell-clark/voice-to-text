@@ -95,6 +95,12 @@ fn type_via_enigo_text(text: &str, newline_type: NewlineType) {
             }
         }
     }
+
+    // Also place the text on the clipboard so Ctrl+V works as a fallback — parity
+    // with the Linux xclip path (FEAT-VTT012 / TASK-VTT099).
+    if let Ok(mut clipboard) = arboard::Clipboard::new() {
+        let _ = clipboard.set_text(text.to_string());
+    }
     crate::vtt_log!("Typing completed via enigo.text ({} bytes)", text.len());
 }
 
