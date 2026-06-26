@@ -9,6 +9,18 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.3.6] — 2026-06-26
+
+### Fixed
+- **Releases were silently broken since v2.3.4** — the new `autostart` module is
+  only used by the Windows/macOS tray, so on Linux it was dead code, and the
+  Linux release job builds with `-D warnings`. That failed the job that *creates*
+  the GitHub release, so v2.3.4 and v2.3.5 never published. `autostart` is now
+  cfg-gated to Windows/macOS. **This is the first release to actually ship the
+  v2.3.4/2.3.5 work** (autostart, live status, macOS Intel binary, README).
+- **CI green again**: removed a no-op `mem::forget` on a `Copy` handle (Windows
+  singleton), and upgraded `quinn-proto` to 0.11.15 to close RUSTSEC-2026-0185.
+
 ## [2.3.5] — 2026-06-26
 
 ### Added
