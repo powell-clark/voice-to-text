@@ -43,3 +43,5 @@ REVIEW-CCC36|task|TASK-VTT094|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-
 REVIEW-CCC37|task|TASK-VTT085|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 14:59:36.833 gmtst|auto-close: quinn-proto bumped 0.11.14->0.11.15 closing RUSTSEC-2026-0185, audit green, reversible, entity gate auto-approve
 REVIEW-VTT105|task|TASK-VTT105|human|vtt-main-94762d2d|human-pending|1|2026-06-26T15:00:00+01:00|awaiting PR #6 merge — security-sensitive CI workflows, human-gated
 REVIEW-VTT105B|task|TASK-VTT105|human|powell-clark|human-approved|2|2026-06-26T15:48:00+01:00|PR #6 merged (squash 42c9d0d); Claude workflows verified green via reopen; cargo-audit red is unrelated RUSTSEC-2026-0186
+REVIEW-CCC049|task|TASK-VTT107|agent|vtt-choreclose-v-cc1c854f|auto-approved|1|2026-06-26 17:18:37.082 gmt|
+REVIEW-VTT107|task|TASK-VTT107|agent|vtt-ciclaude-pr--cc1c854f|bypass-approved|1|2026-06-26 18:17:01.266 bst|auto-close: reversible CI-config task, entity gate auto-approve. release.yml decouples scarce Intel runner + drops -D warnings + per-job timeouts (PR #8); transient-flake hardening merged (PR #9). v2.3.7 published green via the new pipeline.

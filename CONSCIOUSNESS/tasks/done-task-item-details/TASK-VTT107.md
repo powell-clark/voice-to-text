@@ -30,7 +30,11 @@ Two distinct fragilities in `.github/workflows/release.yml`:
 - [x] Every release job has a `timeout-minutes`
 - [x] `publish-release` does not depend on the macOS Intel job
 - [x] Intel binary attaches best-effort without re-drafting a published release
-- [ ] A real tagged release (v2.3.7) publishes without manual intervention
+- [x] A real tagged release (v2.3.7) publishes — published 2026-06-26 via the
+      new pipeline (un-drafted on the 3 core assets; Intel did not block). One
+      re-run was needed for a transient crates.io HTTP/2 flake, now hardened
+      against in both workflows (PR #9, `CARGO_HTTP_MULTIPLEXING=false` +
+      `CARGO_NET_RETRY=10`).
 
 ## Dependencies
 
