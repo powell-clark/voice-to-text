@@ -1,3 +1,10 @@
+// On Windows, build as a GUI (windowed) binary so launching the tray app does
+// not pop a console window — the system tray icon is the UI. Logs still go to
+// the daily log file; stdout is simply unused on a normal launch. CLI flags
+// (--version/--help) re-attach to the launching terminal (see main). On
+// Linux/macOS this attribute is a no-op.
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 mod audio;
 mod hotkey;
 mod logging;
@@ -29,16 +36,41 @@ enum WorkItem {
     },
 }
 
+/// Re-attach the (windowed) process to its launching console so `--version` /
+/// `--help` output is visible when run from a terminal. Best-effort: does
+/// nothing if there is no parent console (e.g. launched from Explorer). Links
+/// `AttachConsole` from kernel32 directly to avoid a winapi dependency just for
+/// this one call.
+#[cfg(target_os = "windows")]
+fn attach_parent_console() {
+    // ATTACH_PARENT_PROCESS = (DWORD)-1
+    extern "system" {
+        fn AttachConsole(dw_process_id: u32) -> i32;
+    }
+    unsafe {
+        AttachConsole(0xFFFF_FFFF);
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     // Simple arg handling — no clap dep just for --version / --help.
     // Hold a hotkey to speak; the tray is the real UI. These flags only
     // exist so users can confirm what's installed without launching GTK.
     let args: Vec<String> = std::env::args().collect();
-    if args.iter().any(|a| a == "--version" || a == "-V") {
+    let wants_version = args.iter().any(|a| a == "--version" || a == "-V");
+    let wants_help = args.iter().any(|a| a == "--help" || a == "-h");
+    // On Windows the binary is windowed (no console of its own), so re-attach to
+    // the launching terminal before printing CLI output — otherwise --version /
+    // --help would silently produce nothing when run from a shell.
+    #[cfg(target_os = "windows")]
+    if wants_version || wants_help {
+        attach_parent_console();
+    }
+    if wants_version {
         println!("voice-to-text {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
-    if args.iter().any(|a| a == "--help" || a == "-h") {
+    if wants_help {
         println!(
             "voice-to-text {} — push-to-talk offline transcription\n\n\
              Usage: vtt-linux [options]\n\n\

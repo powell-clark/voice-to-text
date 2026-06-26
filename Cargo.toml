@@ -1,6 +1,6 @@
 [package]
 name = "voice-to-text"
-version = "2.3.0"
+version = "2.3.1"
 edition = "2021"
 authors = ["Emmanuel Powell-Clark <emmanuel@powellclark.com>"]
 description = "Free, world-class voice-to-text for Ubuntu, macOS and Windows"

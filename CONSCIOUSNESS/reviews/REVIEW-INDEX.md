@@ -25,3 +25,7 @@ REVIEW-CCC25|task|TASK-VTT082|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-
 REVIEW-CCC26|task|TASK-VTT087|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-25 17:45:19.640 gmtst|auto-close: 67 unit tests + E2E transcription test green on Windows, reversible, entity gate auto-approve
 REVIEW-CCC029|task|TASK-VTT088|agent|vtt-main-2fe61b0a|auto-approved|1|2026-06-26 11:56:43.700 gmt|
 REVIEW-CCC27|task|TASK-VTT088|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 12:56:53.118 gmtst|auto-close: Vulkan GPU acceleration working on Windows (RTX 2060 SUPER via Vulkan0 backend), 67 tests + E2E green, reversible, entity gate auto-approve
+REVIEW-CCC031|task|TASK-VTT089|agent|vtt-main-2fe61b0a|auto-approved|1|2026-06-26 12:30:42.042 gmt|
+REVIEW-CCC032|task|TASK-VTT090|agent|vtt-main-2fe61b0a|auto-approved|1|2026-06-26 12:30:42.042 gmt|
+REVIEW-CCC28|task|TASK-VTT089|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 13:30:53.083 gmtst|auto-close: windowed binary verified (PE subsystem 2), reversible, entity gate auto-approve
+REVIEW-CCC29|task|TASK-VTT090|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 13:30:53.083 gmtst|auto-close: CHANGELOG-driven release notes + macOS job + download links, notes script tested, reversible, entity gate auto-approve
