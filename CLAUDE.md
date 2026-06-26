@@ -47,6 +47,22 @@ bash scripts/release-ppa.sh   # pbuilder hard-gate, then dput
   (Ubuntu Noble ships Cargo 1.75, which cannot parse edition-2024 manifests;
   `release-ppa.sh` rebuilds and re-commits this file automatically on each release)
 
+## Homebrew tap (macOS) — SEPARATE REPO
+
+macOS `brew install` is served from a **separate repo**, not this one:
+
+- Repo: `powell-clark/voice-to-text-homebrew` (private) — "Homebrew tap for Voice-to-Text"
+- Local checkout: `~/projects/aux/voice-to-text-homebrew`
+- Contents: `Formula/voice-to-text.rb` (source build) + `Casks/voice-to-text.rb` (binary app)
+- Install: `brew tap powell-clark/voice-to-text && brew install voice-to-text`
+
+**All Homebrew/macOS-cask changes go in that repo, never here.** A grep of this
+tree finds no cask — that is expected; do not conclude Homebrew is unsupported.
+
+⚠️ The tap is currently stale vs the Rust release (Formula `v0.2.0`, Cask
+`v0.3.16` with a `file://` local path) — bringing it current with each Rust
+release is ongoing maintained work (roadmap: FEAT-VTT036).
+
 ## Packaging layout
 
 ```
