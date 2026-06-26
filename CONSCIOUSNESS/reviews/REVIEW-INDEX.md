@@ -70,3 +70,12 @@ REVIEW-FVTT028|feature|FEAT-VTT028|agent|vtt-main-dba3cc17|pending-review|1|2026
 REVIEW-FVTT035|feature|FEAT-VTT035|agent|vtt-main-dba3cc17|pending-review|1|2026-06-26 20:10:48.486 bst|Regression suite + CI green on main delivered (~81 tests, ci.yml) BUT README CI-status badge AC unmet and card test counts stale-low
 REVIEW-FVTT003B|feature|FEAT-VTT003|human|powell-clark|human-pending|2|2026-06-26 20:32:32.234 bst|operator override: macOS menu-bar is WANTED not removed — ObjC UI (deleted v2.0.0, 2026-04-18) replaced by Rust tray; native Mac UI continues as FEAT-VTT029; supersedes REVIEW-FVTT003 agent verdict; card reframed [removed]->[superseded]
 REVIEW-FVTT007B|feature|FEAT-VTT007|human|powell-clark|human-pending|2|2026-06-26 20:32:32.234 bst|operator override: Homebrew install is WANTED and staying — Python v0.3.x cask delivered then retired (Casks/ removed 2026-06-21); Rust-era cask filed as FEAT-VTT036; supersedes REVIEW-FVTT007 agent verdict; card reframed [deprecated]->[superseded]
+REVIEW-FVTT001C|feature|FEAT-VTT001|human|powell-clark|human-approved|2|2026-06-26 20:40:08.981 bst|operator-approved (push-to-talk): done and maintained
+REVIEW-FVTT005C|feature|FEAT-VTT005|human|powell-clark|human-approved|2|2026-06-26 20:40:08.981 bst|operator-approved (auto-type): done and maintained
+REVIEW-FVTT013C|feature|FEAT-VTT013|human|powell-clark|human-approved|2|2026-06-26 20:40:08.981 bst|operator-approved (key-repeat filter): maintained — re-tested each release
+REVIEW-FVTT022C|feature|FEAT-VTT022|human|powell-clark|human-approved|2|2026-06-26 20:40:08.981 bst|operator-approved (resident model): works most of the time, re-tested each release — watch intermittent misses
+REVIEW-FVTT023C|feature|FEAT-VTT023|human|powell-clark|human-approved|2|2026-06-26 20:40:08.981 bst|operator-approved (pure Rust): done — one-time achievement, not per-release maintained
+REVIEW-FVTT004C|feature|FEAT-VTT004|human|powell-clark|human-approved|2|2026-06-26 20:40:08.981 bst|operator-approved (Linux tray): works
+REVIEW-FVTT026C|feature|FEAT-VTT026|human|powell-clark|human-approved|2|2026-06-26 20:40:08.981 bst|operator-approved (model download): approved but a maintenance burden
+REVIEW-FVTT008C|feature|FEAT-VTT008|human|powell-clark|human-approved|2|2026-06-26 20:40:08.981 bst|operator-approved (apt PPA): done; PPA re-checked each release
+REVIEW-FVTT016C|feature|FEAT-VTT016|human|powell-clark|human-approved|2|2026-06-26 20:40:08.981 bst|operator-approved (one-command release script): works
