@@ -71,11 +71,15 @@ jobs:
             > release-notes.md
           echo "----- release notes -----"; cat release-notes.md
 
-      - name: Create GitHub release
+      - name: Create GitHub release (draft until all assets are up)
         uses: softprops/action-gh-release@v2
         with:
           files: target/release/vtt-linux
           body_path: release-notes.md
+          # Keep the release hidden until the macOS + Windows jobs have uploaded
+          # their assets — the publish-release job un-drafts it. Avoids a release
+          # appearing with a missing .msi for the minutes the Windows build runs.
+          draft: true
 
   build-windows-msi:
     name: Build Windows .msi installer
@@ -132,6 +136,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: target\wix\voice-to-text-installer.msi
+          draft: true
 
   build-macos:
     name: Build macOS binary (Apple Silicon)
@@ -173,3 +178,19 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: vtt-macos
+          draft: true
+
+  publish-release:
+    name: Publish release (un-draft once all assets are uploaded)
+    needs: [build-and-release, build-windows-msi, build-macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Un-draft and mark latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit "${GITHUB_REF_NAME}" \
+            --repo "${{ github.repository }}" \
+            --draft=false --latest
