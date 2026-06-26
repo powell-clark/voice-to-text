@@ -6,6 +6,9 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 mod audio;
+// autostart is only consumed by the portable tray (Windows + macOS); compiling
+// it on Linux makes it dead code, which fails the -D warnings release build.
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 mod autostart;
 mod hotkey;
 mod logging;
@@ -815,9 +818,11 @@ fn singleton_lock() -> anyhow::Result<()> {
              Stop it via Task Manager or run `taskkill /IM vtt.exe /F`."
         );
     }
-    // Intentionally keep handle open — it IS the singleton lock.
-    // Windows releases it automatically when the process exits.
-    std::mem::forget(handle);
+    // Intentionally never call CloseHandle — the open mutex IS the singleton
+    // lock, and Windows releases it when the process exits. (handle is a bare
+    // isize with no Drop, so there is nothing to forget; it simply leaks by
+    // design.)
+    let _ = handle;
     Ok(())
 }
 
