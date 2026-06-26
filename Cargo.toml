@@ -50,7 +50,7 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 
 # ─── Linux-specific ─────────────────────────────────────────────
 [target.'cfg(target_os = "linux")'.dependencies]
-enigo = { version = "0.2", features = ["x11rb"] }
+enigo = { version = "0.6", features = ["x11rb"] }
 x11 = { version = "2.21", features = ["xlib"] }
 libappindicator = "0.9"
 gtk = "0.18"
@@ -67,7 +67,7 @@ crossbeam-channel = "0.5"
 
 # ─── Windows ────────────────────────────────────────────────────
 [target.'cfg(target_os = "windows")'.dependencies]
-enigo = "0.2"
+enigo = "0.6"
 tray-icon = "0.19"
 muda = "0.15"
 rdev = "0.5"
@@ -86,7 +86,7 @@ whisper-rs = { version = "0.16", default-features = false, features = ["vulkan"]
 
 # ─── macOS ──────────────────────────────────────────────────────
 [target.'cfg(target_os = "macos")'.dependencies]
-enigo = "0.2"
+enigo = "0.6"
 tray-icon = "0.19"
 muda = "0.15"
 rdev = "0.5"
