@@ -32,7 +32,8 @@ Depends: ${shlibs:Depends},
          libvulkan1,
          libnotify-bin,
          curl,
-         xdotool
+         xdotool,
+         xclip
 Recommends: vulkan-tools,
             mesa-vulkan-drivers
 Description: Free, world-class voice-to-text for Ubuntu, macOS and Windows

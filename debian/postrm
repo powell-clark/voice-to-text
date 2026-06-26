@@ -5,12 +5,14 @@ set -e
 
 case "$1" in
     purge)
-        # On purge, point users at per-user data locations they can remove.
-        # We can't remove them from here (this runs as root, the data is
-        # per-user under $HOME).
-        echo "Purging voice-to-text (system files only)."
+        # Remove the system-wide model that postinst downloaded (~488 MB).
+        # dpkg does not track it (postinst created it at runtime), so without
+        # this it would be orphaned on disk after purge.
+        echo "Purging voice-to-text..."
+        rm -rf /usr/share/voice-to-text/models
+        rmdir /usr/share/voice-to-text 2>/dev/null || true
         echo ""
-        echo "To remove your per-user data as well:"
+        echo "Per-user data is not removed automatically (it lives under your \$HOME):"
         echo "  rm -rf ~/.local/share/voice-to-text  # settings, logs, recordings"
         echo "  rm -rf ~/.cache/voice-to-text/models # downloaded GGML models"
         ;;

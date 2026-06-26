@@ -10,7 +10,7 @@ FEAT-VTT008|must-have|[maintained] APT PPA distribution for Ubuntu (Noble + Jamm
 FEAT-VTT009|performance|[removed v2.0.0] CUDA GPU acceleration — superseded by Vulkan via whisper-rs FEAT-VTT024|STORY-VTT001|TASK-VTT002,TASK-VTT031|FEAT-VTT009.md
 FEAT-VTT010|delighter|[done] Configurable hotkey voice prefix and initial prompt via settings.conf|STORY-VTT001||FEAT-VTT010.md
 FEAT-VTT011|performance|[done] User-configurable initial_prompt passthrough to whisper-rs (single backend as of v2.0.0)|STORY-VTT003|TASK-VTT009|FEAT-VTT011.md
-FEAT-VTT012|must-have|[maintained] Clipboard paste via xclip subprocess instead of broken XSetSelectionOwner|STORY-VTT006|TASK-VTT012|FEAT-VTT012.md
+FEAT-VTT012|must-have|[maintained] Clipboard paste via xclip subprocess instead of broken XSetSelectionOwner|STORY-VTT006|TASK-VTT012,TASK-VTT110|FEAT-VTT012.md
 FEAT-VTT013|must-have|[maintained] X11 key auto-repeat filtering to prevent spurious recordings|STORY-VTT006|TASK-VTT013|FEAT-VTT013.md
 FEAT-VTT014|performance|[done] 5-minute max recording duration (was 2 minutes)|STORY-VTT006|TASK-VTT013|FEAT-VTT014.md
 FEAT-VTT015|performance|[done] SystemD service inherits DISPLAY from user session (Wayland-ready)|STORY-VTT006||FEAT-VTT015.md
@@ -20,5 +20,5 @@ FEAT-VTT022|must-have|[maintained] Whisper model loaded once in-process worker t
 FEAT-VTT023|must-have|[done] Pure Rust transcription — no Python runtime dependency no pip install no faster-whisper no ctranslate2|STORY-VTT010|TASK-VTT025,TASK-VTT031,TASK-VTT032|FEAT-VTT023.md
 FEAT-VTT026|must-have|[maintained] Automatic GGML model download from HuggingFace with sha256 verify and tray progress notifications|STORY-VTT010|TASK-VTT029|FEAT-VTT026.md
 FEAT-VTT027|must-have|[maintained] Debian package builds the Rust binary via cargo (not gcc against C sources)|STORY-VTT011|TASK-VTT035,TASK-VTT036,TASK-VTT038,TASK-VTT039|FEAT-VTT027.md
-FEAT-VTT028|must-have|[maintained] Default model pre-downloaded via postinst so first-run works offline|STORY-VTT011|TASK-VTT037|FEAT-VTT028.md
+FEAT-VTT028|must-have|[maintained] Default model pre-downloaded via postinst so first-run works offline|STORY-VTT011|TASK-VTT037,TASK-VTT110|FEAT-VTT028.md
 FEAT-VTT035|must-have|[maintained] Automated regression testing — cargo unit tests GitHub Actions CI local pre-push hook 72 tests gate every change|STORY-VTT018|TASK-VTT055,TASK-VTT056,TASK-VTT057,TASK-VTT058,TASK-VTT059,TASK-VTT061,TASK-VTT060,TASK-VTT107,TASK-VTT090,TASK-VTT087,TASK-VTT085,TASK-VTT105|FEAT-VTT035.md

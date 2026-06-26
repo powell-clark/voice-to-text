@@ -70,3 +70,4 @@ TASK-VTT081|Split directives by platform; ready Windows handoff||DIRECT-VTT002||
 TASK-VTT084|Pre-stage Windows handoff from Linux — verify CI green, add smoke-test script|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT084.md
 TASK-VTT085|Upgrade quinn-proto to >=0.11.15 — close RUSTSEC-2026-0185|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT085.md
 TASK-VTT105|Claude PR-automation workflow parity|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT105.md
+TASK-VTT110|Debian packaging fixes — xclip dep, postinst sha256 verify, postrm purge cleanup||DIRECT-VTT002|FEAT-VTT012,FEAT-VTT028|
