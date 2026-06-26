@@ -9,6 +9,16 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.3.1] — 2026-06-26
+
+### Fixed
+- **Windows: a console window opened alongside the tray app**. The binary was
+  built as a console program, so launching it popped a terminal. It now builds
+  as a windowed app (`windows_subsystem = "windows"`) — the system-tray icon is
+  the only UI. Logs still go to `%APPDATA%\voice-to-text\logs\`. `--version` /
+  `--help` still print when run from a terminal (the process re-attaches to the
+  parent console).
+
 ## [2.3.0] — 2026-06-26
 
 ### Added

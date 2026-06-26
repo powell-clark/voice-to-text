@@ -64,25 +64,18 @@ jobs:
           file target/release/vtt-linux | grep -q "ELF 64-bit LSB.*x86-64"
           ldd target/release/vtt-linux | grep -q "libvulkan.so.1"
 
+      - name: Generate release notes from CHANGELOG
+        run: |
+          bash scripts/gen-release-notes.sh \
+            "${GITHUB_REF_NAME#v}" "${{ github.repository }}" "${GITHUB_REF_NAME}" \
+            > release-notes.md
+          echo "----- release notes -----"; cat release-notes.md
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: target/release/vtt-linux
-          generate_release_notes: true
-          body: |
-            ## Install on Ubuntu (PPA)
-
-            ```bash
-            sudo add-apt-repository ppa:powellclark/voice-to-text
-            sudo apt install voice-to-text
-            ```
-
-            Or download `vtt-linux` and place it at `/usr/bin/vtt-linux`.
-
-            ## Install on Windows 11
-
-            Download `voice-to-text-installer.msi` and run it.
-            Installs to `C:\Program Files\Voice to Text\` with a Start Menu shortcut.
+          body_path: release-notes.md
 
   build-windows-msi:
     name: Build Windows .msi installer
@@ -139,3 +132,44 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: target\wix\voice-to-text-installer.msi
+
+  build-macos:
+    name: Build macOS binary (Apple Silicon)
+    needs: build-and-release
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    # Compile-only proof exists in ci.yml; here we ship the binary. macOS uses
+    # the Metal whisper backend (Cargo.toml macos block). A signed .app bundle
+    # is the planned follow-up (TASK-VTT040) — for now this is a raw binary.
+    env:
+      RUSTFLAGS: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install cmake (whisper.cpp build dep)
+        run: brew install cmake
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Build release binary
+        run: cargo build --release
+
+      # The [[bin]] name is vtt-linux on every platform; rename the artifact so
+      # the release asset reads vtt-macos.
+      - name: Rename artifact to vtt-macos
+        run: cp target/release/vtt-linux vtt-macos
+
+      - name: Upload macOS binary to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: vtt-macos
