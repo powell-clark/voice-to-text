@@ -90,6 +90,11 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      # whisper.cpp's Vulkan sub-build (vulkan-shaders-gen) blows past Windows'
+      # 260-char MAX_PATH under the default target dir → MSBuild FTK1011. A short
+      # target dir keeps generated paths under the limit.
+      CARGO_TARGET_DIR: C:\t
 
     steps:
       - name: Checkout
@@ -110,6 +115,17 @@ jobs:
 
       - name: Install cargo-wix
         run: cargo install --locked cargo-wix
+
+      - name: Install Vulkan SDK
+        shell: pwsh
+        run: |
+          $ver = "1.4.350.0"
+          $url = "https://sdk.lunarg.com/sdk/download/$ver/windows/vulkansdk-windows-X64-$ver.exe"
+          Invoke-WebRequest -Uri $url -OutFile "$env:RUNNER_TEMP\vulkan-sdk.exe"
+          Start-Process -FilePath "$env:RUNNER_TEMP\vulkan-sdk.exe" `
+            -ArgumentList "--accept-licenses","--default-answer","--confirm-command","install" -Wait
+          "VULKAN_SDK=C:\VulkanSDK\$ver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "C:\VulkanSDK\$ver\Bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
       - name: Build release binary
         run: cargo build --release

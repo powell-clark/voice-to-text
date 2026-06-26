@@ -1,6 +1,6 @@
 [package]
 name = "voice-to-text"
-version = "2.2.0"
+version = "2.3.0"
 edition = "2021"
 authors = ["Emmanuel Powell-Clark <emmanuel@powellclark.com>"]
 description = "Free, world-class voice-to-text for Ubuntu, macOS and Windows"
@@ -71,11 +71,13 @@ enigo = "0.2"
 tray-icon = "0.19"
 muda = "0.15"
 rdev = "0.5"
-# CPU-only whisper for the first Windows cut (TASK-VTT063). No Vulkan feature
-# → CI needs no Vulkan SDK, and the same CPU path serves Kyle's Snapdragon ARM
-# (TASK-VTT064) where Adreno/Vulkan is unproven. GPU acceleration on Windows
-# is a deliberate follow-up, not a blocker.
-whisper-rs = { version = "0.16", default-features = false }
+# Vulkan GPU acceleration on Windows (TASK-VTT088, FEAT-VTT024) — vendor-neutral
+# (NVIDIA/AMD/Intel) so one build accelerates every GPU without a CUDA Toolkit
+# dependency. Needs the Vulkan SDK at build time (glslc + headers + vulkan-1.lib);
+# the runtime vulkan-1.dll ships with the GPU driver. whisper-rs falls back to
+# CPU when no Vulkan device is present. The ARM64 build (TASK-VTT064) overrides
+# this back to CPU where Adreno/Vulkan is unproven.
+whisper-rs = { version = "0.16", default-features = false, features = ["vulkan"] }
 
 # ─── macOS ──────────────────────────────────────────────────────
 [target.'cfg(target_os = "macos")'.dependencies]
