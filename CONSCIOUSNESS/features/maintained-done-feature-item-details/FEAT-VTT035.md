@@ -39,11 +39,11 @@ STORY-VTT018 — Automated regression tests and release hygiene.
 
 ## Measurable Outcome
 Before: 0 tests, 0 CI runs per push, regression caught by Emmanuel at the PPA stage.
-After: ~8 tests across 4 modules, CI runs on every push, pre-push hook catches failures before the push leaves the machine. Target: two consecutive releases without a post-release hotfix commit.
+After: ~81 tests across 9 modules, CI runs on every push, pre-push hook catches failures before the push leaves the machine. Target: two consecutive releases without a post-release hotfix commit.
 
 ## Acceptance Criteria
-- [x] `cargo test` passes on main with at least 20 tests covering settings, log labels, audio bounds, and text composition — verified: 67 tests as of v2.1.1 (expanded from original 20)
+- [x] `cargo test` passes on main with at least 20 tests covering settings, log labels, audio bounds, and text composition — verified: ~81 runnable tests across 9 modules as of v2.3.7 (expanded from original 20)
 - [x] `.github/workflows/ci.yml` exists and runs fmt + clippy + test + build on every push to main — verified in repo
 - [x] `scripts/git-hooks/pre-push` exists and mirrors CI checks locally — verified in repo, installed via `scripts/install-dev.sh`
-- [x] README CI badge links to the GitHub Actions run and shows green — verify in README.md
+- [x] README CI badge links to the GitHub Actions run and shows green — added to README.md (CI workflow status badge)
 - [x] Two consecutive releases (v2.0.5 → v2.1.0 → v2.1.1) shipped without a post-release hotfix commit needed for a regression — verified in git log

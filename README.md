@@ -6,6 +6,7 @@ and the text types into whatever app you're in.
 [![Windows](https://img.shields.io/badge/Windows-11-blue?logo=windows)](https://github.com/powell-clark/voice-to-text/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-Intel%20%26%20Apple%20Silicon-blue?logo=apple)](https://github.com/powell-clark/voice-to-text/releases/latest)
 [![Linux](https://img.shields.io/badge/Linux-Ubuntu%2022.04+-orange?logo=linux)](https://github.com/powell-clark/voice-to-text/releases/latest)
+[![CI](https://github.com/powell-clark/voice-to-text/actions/workflows/ci.yml/badge.svg)](https://github.com/powell-clark/voice-to-text/actions/workflows/ci.yml)
 
 **100% offline. No cloud. No subscriptions. GPU-accelerated.**
 

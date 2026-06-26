@@ -15,10 +15,10 @@ FEAT-VTT013|must-have|[maintained] X11 key auto-repeat filtering to prevent spur
 FEAT-VTT014|performance|[done] 5-minute max recording duration (was 2 minutes)|STORY-VTT006|TASK-VTT013|FEAT-VTT014.md
 FEAT-VTT015|performance|[done] SystemD service inherits DISPLAY from user session (Wayland-ready)|STORY-VTT006||FEAT-VTT015.md
 FEAT-VTT016|must-have|[maintained] One-command PPA release script with pre-flight checks and git tagging|STORY-VTT004|TASK-VTT011|FEAT-VTT016.md
-FEAT-VTT017|performance|[maintained] large-v3-turbo and distil-large-v3 model support replacing obsolete models|STORY-VTT004|TASK-VTT010|FEAT-VTT017.md
+FEAT-VTT017|performance|[maintained] large-v3-turbo model support (distil names auto-migrate) replacing obsolete large-v1/v2|STORY-VTT004|TASK-VTT010,TASK-VTT111|FEAT-VTT017.md
 FEAT-VTT022|must-have|[maintained] Whisper model loaded once in-process worker thread — sub-second transcription regardless of model size|STORY-VTT010|TASK-VTT024,TASK-VTT026,TASK-VTT027,TASK-VTT028,TASK-VTT030,TASK-VTT033,TASK-VTT034|FEAT-VTT022.md
 FEAT-VTT023|must-have|[done] Pure Rust transcription — no Python runtime dependency no pip install no faster-whisper no ctranslate2|STORY-VTT010|TASK-VTT025,TASK-VTT031,TASK-VTT032|FEAT-VTT023.md
-FEAT-VTT026|must-have|[maintained] Automatic GGML model download from HuggingFace with sha256 verify and tray progress notifications|STORY-VTT010|TASK-VTT029|FEAT-VTT026.md
-FEAT-VTT027|must-have|[maintained] Debian package builds the Rust binary via cargo (not gcc against C sources)|STORY-VTT011|TASK-VTT035,TASK-VTT036,TASK-VTT038,TASK-VTT039|FEAT-VTT027.md
+FEAT-VTT026|must-have|[maintained] Automatic GGML model download from HuggingFace with sha256 verify and tray progress notifications|STORY-VTT010|TASK-VTT029,TASK-VTT112|FEAT-VTT026.md
+FEAT-VTT027|must-have|[maintained] Debian package builds the Rust binary via cargo (not gcc against C sources)|STORY-VTT011|TASK-VTT035,TASK-VTT036,TASK-VTT038,TASK-VTT039,TASK-VTT111|FEAT-VTT027.md
 FEAT-VTT028|must-have|[maintained] Default model pre-downloaded via postinst so first-run works offline|STORY-VTT011|TASK-VTT037,TASK-VTT110|FEAT-VTT028.md
-FEAT-VTT035|must-have|[maintained] Automated regression testing — cargo unit tests GitHub Actions CI local pre-push hook 72 tests gate every change|STORY-VTT018|TASK-VTT055,TASK-VTT056,TASK-VTT057,TASK-VTT058,TASK-VTT059,TASK-VTT061,TASK-VTT060,TASK-VTT107,TASK-VTT090,TASK-VTT087,TASK-VTT085,TASK-VTT105|FEAT-VTT035.md
+FEAT-VTT035|must-have|[maintained] Automated regression testing — cargo unit tests GitHub Actions CI local pre-push hook 72 tests gate every change|STORY-VTT018|TASK-VTT055,TASK-VTT056,TASK-VTT057,TASK-VTT058,TASK-VTT059,TASK-VTT061,TASK-VTT060,TASK-VTT107,TASK-VTT090,TASK-VTT087,TASK-VTT085,TASK-VTT105,TASK-VTT111|FEAT-VTT035.md

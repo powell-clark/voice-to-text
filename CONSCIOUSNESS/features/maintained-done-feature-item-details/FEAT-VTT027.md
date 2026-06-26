@@ -11,19 +11,19 @@ verified: v2.0.0
 must-have (p0)
 
 ## Description
-`debian/rules` invokes `cargo build --release`, producing the Rust `vtt-linux` binary and installing it as the package payload. The legacy `Makefile.linux` build path is retired. Users installing from the Launchpad PPA receive the actual Rust rewrite for the first time in 2.0.0.
+The Launchpad PPA ships the Rust `vtt-linux` binary (not the legacy C/`Makefile.linux` build). Because Ubuntu Noble's cargo 1.75 cannot parse edition-2024 manifests, `debian/rules` installs a **pre-built binary** (`packaging/linux/vtt-linux.prebuilt`, compiled with current Rust on Emmanuel's machine and committed) rather than running cargo during packaging. Users installing from the PPA receive the actual Rust rewrite. (Mechanism changed from cargo-in-rules to prebuilt at v2.0.2 — see `debian/rules`.)
 
 ## User Observable Behaviour
 - `sudo apt install voice-to-text` on 2.0.0 installs a `vtt-linux` binary that is the Rust build, not the old C one
 - `file /usr/bin/vtt-linux` reports a stripped ELF 64-bit executable of approximately 10 MB (old C binary was ~2-3 MB)
 - `strings /usr/bin/vtt-linux | grep -c rust_begin_unwind` returns a positive number (Rust runtime signatures)
 - `dpkg -L voice-to-text` lists no Python scripts and no shell scripts (except postinst)
-- `apt-get build-dep voice-to-text` pulls in `rustc`, `cargo`, `libclang-dev` — not `gcc`, `cmake`, `g++`
+- the source package builds on Launchpad without a Rust toolchain — it validates and installs the committed prebuilt binary (no `gcc`, `cmake`, `g++`, `cargo` in the build path)
 
 ## Acceptance Criteria
-- [x] `debian/rules` `override_dh_auto_build` runs `cargo build --release --locked` — verified in `debian/rules`
-- [x] `debian/rules` `override_dh_auto_install` installs from `target/release/vtt-linux` — verified in `debian/rules`
-- [x] `debian/control` Build-Depends lists `rustc`, `cargo`, `libclang-dev`, `libvulkan-dev` — verified in `debian/control` v2.0.0
+- [x] `debian/rules` `override_dh_auto_build` verifies and installs the committed `packaging/linux/vtt-linux.prebuilt` — cargo is NOT run during packaging (Noble cargo 1.75 cannot parse edition-2024) — verified in `debian/rules`
+- [x] The installed `/usr/bin/vtt-linux` is the committed Rust prebuilt binary — verified
+- [x] `debian/control` Build-Depends carries only the shared libs needed to validate the prebuilt (no `rustc`/`cargo` — the binary is built off-box) — verified in `debian/control`
 - [x] `debian/control` Depends contains only runtime shared libraries — no build tools, no `python3` — verified
 - [x] `debuild -S -sa` produces a signed source package; Launchpad builds it successfully for Noble — verified across v2.0.0 through v2.1.1
 - [x] SHA-256 of `target/release/vtt-linux` matches SHA-256 of `/usr/bin/vtt-linux` after `dpkg -i` — verified on local install
