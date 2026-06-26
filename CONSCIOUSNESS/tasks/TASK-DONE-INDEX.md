@@ -1,4 +1,5 @@
 id|title|story_ids|epic_id|feature_ids|doc
+TASK-VTT094|Start on login / autostart — Windows (HKCU Run) + tray toggle|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT094.md
 TASK-VTT093|Windows/macOS tray icon never changes state (recording/processing)|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT093.md
 TASK-VTT099|Windows — set clipboard as Ctrl+V fallback after typing|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT099.md
 TASK-VTT100|Windows — suppress hotkey auto-repeat (rdev)|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT100.md

@@ -38,3 +38,5 @@ REVIEW-CCC32|task|TASK-VTT086|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-
 REVIEW-CCC33|task|TASK-VTT093|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 14:06:45.649 gmtst|auto-close: tray icon colour + tooltip wired through poll_menu, builds green, reversible, entity gate auto-approve
 REVIEW-CCC34|task|TASK-VTT099|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 14:06:45.649 gmtst|auto-close: clipboard set after Windows typing (arboard), parity FEAT-VTT012, reversible, entity gate auto-approve
 REVIEW-CCC35|task|TASK-VTT100|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 14:06:45.649 gmtst|auto-close: rdev hotkey auto-repeat suppressed via pressed-state swap, parity FEAT-VTT013, reversible, entity gate auto-approve
+REVIEW-CCC044|task|TASK-VTT094|agent|vtt-main-2fe61b0a|auto-approved|1|2026-06-26 13:21:07.344 gmt|
+REVIEW-CCC36|task|TASK-VTT094|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 14:21:19.710 gmtst|auto-close: Windows autostart via HKCU Run + tray Start-at-login toggle, builds green, reversible, entity gate auto-approve

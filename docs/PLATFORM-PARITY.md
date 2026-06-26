@@ -166,7 +166,7 @@ Canonical: cargo tests gate every change; CI on every push.
 | Hotkey auto-repeat not suppressed (non-toggle keys) | TASK-VTT100 | p2 | ✅ v2.3.3 |
 | Tray Logs submenu absent | TASK-VTT098 | p2 | ❌ |
 | Unicode typing unverified (£ é ñ emoji) | TASK-VTT092 (AC) | p1 | 🟡 needs hardware check |
-| Autostart on login | TASK-VTT094 | p2 | ❌ |
+| Autostart on login (Windows) | TASK-VTT094 | p2 | ✅ v2.3.4 |
 | Default model not pre-provisioned by installer | TASK-VTT101 | p3 | ❌ |
 | In-app update check | TASK-VTT095 | p2 | ❌ |
 | `system_cache()` returns Linux path on Windows | TASK-VTT097 | p3 | ❌ |

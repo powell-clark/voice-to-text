@@ -18,9 +18,11 @@ pub struct Tray {
 }
 
 struct MenuIds {
+    status: MenuItem,
     quit: MenuItem,
     about: MenuItem,
     logging: MenuItem,
+    autostart: Option<CheckMenuItem>,
     models: Vec<(CheckMenuItem, String)>,
     lang_en: CheckMenuItem,
     lang_multi: CheckMenuItem,
@@ -31,6 +33,7 @@ enum MenuCmd {
     Quit,
     About,
     LoggingToggle,
+    AutostartToggle,
     LanguageSel(String),
     ModelSel(String),
 }
@@ -103,6 +106,17 @@ impl Tray {
         );
         menu.append(&logging)?;
 
+        // Start at login — Windows only (Linux uses systemd --user, macOS uses a
+        // LaunchAgent; TASK-VTT094). Shown only where the toggle persists.
+        let autostart = if crate::autostart::SUPPORTED {
+            let item =
+                CheckMenuItem::new("Start at login", true, crate::autostart::is_enabled(), None);
+            menu.append(&item)?;
+            Some(item)
+        } else {
+            None
+        };
+
         // About
         let about = MenuItem::new("About Voice to Text", true, None);
         menu.append(&about)?;
@@ -111,7 +125,6 @@ impl Tray {
         // Quit
         let quit = MenuItem::new("Quit", true, None);
         menu.append(&quit)?;
-        drop(status); // status-item label updates go via UiMessage; not needed here
 
         // Create tray icon
         let icon = create_icon(0, 180, 0);
@@ -122,9 +135,11 @@ impl Tray {
             .build()?;
 
         let ids = MenuIds {
+            status,
             quit,
             about,
             logging,
+            autostart,
             models,
             lang_en,
             lang_multi,
@@ -137,6 +152,7 @@ impl Tray {
         let quit_id = ids.quit.id().clone();
         let about_id = ids.about.id().clone();
         let logging_id = ids.logging.id().clone();
+        let autostart_id = ids.autostart.as_ref().map(|i| i.id().clone());
         let lang_en_id = ids.lang_en.id().clone();
         let lang_multi_id = ids.lang_multi.id().clone();
         let model_ids: Vec<(muda::MenuId, String)> = ids
@@ -159,6 +175,8 @@ impl Tray {
                         Some(MenuCmd::About)
                     } else if id == logging_id {
                         Some(MenuCmd::LoggingToggle)
+                    } else if autostart_id.as_ref() == Some(&id) {
+                        Some(MenuCmd::AutostartToggle)
                     } else if id == lang_en_id {
                         Some(MenuCmd::LanguageSel("en".into()))
                     } else if id == lang_multi_id {
@@ -203,6 +221,9 @@ impl Tray {
         while let Ok(msg) = self.ui_rx.try_recv() {
             match msg {
                 UiMessage::SetStatus(text) => {
+                    // Update the menu's Status line (previously frozen at
+                    // "Initializing...") and the hover tooltip.
+                    self.ids.status.set_text(format!("Status: {text}"));
                     let _ = self
                         .tray_icon
                         .set_tooltip(Some(format!("Voice to Text — {text}")));
@@ -247,6 +268,18 @@ impl Tray {
                         }
                     );
                 }
+                MenuCmd::AutostartToggle => match crate::autostart::toggle() {
+                    Ok(enabled) => {
+                        if let Some(item) = &self.ids.autostart {
+                            item.set_checked(enabled);
+                        }
+                        crate::vtt_log!(
+                            "Autostart {}",
+                            if enabled { "enabled" } else { "disabled" }
+                        );
+                    }
+                    Err(e) => crate::vtt_log!("Autostart toggle failed: {}", e),
+                },
                 MenuCmd::LanguageSel(lang) => {
                     let is_en = lang == "en";
                     self.settings.write().unwrap().selected_language = lang;

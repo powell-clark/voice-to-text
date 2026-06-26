@@ -9,6 +9,20 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.3.4] — 2026-06-26
+
+### Added
+- **Start at login (Windows)** — a "Start at login" toggle in the tray menu
+  registers/removes a per-user `HKCU\…\Run` entry (no admin), so VTT launches
+  with your session — parity with the Linux systemd user service (TASK-VTT094).
+  Linux/macOS backends are stubbed pending their own mechanisms.
+
+### Fixed
+- **Tray status stuck on "Initializing…"** — the menu's status line was created
+  then dropped, so it never updated. It now reflects the live state
+  (Ready / Recording… / Transcribing… / model-download progress), and the tooltip
+  matches.
+
 ## [2.3.3] — 2026-06-26
 
 ### Fixed (Windows ↔ Linux parity)

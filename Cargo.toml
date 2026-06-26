@@ -1,6 +1,6 @@
 [package]
 name = "voice-to-text"
-version = "2.3.3"
+version = "2.3.4"
 edition = "2021"
 authors = ["Emmanuel Powell-Clark <emmanuel@powellclark.com>"]
 description = "Free, world-class voice-to-text for Ubuntu, macOS and Windows"
@@ -74,6 +74,8 @@ rdev = "0.5"
 # Win32 message pump so the tray icon processes clicks and shows its menu
 # (TASK-VTT091). tray-icon's hidden window is inert without DispatchMessage.
 windows-sys = { version = "0.59", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }
+# Start-at-login toggle via the HKCU Run key (TASK-VTT094, FEAT parity VTT015).
+winreg = "0.52"
 # Vulkan GPU acceleration on Windows (TASK-VTT088, FEAT-VTT024) — vendor-neutral
 # (NVIDIA/AMD/Intel) so one build accelerates every GPU without a CUDA Toolkit
 # dependency. Needs the Vulkan SDK at build time (glslc + headers + vulkan-1.lib);
