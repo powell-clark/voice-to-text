@@ -59,9 +59,12 @@ macOS `brew install` is served from a **separate repo**, not this one:
 **All Homebrew/macOS-cask changes go in that repo, never here.** A grep of this
 tree finds no cask — that is expected; do not conclude Homebrew is unsupported.
 
-⚠️ The tap is currently stale vs the Rust release (Formula `v0.2.0`, Cask
-`v0.3.16` with a `file://` local path) — bringing it current with each Rust
-release is ongoing maintained work (roadmap: FEAT-VTT036).
+⚠️ The tap has NOT tracked the v2.x Rust line. Formula is pinned to `v0.2.0`;
+the Cask is `v0.3.16` (Python era) pointing at a `file://` local-dev path that
+only exists on Emmanuel's machine — so a normal user's `brew install` of the
+current version fails. Bringing it current is **blocked on the macOS `.app`
+bundle (FEAT-VTT029)** — without a v2.x `.app` there is nothing to package.
+Tracked as FEAT-VTT036. No release automation updates the tap.
 
 ## Packaging layout
 
