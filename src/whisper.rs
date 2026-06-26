@@ -97,7 +97,10 @@ mod tests {
         // not panic — the worker turns this into a tray "model failed" status.
         let missing = Path::new("this-model-does-not-exist-zzz.bin");
         let result = WhisperEngine::new(missing, "ghost");
-        assert!(result.is_err(), "missing model should return Err, not panic");
+        assert!(
+            result.is_err(),
+            "missing model should return Err, not panic"
+        );
     }
 
     // ── End-to-end transcription (opt-in) ─────────────────────────────────────
@@ -160,8 +163,8 @@ mod tests {
     #[test]
     #[ignore = "downloads ~142 MB base.en model and runs CPU inference"]
     fn e2e_transcribes_spoken_digits_from_fixture() {
-        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/testing-one-two-three.wav");
+        let fixture =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/testing-one-two-three.wav");
         assert!(
             fixture.exists(),
             "missing fixture {} — run scripts/gen-test-fixture-windows.ps1",
@@ -200,7 +203,9 @@ mod tests {
         // rather than asserting one rendering.
         let digits_ok = normalised.contains("1234")
             || ["1", "2", "3", "4"].iter().all(|d| words.contains(d))
-            || ["one", "two", "three", "four"].iter().all(|w| words.contains(w));
+            || ["one", "two", "three", "four"]
+                .iter()
+                .all(|w| words.contains(w));
         assert!(
             digits_ok,
             "transcript {:?} missing the spoken digits in any recognised form",
