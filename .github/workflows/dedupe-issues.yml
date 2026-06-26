@@ -44,7 +44,7 @@ jobs:
           claude_args: "--max-turns 120 --model sonnet"
 
       - name: Upload Claude transcript (dedupe)
-        if: always()
+        if: ${{ always() && steps.dedupe.outputs.execution_file != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: claude-transcript-dedupe-${{ github.run_id }}
@@ -53,5 +53,5 @@ jobs:
           retention-days: 30
 
       - name: Render transcript to run summary (dedupe)
-        if: always()
+        if: ${{ always() && steps.dedupe.outputs.execution_file != '' }}
         run: python3 scripts/ci/render-transcript.py "${{ steps.dedupe.outputs.execution_file }}" >> "$GITHUB_STEP_SUMMARY" || true

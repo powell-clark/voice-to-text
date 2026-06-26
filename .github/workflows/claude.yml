@@ -119,7 +119,7 @@ jobs:
           claude_args: '--model ${{ steps.model.outputs.model }} --max-turns 120 --allowedTools "Bash(cargo:*),Bash(git:*),Bash(gh:*)" --append-system-prompt "Start your reply with this exact line, nothing before it: 🤖 model=${{ steps.model.outputs.model }}"'
 
       - name: Upload Claude transcript (claude)
-        if: always()
+        if: ${{ always() && steps.claude.outputs.execution_file != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: claude-transcript-claude-${{ github.run_id }}
@@ -128,5 +128,5 @@ jobs:
           retention-days: 30
 
       - name: Render transcript to run summary (claude)
-        if: always()
+        if: ${{ always() && steps.claude.outputs.execution_file != '' }}
         run: python3 scripts/ci/render-transcript.py "${{ steps.claude.outputs.execution_file }}" >> "$GITHUB_STEP_SUMMARY" || true

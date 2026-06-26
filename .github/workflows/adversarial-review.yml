@@ -61,7 +61,7 @@ jobs:
           claude_args: "--max-turns 120 --model opus"
 
       - name: Upload Claude transcript (adversarial)
-        if: always()
+        if: ${{ always() && steps.adversarial.outputs.execution_file != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: claude-transcript-adversarial-${{ github.run_id }}
@@ -70,5 +70,5 @@ jobs:
           retention-days: 30
 
       - name: Render transcript to run summary (adversarial)
-        if: always()
+        if: ${{ always() && steps.adversarial.outputs.execution_file != '' }}
         run: python3 scripts/ci/render-transcript.py "${{ steps.adversarial.outputs.execution_file }}" >> "$GITHUB_STEP_SUMMARY" || true

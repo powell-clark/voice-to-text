@@ -81,7 +81,7 @@ jobs:
           claude_args: '--max-turns 120 --model opus --allowedTools "Bash(cargo:*),Bash(git:*),Bash(gh:*)"'
 
       - name: Upload Claude transcript (solve)
-        if: always()
+        if: ${{ always() && steps.solve.outputs.execution_file != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: claude-transcript-solve-${{ github.run_id }}
@@ -90,5 +90,5 @@ jobs:
           retention-days: 30
 
       - name: Render transcript to run summary (solve)
-        if: always()
+        if: ${{ always() && steps.solve.outputs.execution_file != '' }}
         run: python3 scripts/ci/render-transcript.py "${{ steps.solve.outputs.execution_file }}" >> "$GITHUB_STEP_SUMMARY" || true
