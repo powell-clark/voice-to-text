@@ -1,5 +1,6 @@
 use crate::settings::NewlineType;
 use enigo::{Direction, Enigo, Key, Keyboard, Settings as EnigoSettings};
+#[cfg(not(target_os = "windows"))]
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
@@ -7,8 +8,10 @@ use std::time::Duration;
 const INITIAL_DELAY_MS: u64 = 75;
 /// Delay between keystrokes passed to xdotool. 12ms matches xdotool's own
 /// default and is reliable across terminals without XKB remapping overhead.
+#[cfg(not(target_os = "windows"))]
 const XDOTOOL_DELAY_MS: u64 = 12;
 /// Fallback delay used only when xdotool is unavailable and enigo takes over.
+#[cfg(not(target_os = "windows"))]
 const ENIGO_DELAY_MS: u64 = 20;
 
 /// Zero-sized "typer" handle. On Linux, delegates to xdotool which uses
@@ -26,31 +29,79 @@ impl Typer {
 
         thread::sleep(Duration::from_millis(INITIAL_DELAY_MS));
 
-        if xdotool_type(text, newline_type) {
-            crate::vtt_log!("Typing completed via xdotool");
-            return;
+        // Windows: type the whole string in one SendInput batch via enigo.text().
+        // The char-by-char path dropped leading/upper-case characters and
+        // reordered them through the clipboard fallback (TASK-VTT092); xdotool is
+        // Linux-only so probing for it here is pointless.
+        #[cfg(target_os = "windows")]
+        {
+            type_via_enigo_text(text, newline_type);
         }
 
-        // xdotool unavailable — fall back to enigo
-        crate::vtt_log!("xdotool unavailable, falling back to enigo");
-        let mut enigo = match Enigo::new(&EnigoSettings::default()) {
-            Ok(e) => e,
-            Err(e) => {
-                crate::vtt_log!("Failed to create Enigo instance: {:?}", e);
+        #[cfg(not(target_os = "windows"))]
+        {
+            if xdotool_type(text, newline_type) {
+                crate::vtt_log!("Typing completed via xdotool");
                 return;
             }
-        };
-        let (typed, fallback_chars) = enigo_type_chars(&mut enigo, text, newline_type);
-        if !fallback_chars.is_empty() {
-            paste_text(&mut enigo, &fallback_chars);
+
+            // xdotool unavailable — fall back to enigo
+            crate::vtt_log!("xdotool unavailable, falling back to enigo");
+            let mut enigo = match Enigo::new(&EnigoSettings::default()) {
+                Ok(e) => e,
+                Err(e) => {
+                    crate::vtt_log!("Failed to create Enigo instance: {:?}", e);
+                    return;
+                }
+            };
+            let (typed, fallback_chars) = enigo_type_chars(&mut enigo, text, newline_type);
+            if !fallback_chars.is_empty() {
+                paste_text(&mut enigo, &fallback_chars);
+            }
+            crate::vtt_log!("Typing completed via enigo ({} chars)", typed);
         }
-        crate::vtt_log!("Typing completed via enigo ({} chars)", typed);
     }
+}
+
+/// Windows typing: one `enigo.text()` batch per newline-delimited segment, with
+/// the configured newline key (Shift+Return vs Return) between segments. Batched
+/// SendInput avoids the per-character drops the char-by-char path produced.
+#[cfg(target_os = "windows")]
+fn type_via_enigo_text(text: &str, newline_type: NewlineType) {
+    let mut enigo = match Enigo::new(&EnigoSettings::default()) {
+        Ok(e) => e,
+        Err(e) => {
+            crate::vtt_log!("Failed to create Enigo instance: {:?}", e);
+            return;
+        }
+    };
+    let segments: Vec<&str> = text.split('\n').collect();
+    for (i, segment) in segments.iter().enumerate() {
+        if !segment.is_empty() {
+            if let Err(e) = enigo.text(segment) {
+                crate::vtt_log!("enigo.text failed: {:?}", e);
+            }
+        }
+        if i < segments.len() - 1 {
+            match newline_type {
+                NewlineType::ShiftReturn => {
+                    enigo.key(Key::Shift, Direction::Press).ok();
+                    enigo.key(Key::Return, Direction::Click).ok();
+                    enigo.key(Key::Shift, Direction::Release).ok();
+                }
+                NewlineType::PlainReturn => {
+                    enigo.key(Key::Return, Direction::Click).ok();
+                }
+            }
+        }
+    }
+    crate::vtt_log!("Typing completed via enigo.text ({} bytes)", text.len());
 }
 
 /// Type text via xdotool subprocess. Splits on newlines and fires
 /// `xdotool key shift+Return` (or plain Return) between segments.
 /// Returns false if xdotool is not installed so the caller can fall back.
+#[cfg(not(target_os = "windows"))]
 fn xdotool_type(text: &str, newline_type: NewlineType) -> bool {
     let segments: Vec<&str> = text.split('\n').collect();
 
@@ -94,6 +145,7 @@ fn xdotool_type(text: &str, newline_type: NewlineType) -> bool {
     true
 }
 
+#[cfg(not(target_os = "windows"))]
 fn enigo_type_chars(enigo: &mut Enigo, text: &str, newline_type: NewlineType) -> (usize, String) {
     let mut typed = 0usize;
     let mut fallback = String::new();
@@ -126,6 +178,7 @@ fn enigo_type_chars(enigo: &mut Enigo, text: &str, newline_type: NewlineType) ->
     (typed, fallback)
 }
 
+#[cfg(not(target_os = "windows"))]
 fn paste_text(enigo: &mut Enigo, text: &str) {
     match arboard::Clipboard::new() {
         Ok(mut clipboard) => {
@@ -147,6 +200,7 @@ fn paste_text(enigo: &mut Enigo, text: &str) {
     thread::sleep(Duration::from_millis(10));
 }
 
+#[cfg(not(target_os = "windows"))]
 fn simulate_ctrl_v(enigo: &mut Enigo) {
     enigo.key(Key::Control, Direction::Press).ok();
     thread::sleep(Duration::from_millis(1));
@@ -155,6 +209,7 @@ fn simulate_ctrl_v(enigo: &mut Enigo) {
     enigo.key(Key::Control, Direction::Release).ok();
 }
 
+#[cfg(not(target_os = "windows"))]
 fn paste_via_xclip(text: &str) {
     use std::io::Write;
     use std::process::Stdio;

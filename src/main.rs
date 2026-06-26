@@ -361,10 +361,34 @@ fn main() -> anyhow::Result<()> {
     #[cfg(target_os = "linux")]
     gtk::main();
 
-    #[cfg(not(target_os = "linux"))]
+    // Windows: pump the Win32 message queue so the tray icon's hidden window
+    // processes clicks and pops its context menu (TASK-VTT091), then drain muda
+    // menu events on this thread (menu items are !Send / Rc-based).
+    #[cfg(target_os = "windows")]
     {
-        // macOS/Windows: poll menu events and signal on the main thread.
-        // muda menu items are !Send (Rc-based), so they must be touched here.
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            DispatchMessageW, PeekMessageW, TranslateMessage, MSG, PM_REMOVE,
+        };
+        let mut msg: MSG = unsafe { std::mem::zeroed() };
+        loop {
+            // Drain every pending message this tick.
+            while unsafe { PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) } != 0 {
+                unsafe {
+                    TranslateMessage(&msg);
+                    DispatchMessageW(&msg);
+                }
+            }
+            tray.poll_menu();
+            thread::sleep(Duration::from_millis(16));
+            if !running.load(Ordering::Relaxed) {
+                break;
+            }
+        }
+    }
+
+    // macOS: poll menu events on the main thread (separate run-loop mechanism).
+    #[cfg(target_os = "macos")]
+    {
         loop {
             thread::sleep(Duration::from_millis(100));
             tray.poll_menu();

@@ -9,6 +9,20 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.3.2] — 2026-06-26
+
+### Fixed
+- **Windows tray icon had no menu**. The event loop never pumped the Win32
+  message queue, so the tray icon's hidden window ignored clicks. It now pumps
+  messages each tick — right-click opens the menu (quit, model, language).
+- **Windows typed text was garbled** — leading/upper-case characters dropped and
+  reordered (`[oice] esting … .VT`). Windows now types the whole transcript in one
+  `enigo.text()` batch instead of the char-by-char path, and no longer probes for
+  Linux-only `xdotool` on every transcription.
+- **Tray model menu listed dead names**. The portable tray showed pre-2.0
+  `W base` / `CT2 …` labels that didn't match any model; it now lists the real
+  catalogue (`small`, `medium`, `large-v3-turbo`, …) so selecting one works.
+
 ## [2.3.1] — 2026-06-26
 
 ### Fixed
