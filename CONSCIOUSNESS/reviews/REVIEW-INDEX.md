@@ -79,3 +79,4 @@ REVIEW-FVTT004C|feature|FEAT-VTT004|human|powell-clark|human-approved|2|2026-06-
 REVIEW-FVTT026C|feature|FEAT-VTT026|human|powell-clark|human-approved|2|2026-06-26 20:40:08.981 bst|operator-approved (model download): approved but a maintenance burden
 REVIEW-FVTT008C|feature|FEAT-VTT008|human|powell-clark|human-approved|2|2026-06-26 20:40:08.981 bst|operator-approved (apt PPA): done; PPA re-checked each release
 REVIEW-FVTT016C|feature|FEAT-VTT016|human|powell-clark|human-approved|2|2026-06-26 20:40:08.981 bst|operator-approved (one-command release script): works
+REVIEW-FVTT002C|feature|FEAT-VTT002|human|powell-clark|human-approved|2|2026-06-26 20:49:19.700 bst|operator-approved (dual-backend removal): done — one-time cleanup that deleted the old two-engine system, replaced by in-process whisper-rs
