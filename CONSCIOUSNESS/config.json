@@ -12,14 +12,18 @@
   "sync": {
     "enabled": true,
     "endpoint": "https://ap.consciousness.london/api/sync",
-    "api_key_env": "CONSCIOUSNESS_SYNC_API_KEY",
+    "auth_method": "bearer",
     "data_types": [
       "session",
       "commentary",
       "steering",
+      "pgps_snapshot",
       "roadmap"
     ],
     "batch_size": 50
+  },
+  "telemetry": {
+    "enabled": true
   },
   "vision": "Free, open-source, cross-platform voice-to-text that outperforms paid alternatives on Windows, Mac, and Linux.",
   "mission": "Provide world-class voice-to-text for all humanity on the majority of machines, not just for the elite."

@@ -33,11 +33,11 @@ TASK-VTT012|Fix clipboard paste via xclip subprocess replacing broken XSetSelect
 TASK-VTT013|Add X11 key auto-repeat filtering and increase max recording to 5 minutes|STORY-VTT006||FEAT-VTT013,FEAT-VTT014|
 TASK-VTT014|Architecture decision (ADR-0003): whisper-rs in-process replaces CT2-Python subprocess|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
 TASK-VTT015|Scaffold Rust project with cross-platform build (cargo, CI)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
-TASK-VTT016|Port audio capture to Rust (cpal crate)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
+TASK-VTT016|Port audio capture to Rust (cpal crate)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018,FEAT-VTT001|
 TASK-VTT017|Port transcription to Rust (initial port via Python subprocess; replaced by TASK-VTT026 in STORY-VTT010)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
-TASK-VTT018|Port keyboard simulation to Rust (enigo/rdev)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
-TASK-VTT019|Port Linux GTK tray to Rust|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
-TASK-VTT020|Port macOS menu bar to Rust (skeleton)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018|
+TASK-VTT018|Port keyboard simulation to Rust (enigo/rdev)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018,FEAT-VTT005|
+TASK-VTT019|Port Linux GTK tray to Rust|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018,FEAT-VTT004|
+TASK-VTT020|Port macOS menu bar to Rust (skeleton)|STORY-VTT005|DIRECT-VTT002|FEAT-VTT018,FEAT-VTT003|
 TASK-VTT024|ADR-0003 approved and committed|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT024.md
 TASK-VTT025|Add whisper-rs 0.16 to Cargo.toml with vulkan (Linux+Windows) and metal (macOS) features; bump crate version to 2.0.0|STORY-VTT010|DIRECT-VTT002|FEAT-VTT023,FEAT-VTT024,FEAT-VTT025|TASK-VTT025.md
 TASK-VTT026|Write src/whisper.rs — WhisperEngine owns WhisperContext and WhisperState with load_model, transcribe, switch_model|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT026.md
@@ -45,8 +45,8 @@ TASK-VTT027|Rewrite transcription worker in src/main.rs — owns WhisperEngine, 
 TASK-VTT028|Route raw f32 samples from audio.rs to worker without WAV round-trip; keep WAV write only for debug recordings archive|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT028.md
 TASK-VTT029|Write src/models.rs — GGML download from huggingface.co with sha256 verify and progress notifications|STORY-VTT010|DIRECT-VTT002|FEAT-VTT026|TASK-VTT029.md
 TASK-VTT030|Simplify model menu — flat list small, medium, large-v3-turbo, large-v3; tray shows Loading model / Ready / Transcribing|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT030.md
-TASK-VTT031|Delete Python backend — transcribe.py, python3 from debian/control, transcribe_ct2 and transcribe_whisper_cpp from Rust|STORY-VTT010|DIRECT-VTT002|FEAT-VTT023|TASK-VTT031.md
-TASK-VTT032|Delete dead C/ObjC — src/linux/*.c, src/common/*.c, src/macos/*.m (7638 lines); retire Makefile.linux|STORY-VTT010|DIRECT-VTT002|FEAT-VTT023|TASK-VTT032.md
+TASK-VTT031|Delete Python backend — transcribe.py, python3 from debian/control, transcribe_ct2 and transcribe_whisper_cpp from Rust|STORY-VTT010|DIRECT-VTT002|FEAT-VTT023,FEAT-VTT002,FEAT-VTT009|TASK-VTT031.md
+TASK-VTT032|Delete dead C/ObjC — src/linux/*.c, src/common/*.c, src/macos/*.m (7638 lines); retire Makefile.linux|STORY-VTT010|DIRECT-VTT002|FEAT-VTT023,FEAT-VTT002,FEAT-VTT003|TASK-VTT032.md
 TASK-VTT033|Add #[cfg(unix)] guards to singleton_lock and ctrlc_handler so Windows build compiles|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT033.md
 TASK-VTT035|Rewrite debian/rules — replace Makefile.linux invocation with cargo build --release|STORY-VTT011|DIRECT-VTT002|FEAT-VTT027|TASK-VTT035.md
 TASK-VTT036|Update debian/control — drop python3/pip/cmake/g++/make from Depends; add rustc/cargo/libclang-dev/libssl-dev to Build-Depends|STORY-VTT011|DIRECT-VTT002|FEAT-VTT027|TASK-VTT036.md
@@ -60,7 +60,7 @@ TASK-VTT061|Local build-archives/ disk cleanup — reduced from 5.7 GB to 24 MB,
 TASK-VTT063|Windows x86-64 compile-green and CI build job|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT063.md
 TASK-VTT065|PGPS neurologist repair — EPIC→DIRECT rename, feature index migration, FK heals, schema.json fix, repo tidy||DIRECT-VTT002|||
 TASK-VTT034|Build release binary, deploy to /usr/bin/vtt-linux, restart service, verify transcription quality — completed as part of v2.0.0 release|STORY-VTT010|DIRECT-VTT002|FEAT-VTT022|TASK-VTT034.md
-TASK-VTT039|dput 2.0.0 to the Launchpad PPA, apt install locally, verify end-to-end transcription — completed as part of v2.0.0 release|STORY-VTT011|DIRECT-VTT002|FEAT-VTT027|TASK-VTT039.md
+TASK-VTT039|dput 2.0.0 to the Launchpad PPA, apt install locally, verify end-to-end transcription — completed as part of v2.0.0 release|STORY-VTT011|DIRECT-VTT002|FEAT-VTT027,FEAT-VTT008|TASK-VTT039.md
 TASK-VTT071|Repo organisation — packaging/ layout and CLAUDE.md rewrite||DIRECT-VTT002||
 TASK-VTT068|Claude Code tooling parity with Consciousness||DIRECT-VTT002||
 TASK-VTT074|Backlog grooming — sequence keys, dependency edges, detail cards||DIRECT-VTT002||TASK-VTT074.md
@@ -69,4 +69,4 @@ TASK-VTT078|Feature terminal index conformance — single folder, precise card s
 TASK-VTT081|Split directives by platform; ready Windows handoff||DIRECT-VTT002||TASK-VTT081.md
 TASK-VTT084|Pre-stage Windows handoff from Linux — verify CI green, add smoke-test script|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT084.md
 TASK-VTT085|Upgrade quinn-proto to >=0.11.15 — close RUSTSEC-2026-0185|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT085.md
-TASK-VTT105|done|p1|Claude PR-automation workflow parity|||||||emmanuel||
+TASK-VTT105|Claude PR-automation workflow parity|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT105.md
