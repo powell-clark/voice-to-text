@@ -154,6 +154,31 @@ fn main() -> anyhow::Result<()> {
     // Load settings
     let settings = Arc::new(RwLock::new(settings::Settings::load(&config_dir)));
 
+    // First-run default: enable start-at-login once on Windows so VTT is there
+    // after a reboot without the user having to find the tray toggle first
+    // (TASK-VTT109). The tray "Start at login" item stays the off switch; the
+    // persisted `autostart_initialized` marker means we apply this default
+    // exactly once and never re-enable after the user opts out.
+    #[cfg(target_os = "windows")]
+    {
+        let needs_init = !settings.read().unwrap().autostart_initialized;
+        if needs_init {
+            match autostart::enable() {
+                Ok(()) => {
+                    let mut s = settings.write().unwrap();
+                    s.autostart_initialized = true;
+                    if let Err(e) = s.save() {
+                        vtt_log!("Failed to persist autostart marker: {}", e);
+                    }
+                    vtt_log!("First-run default: start-at-login enabled");
+                }
+                Err(e) => {
+                    vtt_log!("First-run autostart enable failed (will retry next launch): {}", e)
+                }
+            }
+        }
+    }
+
     // Shared state
     let recording = Arc::new(AtomicBool::new(false));
     let typing_active = Arc::new(AtomicBool::new(false));
