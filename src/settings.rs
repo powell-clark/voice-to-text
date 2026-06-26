@@ -49,6 +49,12 @@ pub struct Settings {
     /// If false, `vtt_log!` becomes a no-op (daily log file is not written
     /// or created). Set via the tray menu, persisted to settings.conf.
     pub logging_enabled: bool,
+    /// One-shot marker: has the first-run autostart default been applied yet?
+    /// On first launch this is false, so VTT enables start-at-login by default
+    /// (TASK-VTT109); thereafter the tray "Start at login" toggle is the sole
+    /// control and we never re-enable behind the user's back. Persisted so the
+    /// default fires exactly once, even across upgrades.
+    pub autostart_initialized: bool,
     config_dir: PathBuf,
 }
 
@@ -64,6 +70,7 @@ impl Default for Settings {
             append_newline: true,
             newline_type: NewlineType::ShiftReturn,
             logging_enabled: true,
+            autostart_initialized: false,
             config_dir: PathBuf::new(),
         }
     }
@@ -113,6 +120,7 @@ impl Settings {
                             NewlineType::ShiftReturn
                         };
                     }
+                    "autostart_init" => settings.autostart_initialized = value == "1",
                     _ => {}
                 }
             }
@@ -140,6 +148,10 @@ impl Settings {
             if self.append_newline { 1 } else { 0 }
         ));
         out.push_str(&format!("newline_type={}\n", self.newline_type as i32));
+        out.push_str(&format!(
+            "autostart_init={}\n",
+            if self.autostart_initialized { 1 } else { 0 }
+        ));
 
         fs::write(&path, out)?;
         Ok(())
@@ -240,6 +252,7 @@ mod tests {
             append_newline: false,
             newline_type: NewlineType::PlainReturn,
             logging_enabled: false,
+            autostart_initialized: true,
             config_dir: dir.path().to_path_buf(),
         };
         original.save().expect("save should succeed");
@@ -253,6 +266,28 @@ mod tests {
         assert_eq!(loaded.hotkey_keycode, original.hotkey_keycode);
         assert_eq!(loaded.append_newline, original.append_newline);
         assert_eq!(loaded.newline_type, original.newline_type);
+        assert_eq!(
+            loaded.autostart_initialized, original.autostart_initialized,
+            "autostart_init marker must survive a save/load round-trip"
+        );
+    }
+
+    #[test]
+    fn autostart_init_defaults_false_then_persists_true() {
+        let dir = tempdir().unwrap();
+        // Missing file → first run → marker is false so the default can fire.
+        assert!(!Settings::load(dir.path()).autostart_initialized);
+
+        let s = Settings {
+            autostart_initialized: true,
+            config_dir: dir.path().to_path_buf(),
+            ..Settings::default()
+        };
+        s.save().unwrap();
+        assert!(
+            Settings::load(dir.path()).autostart_initialized,
+            "once applied, the marker must stick so the default never re-fires"
+        );
     }
 
     #[test]
