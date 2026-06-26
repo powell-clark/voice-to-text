@@ -20,6 +20,10 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
+  # Ride out transient crates.io download flakes (HTTP/2 framing errors) so a
+  # network blip never reds a PR. Mirrors release.yml (TASK-VTT107).
+  CARGO_NET_RETRY: "10"
+  CARGO_HTTP_MULTIPLEXING: "false"
 
 jobs:
   check:
