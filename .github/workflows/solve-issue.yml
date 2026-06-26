@@ -1,0 +1,94 @@
+name: Solve Issue (autonomous draft fix)
+
+# Label-gated by design: only issues a human explicitly tags `claude-fix` are
+# attempted. This caps rate-limit contention and keeps the autonomous fixer
+# opt-in rather than firing on every opened issue. Slash command resolves from
+# this repo's .claude/commands/solve-issue.md.
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to attempt a fix for"
+        required: true
+        type: string
+
+jobs:
+  solve-issue:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'claude-fix'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    concurrency:
+      group: solve-issue-${{ github.event.issue.number || inputs.issue_number }}
+      cancel-in-progress: true
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      # Toolchain prelude — the Rust analogue of the consciousness repo's
+      # pnpm setup. Without cargo + the system build deps, a `/solve-issue`
+      # run can only inspect; it cannot reproduce a bug with a failing test
+      # or prove the fix with `cargo test`. These match debian/control's
+      # Build-Depends and ci.yml exactly so the runner builds like CI does.
+      - name: Install system build deps (matches ci.yml)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libasound2-dev \
+            libvulkan-dev \
+            libxtst-dev \
+            libnotify-bin \
+            pkg-config \
+            cmake \
+            glslc
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Attempt fix and open draft PR
+        id: solve
+        uses: anthropics/claude-code-action@v1
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Already label-gated (claude-fix); allow bot-authored labeled issues too
+          allowed_bots: "dependabot[bot],github-actions[bot]"
+          prompt: "/solve-issue ${{ github.repository }}/issues/${{ env.ISSUE_NUMBER }}"
+          # Tier alias `opus` resolves to the latest Opus at run time — never goes
+          # stale. cargo/git pre-approved so the fixer can build, test, and push a
+          # branch non-interactively (scoped, not blanket Bash(*)).
+          claude_args: '--max-turns 120 --model opus --allowedTools "Bash(cargo:*),Bash(git:*),Bash(gh:*)"'
+
+      - name: Upload Claude transcript (solve)
+        if: ${{ always() && steps.solve.outputs.execution_file != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-transcript-solve-${{ github.run_id }}
+          path: ${{ steps.solve.outputs.execution_file }}
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Render transcript to run summary (solve)
+        if: ${{ always() && steps.solve.outputs.execution_file != '' }}
+        run: python3 scripts/ci/render-transcript.py "${{ steps.solve.outputs.execution_file }}" >> "$GITHUB_STEP_SUMMARY" || true

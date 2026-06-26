@@ -1,0 +1,78 @@
+name: Auto-close duplicate issues
+
+# No Claude. Closes issues the dedupe bot flagged >3 days ago, unless a human
+# objected (added a comment after the bot, or 👎'd the bot comment).
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  auto-close-duplicates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: auto-close-duplicates-${{ github.repository }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Close stale flagged duplicates
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const MARKER = '<!-- dedupe-bot:marker -->';
+            const GRACE_MS = 3 * 24 * 60 * 60 * 1000;
+            const now = Date.now();
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            for (const issue of issues) {
+              if (issue.pull_request) continue;
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                per_page: 100,
+              });
+              // Only honour the marker when it was posted by a bot account.
+              // The marker is an HTML comment any user can replay verbatim; without
+              // this author check, anyone could silently auto-close arbitrary issues.
+              const botComment = comments.find(c =>
+                c.body && c.body.includes(MARKER) &&
+                c.user && c.user.type === 'Bot');
+              if (!botComment) continue;
+              const flaggedAt = new Date(botComment.created_at).getTime();
+              if (now - flaggedAt < GRACE_MS) continue;
+              // Human objection: any non-bot comment created after the bot comment.
+              const objected = comments.some(c =>
+                new Date(c.created_at).getTime() > flaggedAt &&
+                c.user && c.user.type !== 'Bot' &&
+                !(c.body && c.body.includes(MARKER)));
+              if (objected) continue;
+              // 👎 on the bot comment is also an objection.
+              const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                per_page: 100,
+              });
+              if (reactions.some(r => r.content === '-1')) continue;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: 'Closing as a duplicate (flagged >3 days ago, no objection). Reopen if this is wrong.',
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+                state_reason: 'not_planned',
+              });
+            }
