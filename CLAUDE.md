@@ -51,8 +51,8 @@ bash scripts/release-ppa.sh   # pbuilder hard-gate, then dput
 
 macOS `brew install` is served from a **separate repo**, not this one:
 
-- Repo: `powell-clark/voice-to-text-homebrew` (private) — "Homebrew tap for Voice-to-Text"
-- Local checkout: `~/projects/aux/voice-to-text-homebrew`
+- Repo: `powell-clark/homebrew-voice-to-text` (private) — the tap `brew tap powell-clark/voice-to-text` resolves to (Homebrew strips the `homebrew-` prefix)
+- Local checkout: `~/projects/aux/voice-to-text-homebrew` (dir name differs from the GitHub repo name — its `origin` remote is `homebrew-voice-to-text`)
 - Contents: `Formula/voice-to-text.rb` (source build) + `Casks/voice-to-text.rb` (binary app)
 - Install: `brew tap powell-clark/voice-to-text && brew install voice-to-text`
 
