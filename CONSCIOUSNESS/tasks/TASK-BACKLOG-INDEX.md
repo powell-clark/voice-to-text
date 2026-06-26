@@ -2,6 +2,7 @@ id|priority|title|story_ids|epic_id|feature_ids|doc|blocked_by|blocks|assignee|p
 TASK-VTT098|p2|Windows tray Logs submenu — parity with Linux FEAT-VTT004|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT098.md|||||g1
 TASK-VTT101|p3|Windows installer pre-provisions the default model — parity FEAT-VTT028|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT101.md|||||g1a
 TASK-VTT097|p3|models::system_cache() returns a Linux path on Windows|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT097.md|||||g1b
+TASK-VTT104|p3|macOS universal binary (lipo Intel + Apple Silicon)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT104.md|||||g1c
 TASK-VTT102|p2|Rename binary — drop the misleading vtt-linux name|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT102.md|||||g2
 TASK-VTT103|p3|Evaluate unifying Linux GTK tray onto the portable tray (ADR)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT103.md|||||g2a
 TASK-VTT095|p2|Update mechanism — how Windows/macOS users get new versions|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT095.md|||||g3

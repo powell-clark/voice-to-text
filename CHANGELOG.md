@@ -9,6 +9,21 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.3.5] — 2026-06-26
+
+### Added
+- **macOS Intel builds** — releases now attach **both** `vtt-macos-intel`
+  (x86_64) and `vtt-macos-arm64` (Apple Silicon), each built natively. Previously
+  only an Apple-Silicon binary shipped, which would not run on Intel Macs.
+
+### Changed
+- **README rewritten** — trimmed from 400+ lines, corrected (the old macOS
+  Homebrew-cask install and `make`-based build steps no longer existed), and
+  given a proper Windows install section. Deep per-platform detail now lives in
+  `docs/PLATFORM-PARITY.md`.
+- **Release-manager agent** updated to the report-by-default model (ship only on
+  an explicit confirmation phrase) and the real CI multi-platform pipeline.
+
 ## [2.3.4] — 2026-06-26
 
 ### Added
