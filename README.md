@@ -2,7 +2,7 @@
 
 Local push-to-talk voice transcription using OpenAI Whisper.
 
-[![CI](https://github.com/powell-clark/voice-to-text/actions/workflows/ci.yml/badge.svg)](https://github.com/powell-clark/voice-to-text/actions/workflows/ci.yml)
+[![Windows](https://img.shields.io/badge/Windows-11-blue?logo=windows)](https://github.com/powell-clark/voice-to-text)
 [![macOS](https://img.shields.io/badge/macOS-11.0+-blue?logo=apple)](https://github.com/powell-clark/voice-to-text)
 [![Linux](https://img.shields.io/badge/Linux-Ubuntu%2024.04+-orange?logo=linux)](https://github.com/powell-clark/voice-to-text)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)

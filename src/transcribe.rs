@@ -53,7 +53,10 @@ mod tests {
 
     #[test]
     fn finalize_trims_surrounding_whitespace() {
-        assert_eq!(finalize("  hello world  ".into()), Some("hello world".into()));
+        assert_eq!(
+            finalize("  hello world  ".into()),
+            Some("hello world".into())
+        );
         assert_eq!(finalize("\n\tindented\n".into()), Some("indented".into()));
     }
 

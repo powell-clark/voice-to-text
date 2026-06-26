@@ -78,19 +78,18 @@ jobs:
           ldd target/release/vtt-linux | grep -q "libvulkan.so.1"
 
   build-windows:
-    name: build (windows-latest, x86_64-msvc, CPU whisper)
-    # First Windows compile gate (STORY-VTT013 / TASK-VTT063). The repo has
-    # carried a cfg(target_os = "windows") dep block and portable.rs hotkey/
-    # tray modules since the Rust rewrite, but nothing has ever compiled them.
-    # This job is gensho: actual proof the Windows target builds.
-    #
-    # CPU-only whisper (no Vulkan feature in Cargo.toml) → no Vulkan SDK setup.
-    # cmake + MSVC are preinstalled on windows-latest, which is all whisper-rs
-    # needs to build whisper.cpp for CPU.
+    name: build (windows-latest, x86_64-msvc, Vulkan whisper)
+    # Windows compile gate (STORY-VTT013). Builds the Windows target with GPU
+    # acceleration (whisper-rs `vulkan` feature, FEAT-VTT024 / TASK-VTT088).
+    # cmake + MSVC + libclang are preinstalled on windows-latest; the Vulkan SDK
+    # (glslc + headers + vulkan-1.lib) is installed below so whisper.cpp's Vulkan
+    # backend builds. CARGO_TARGET_DIR is shortened because whisper.cpp's nested
+    # vulkan-shaders-gen sub-build otherwise trips Windows' 260-char MAX_PATH.
     runs-on: windows-latest
     # The gate is "does it compile", not lint-clean — don't inherit -D warnings.
     env:
       RUSTFLAGS: ""
+      CARGO_TARGET_DIR: C:\t
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -104,6 +103,17 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+
+      - name: Install Vulkan SDK
+        shell: pwsh
+        run: |
+          $ver = "1.4.350.0"
+          $url = "https://sdk.lunarg.com/sdk/download/$ver/windows/vulkansdk-windows-X64-$ver.exe"
+          Invoke-WebRequest -Uri $url -OutFile "$env:RUNNER_TEMP\vulkan-sdk.exe"
+          Start-Process -FilePath "$env:RUNNER_TEMP\vulkan-sdk.exe" `
+            -ArgumentList "--accept-licenses","--default-answer","--confirm-command","install" -Wait
+          "VULKAN_SDK=C:\VulkanSDK\$ver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "C:\VulkanSDK\$ver\Bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
       # Compile everything — lib, bin, and tests — without running. A green
       # result here is the actual proof the Windows target builds. Test
