@@ -81,6 +81,35 @@ if (-not $env:LIBCLANG_PATH -or -not (Test-Path (Join-Path $env:LIBCLANG_PATH "l
 }
 Write-Host "libclang: $env:LIBCLANG_PATH" -ForegroundColor Green
 
+# --- Vulkan SDK (GPU acceleration, FEAT-VTT024) ------------------------------
+# whisper-rs builds with the `vulkan` feature on Windows. The SDK provides glslc
+# (compiles the GGML compute shaders) + headers + vulkan-1.lib. The runtime
+# vulkan-1.dll ships with the GPU driver.
+if (-not $env:VULKAN_SDK -or -not (Test-Path "$env:VULKAN_SDK\Bin\glslc.exe")) {
+  $sdkRoot = "C:\VulkanSDK"
+  $sdk = $null
+  if (Test-Path $sdkRoot) {
+    $sdk = (Get-ChildItem $sdkRoot -Directory | Sort-Object Name -Descending |
+            Where-Object { Test-Path "$($_.FullName)\Bin\glslc.exe" } |
+            Select-Object -First 1).FullName
+  }
+  if (-not $sdk) {
+    throw "Vulkan SDK not found. Install it (winget install KhronosGroup.VulkanSDK) " +
+          "or from https://vulkan.lunarg.com/sdk/home#windows"
+  }
+  $env:VULKAN_SDK = $sdk
+}
+$env:Path = "$env:VULKAN_SDK\Bin;$env:Path"
+Write-Host "vulkan:   $env:VULKAN_SDK" -ForegroundColor Green
+
+# --- short target dir (MAX_PATH workaround) ----------------------------------
+# whisper.cpp's Vulkan backend builds a nested `vulkan-shaders-gen` sub-project.
+# Under the long default target path the MSBuild FileTracker .tlog paths exceed
+# Windows' 260-char MAX_PATH and fail with FTK1011. A short CARGO_TARGET_DIR
+# keeps every generated path under the limit.
+if (-not $env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR = "C:\vtt" }
+Write-Host "target:   $env:CARGO_TARGET_DIR" -ForegroundColor Green
+
 # --- build -------------------------------------------------------------------
 Write-Host "`ncargo build --release" -ForegroundColor Yellow
 & cargo build --release

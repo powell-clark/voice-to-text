@@ -1,4 +1,5 @@
 id|title|story_ids|epic_id|feature_ids|doc
+TASK-VTT088|Enable Vulkan GPU acceleration on the Windows build|STORY-VTT010|DIRECT-VTT004|FEAT-VTT024|TASK-VTT088.md
 TASK-VTT082|Build and smoke-test VTT on Windows x86-64 hardware|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT082.md
 TASK-VTT087|Windows automated test suite — E2E transcription + expanded unit tests|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT087.md
 TASK-VTT044|Windows singleton — replace flock with CreateMutexW named mutex|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|

@@ -9,6 +9,23 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.3.0] — 2026-06-26
+
+### Added
+- **GPU acceleration on Windows (Vulkan)**: Whisper inference now runs on the
+  GPU via Vulkan — vendor-neutral, so one build accelerates NVIDIA, AMD, and
+  Intel without a CUDA Toolkit dependency. Verified on an NVIDIA RTX 2060 SUPER
+  (`using Vulkan0 backend`, NV_coopmat2 tensor cores). Falls back to CPU
+  automatically when no Vulkan device is present. Completes the Windows half of
+  GPU acceleration; Linux already shipped Vulkan, macOS uses Metal.
+
+### Fixed
+- **Windows GPU build exceeded MAX_PATH**: whisper.cpp's nested
+  `vulkan-shaders-gen` sub-build tripped MSBuild FileTracker's 260-char path
+  limit (`FTK1011`). The Windows build now uses a short `CARGO_TARGET_DIR` so
+  generated paths stay under the limit (`scripts/build-windows.ps1` sets this
+  automatically; CI does too).
+
 ## [2.2.0] — 2026-06-25
 
 ### Added
