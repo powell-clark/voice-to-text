@@ -149,4 +149,4 @@ fmt/clippy/test/build checks as CI before pushing.
 
 ## License
 
-See [LICENSE](LICENSE). Copyright © 2025–2026 Powell-Clark Limited.
+Apache License 2.0 — see [LICENSE](LICENSE). Copyright © 2025–2026 Powell-Clark Limited.
