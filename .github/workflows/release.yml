@@ -30,6 +30,14 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# Network resilience for every job (TASK-VTT107). crates.io downloads
+# intermittently fail on GitHub runners with "[16] Error in the HTTP2 framing
+# layer" — disabling HTTP/2 multiplexing avoids that curl bug, and a high retry
+# count rides out transient blips so a flake never fails a release.
+env:
+  CARGO_NET_RETRY: "10"
+  CARGO_HTTP_MULTIPLEXING: "false"
+
 jobs:
   build-and-release:
     name: Build Linux binary + create GitHub release
