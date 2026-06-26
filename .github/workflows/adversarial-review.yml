@@ -1,0 +1,74 @@
+name: Adversarial PR Review
+
+# Assume the PR is broken until proven otherwise. One pass per PR open; reopen /
+# ready-for-review keep draft coverage. `synchronize` is omitted on purpose —
+# it re-fires on every push and amplifies usage. Opus tier for the deep pass.
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+    paths:
+      - "src/**/*.rs"
+      - "build.rs"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "scripts/**"
+      - "debian/**"
+      - "wix/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to adversarially review"
+        required: true
+        type: string
+
+jobs:
+  adversarial-review:
+    # Review EVERY PR, including the operator's own. Opt out on a specific PR
+    # with the `skip-ai-review` label.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ai-review')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: adversarial-review-${{ github.event.pull_request.number || inputs.pr_number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      actions: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run adversarial review
+        id: adversarial
+        uses: anthropics/claude-code-action@v1
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Review bot-authored PRs too (Dependabot)
+          allowed_bots: "dependabot[bot],github-actions[bot]"
+          prompt: "/adversarial-review ${{ github.repository }}/pull/${{ env.PR_NUMBER }}"
+          # Tier alias `opus` resolves to the latest Opus at run time — never goes
+          # stale as new models ship. No dated model ID to bump.
+          claude_args: "--max-turns 120 --model opus"
+
+      - name: Upload Claude transcript (adversarial)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-transcript-adversarial-${{ github.run_id }}
+          path: ${{ steps.adversarial.outputs.execution_file }}
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Render transcript to run summary (adversarial)
+        if: always()
+        run: python3 scripts/ci/render-transcript.py "${{ steps.adversarial.outputs.execution_file }}" >> "$GITHUB_STEP_SUMMARY" || true

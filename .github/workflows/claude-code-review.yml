@@ -2,26 +2,38 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+    # Fire on PR OPEN — the normal case. `opened` gives one review per PR;
+    # `reopened`/`ready_for_review` keep draft + re-open coverage. `synchronize`
+    # is intentionally omitted — it re-fires on every push and amplifies usage.
+    types: [opened, reopened, ready_for_review]
+    # Only review source-of-truth code; skip generated/vendored trees.
+    paths:
+      - "src/**/*.rs"
+      - "build.rs"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "scripts/**"
+      - "debian/**"
+      - "wix/**"
+      - ".github/workflows/**"
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Review EVERY PR, including the operator's own. Opt out of AI review on a
+    # specific PR with the `skip-ai-review` label.
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-ai-review') }}
+
+    # Push amplifier: if multiple commits land in quick succession, cancel the
+    # in-flight review and run only the latest.
+    concurrency:
+      group: claude-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
 
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write # post the review back onto the PR
       issues: read
       id-token: write
 
@@ -36,9 +48,24 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Review bot-authored PRs too (Dependabot)
+          allowed_bots: "dependabot[bot],github-actions[bot]"
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
+          # Tier alias `sonnet` resolves to the latest Sonnet at run time — never
+          # goes stale. --max-turns is a runaway-loop ceiling.
+          claude_args: '--max-turns 120 --model sonnet'
 
+      - name: Upload Claude transcript (claude-review)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-transcript-claude-review-${{ github.run_id }}
+          path: ${{ steps.claude-review.outputs.execution_file }}
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Render transcript to run summary (claude-review)
+        if: always()
+        run: python3 scripts/ci/render-transcript.py "${{ steps.claude-review.outputs.execution_file }}" >> "$GITHUB_STEP_SUMMARY" || true

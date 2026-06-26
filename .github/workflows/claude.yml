@@ -12,12 +12,28 @@ on:
 
 jobs:
   claude:
+    # Defence in depth: the trigger requires BOTH an @claude mention AND a
+    # trusted author (OWNER/MEMBER/COLLABORATOR — i.e. someone who already has
+    # write access). Without the association gate, any drive-by commenter could
+    # invoke @claude, and the build-command allowlist below would hand them code
+    # execution on the runner (which carries CLAUDE_CODE_OAUTH_TOKEN). The
+    # claude-code-action also checks actor permissions internally; this is the
+    # second, workflow-level barrier. Each event carries author_association at a
+    # different path, so the check is paired per event.
+    # NOTE: this also stops bot-relayed @claude mentions (e.g. Dependabot, assoc
+    # NONE/CONTRIBUTOR) from triggering — intentional, since Dependabot PRs carry
+    # untrusted dependency code we don't want auto-executing build commands.
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
-    runs-on: ubuntu-latest
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') &&
+        (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') &&
+        (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') &&
+        (github.event.review.author_association == 'OWNER' || github.event.review.author_association == 'MEMBER' || github.event.review.author_association == 'COLLABORATOR')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) &&
+        (github.event.issue.author_association == 'OWNER' || github.event.issue.author_association == 'MEMBER' || github.event.issue.author_association == 'COLLABORATOR'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     permissions:
       contents: read
       pull-requests: read
@@ -29,22 +45,88 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          submodules: recursive
+
+      # Toolchain prelude — WITHOUT this, cargo and the system build deps are
+      # absent, so @claude requests that need to build, clippy, or run the suite
+      # (e.g. /iterate) fall back to inspection-only. With it, Claude can produce
+      # a real green-test artifact. Matches debian/control Build-Depends + ci.yml.
+      - name: Install system build deps (matches ci.yml)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libasound2-dev \
+            libvulkan-dev \
+            libxtst-dev \
+            libnotify-bin \
+            pkg-config \
+            cmake \
+            glslc
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      # Pick the model from the @claude mention. We pass tier ALIASES
+      # (opus/sonnet/haiku) — not dated IDs — so the CLI always resolves to the
+      # latest model in that tier and the workflow never goes stale as new models
+      # ship. `@claude opus` = deep analysis; `@claude haiku` = cheap/fast; bare
+      # or `@claude sonnet` = balanced default. The trigger body is read via env
+      # so untrusted comment text never reaches the shell directly.
+      - name: Detect model from @claude mention
+        id: model
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+        run: |
+          BODY="${COMMENT_BODY}${ISSUE_BODY}${ISSUE_TITLE}${REVIEW_BODY}"
+          if printf '%s' "$BODY" | grep -qiE '@claude[[:space:]]+opus'; then
+            echo "model=opus" >> "$GITHUB_OUTPUT"
+          elif printf '%s' "$BODY" | grep -qiE '@claude[[:space:]]+haiku'; then
+            echo "model=haiku" >> "$GITHUB_OUTPUT"
+          else
+            echo "model=sonnet" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Respond to @claude mentions relayed by bots too (e.g. Dependabot)
+          allowed_bots: "dependabot[bot],github-actions[bot]"
 
-          # This is an optional setting that allows Claude to read CI results on PRs
+          # Allow Claude to read CI results on PRs
           additional_permissions: |
             actions: read
 
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
+          # Model driven by the `@claude [opus|haiku]` trigger above (controlled
+          # alias from the step, never untrusted comment text — no injection
+          # path). --allowedTools pre-approves the build/test commands so
+          # /iterate can run the suite non-interactively; scoped to cargo/git/gh,
+          # not a blanket Bash(*). --append-system-prompt self-reports the model
+          # so the operator sees which tier answered at a glance.
+          claude_args: '--model ${{ steps.model.outputs.model }} --max-turns 120 --allowedTools "Bash(cargo:*),Bash(git:*),Bash(gh:*)" --append-system-prompt "Start your reply with this exact line, nothing before it: 🤖 model=${{ steps.model.outputs.model }}"'
 
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr *)'
+      - name: Upload Claude transcript (claude)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-transcript-claude-${{ github.run_id }}
+          path: ${{ steps.claude.outputs.execution_file }}
+          if-no-files-found: ignore
+          retention-days: 30
 
+      - name: Render transcript to run summary (claude)
+        if: always()
+        run: python3 scripts/ci/render-transcript.py "${{ steps.claude.outputs.execution_file }}" >> "$GITHUB_STEP_SUMMARY" || true
