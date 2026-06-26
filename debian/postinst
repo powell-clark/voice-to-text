@@ -9,6 +9,8 @@ set -e
 MODEL_DIR=/usr/share/voice-to-text/models
 MODEL_FILE="$MODEL_DIR/ggml-small.en.bin"
 MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin"
+# Expected SHA-256 of the upstream ggml-small.en.bin (stable released artefact).
+MODEL_SHA256="c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d"
 
 case "$1" in
     configure)
@@ -17,8 +19,16 @@ case "$1" in
             echo "voice-to-text: downloading default Whisper model (ggml-small.en.bin, ~488 MB)..."
             if curl --fail --silent --show-error -L --max-time 600 \
                     -o "$MODEL_FILE.tmp" "$MODEL_URL"; then
-                mv "$MODEL_FILE.tmp" "$MODEL_FILE"
-                echo "voice-to-text: default model installed at $MODEL_FILE"
+                # Verify integrity before promoting — a truncated or corrupted
+                # download must never become the real model path.
+                ACTUAL_SHA=$(sha256sum "$MODEL_FILE.tmp" 2>/dev/null | cut -d' ' -f1)
+                if [ "$ACTUAL_SHA" = "$MODEL_SHA256" ]; then
+                    mv "$MODEL_FILE.tmp" "$MODEL_FILE"
+                    echo "voice-to-text: default model installed at $MODEL_FILE (sha256 verified)"
+                else
+                    rm -f "$MODEL_FILE.tmp"
+                    echo "voice-to-text: model checksum mismatch (expected $MODEL_SHA256, got ${ACTUAL_SHA:-none}); discarded. Use the tray menu to retry later."
+                fi
             else
                 rm -f "$MODEL_FILE.tmp"
                 echo "voice-to-text: model download failed (offline?). Use the tray menu to retry later."
