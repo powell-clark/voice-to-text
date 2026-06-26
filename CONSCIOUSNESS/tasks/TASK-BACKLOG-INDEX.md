@@ -1,5 +1,7 @@
 id|priority|title|story_ids|epic_id|feature_ids|doc|blocked_by|blocks|assignee|parent_task_id|sequence
-TASK-VTT086|p2|Fix portable tray model submenu — legacy names don't match catalogue|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT086.md|||||b2
+TASK-VTT093|p1|Windows/macOS tray icon never changes state (recording/processing)|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT093.md|||||g1
+TASK-VTT094|p2|Start on login / autostart — Windows and platform parity|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT094.md|||||g2
+TASK-VTT095|p2|Update mechanism — how Windows/macOS users get new versions|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT095.md|||||g3
 TASK-VTT056|p0|Monitor v2.0.5 in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT056.md|||||b0
 TASK-VTT070|p1|Vendor refresh — upgrade rustls-webpki to >=0.103.13 to close RUSTSEC-2026-0104||DIRECT-VTT002||TASK-VTT070.md|||||b1
 TASK-VTT060|p1|Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT060.md|||||b2

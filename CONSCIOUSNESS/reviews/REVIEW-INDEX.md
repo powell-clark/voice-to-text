@@ -29,3 +29,9 @@ REVIEW-CCC031|task|TASK-VTT089|agent|vtt-main-2fe61b0a|auto-approved|1|2026-06-2
 REVIEW-CCC032|task|TASK-VTT090|agent|vtt-main-2fe61b0a|auto-approved|1|2026-06-26 12:30:42.042 gmt|
 REVIEW-CCC28|task|TASK-VTT089|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 13:30:53.083 gmtst|auto-close: windowed binary verified (PE subsystem 2), reversible, entity gate auto-approve
 REVIEW-CCC29|task|TASK-VTT090|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 13:30:53.083 gmtst|auto-close: CHANGELOG-driven release notes + macOS job + download links, notes script tested, reversible, entity gate auto-approve
+REVIEW-CCC035|task|TASK-VTT086|agent|vtt-main-2fe61b0a|auto-approved|1|2026-06-26 12:45:19.951 gmt|
+REVIEW-CCC036|task|TASK-VTT091|agent|vtt-main-2fe61b0a|auto-approved|1|2026-06-26 12:45:19.951 gmt|
+REVIEW-CCC037|task|TASK-VTT092|agent|vtt-main-2fe61b0a|auto-approved|1|2026-06-26 12:45:19.951 gmt|
+REVIEW-CCC30|task|TASK-VTT091|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 13:45:33.587 gmtst|auto-close: Win32 message pump added so tray menu opens, builds green, reversible, entity gate auto-approve
+REVIEW-CCC31|task|TASK-VTT092|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 13:45:33.587 gmtst|auto-close: Windows types whole transcript via enigo.text batch, builds green, reversible, entity gate auto-approve
+REVIEW-CCC32|task|TASK-VTT086|agent|vtt-main-2fe61b0a|bypass-approved|1|2026-06-26 13:45:33.587 gmtst|auto-close: portable tray model menu now generated from real catalogue, reversible, entity gate auto-approve

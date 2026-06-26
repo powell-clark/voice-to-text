@@ -1,4 +1,7 @@
 id|title|story_ids|epic_id|feature_ids|doc
+TASK-VTT091|Windows tray icon has no menu — pump the Win32 message loop|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT091.md
+TASK-VTT092|Windows typing drops characters and reorders text|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT092.md
+TASK-VTT086|Fix portable tray model submenu — legacy names don't match catalogue|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT086.md
 TASK-VTT089|Windows tray app pops a console window — build windowed|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT089.md
 TASK-VTT090|Release pipeline — CHANGELOG-driven notes, macOS binary, download links|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT090.md
 TASK-VTT088|Enable Vulkan GPU acceleration on the Windows build|STORY-VTT010|DIRECT-VTT004|FEAT-VTT024|TASK-VTT088.md

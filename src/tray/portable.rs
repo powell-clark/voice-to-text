@@ -76,24 +76,16 @@ impl Tray {
         lang_sub.append(&lang_multi)?;
         menu.append(&lang_sub)?;
 
-        // Models
+        // Models — generated from the real catalogue so selections resolve via
+        // models::find() (TASK-VTT086). The old hardcoded W*/CT2* names were
+        // pre-v2.0 backend labels that no longer match anything.
         let model_sub = Submenu::new(&format!("Model: {}", current_model), true);
-        let model_names = [
-            "W base",
-            "W small",
-            "W medium",
-            "W large",
-            "CT2 base",
-            "CT2 small",
-            "CT2 distil-large-v3.5",
-            "CT2 large-v3-turbo",
-        ];
         let mut models = Vec::new();
-        for &name in &model_names {
-            let checked = name == current_model;
-            let item = CheckMenuItem::new(name, true, checked, None);
+        for info in crate::models::MODELS {
+            let checked = info.name == current_model;
+            let item = CheckMenuItem::new(info.name, true, checked, None);
             model_sub.append(&item)?;
-            models.push((item, name.to_string()));
+            models.push((item, info.name.to_string()));
         }
         menu.append(&model_sub)?;
         menu.append(&PredefinedMenuItem::separator())?;
