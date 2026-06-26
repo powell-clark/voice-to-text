@@ -35,3 +35,4 @@ TASK-VTT079|p2|Upstream — feature-index status column splits PGPS display but 
 TASK-VTT080|p3|Features and testing are not connected — add per-feature test-status tracking (last_tested field and/or verification reviews)||||TASK-VTT080.md|||||b2c||
 TASK-VTT083|p3|Story and task indexes still use 'epic_id' column header instead of 'directive_id' (naming-precision residue; drives fk-asymmetry validator warnings)||||TASK-VTT083.md|||||b2e||
 TASK-VTT112|p3|Add stored per-model SHA-256 verification to src/models.rs||DIRECT-VTT002|FEAT-VTT026||||||
+TASK-VTT114|p2|macOS clipboard auto-paste sends Ctrl+V — must be Cmd+V|STORY-VTT012|DIRECT-VTT003|FEAT-VTT012||||||

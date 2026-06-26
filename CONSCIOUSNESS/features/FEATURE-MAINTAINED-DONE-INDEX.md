@@ -10,7 +10,7 @@ FEAT-VTT008|must-have|[maintained] APT PPA distribution for Ubuntu (Noble + Jamm
 FEAT-VTT009|performance|[removed v2.0.0] CUDA GPU acceleration — superseded by Vulkan via whisper-rs FEAT-VTT024|STORY-VTT001|TASK-VTT002,TASK-VTT031|FEAT-VTT009.md
 FEAT-VTT010|delighter|[done] Configurable hotkey voice prefix and initial prompt via settings.conf|STORY-VTT001||FEAT-VTT010.md
 FEAT-VTT011|performance|[done] User-configurable initial_prompt passthrough to whisper-rs (single backend as of v2.0.0)|STORY-VTT003|TASK-VTT009|FEAT-VTT011.md
-FEAT-VTT012|must-have|[maintained] Clipboard paste via xclip subprocess instead of broken XSetSelectionOwner|STORY-VTT006|TASK-VTT012,TASK-VTT110|FEAT-VTT012.md
+FEAT-VTT012|must-have|[maintained] Clipboard paste via xclip subprocess instead of broken XSetSelectionOwner|STORY-VTT006|TASK-VTT012,TASK-VTT110,TASK-VTT114|FEAT-VTT012.md
 FEAT-VTT013|must-have|[maintained] X11 key auto-repeat filtering to prevent spurious recordings|STORY-VTT006|TASK-VTT013|FEAT-VTT013.md
 FEAT-VTT014|performance|[done] 5-minute max recording duration (was 2 minutes)|STORY-VTT006|TASK-VTT013|FEAT-VTT014.md
 FEAT-VTT015|performance|[done] SystemD service inherits DISPLAY from user session (Wayland-ready)|STORY-VTT006||FEAT-VTT015.md
