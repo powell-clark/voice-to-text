@@ -1,4 +1,7 @@
 id|title|story_ids|epic_id|feature_ids|doc
+TASK-VTT093|Windows/macOS tray icon never changes state (recording/processing)|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT093.md
+TASK-VTT099|Windows — set clipboard as Ctrl+V fallback after typing|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT099.md
+TASK-VTT100|Windows — suppress hotkey auto-repeat (rdev)|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT100.md
 TASK-VTT091|Windows tray icon has no menu — pump the Win32 message loop|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT091.md
 TASK-VTT092|Windows typing drops characters and reorders text|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT092.md
 TASK-VTT086|Fix portable tray model submenu — legacy names don't match catalogue|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT086.md

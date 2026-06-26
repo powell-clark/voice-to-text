@@ -9,6 +9,23 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.3.3] — 2026-06-26
+
+### Fixed (Windows ↔ Linux parity)
+- **Tray icon now reflects state** — idle (green) → recording (red) → processing
+  (amber) — and the tooltip shows the live status (e.g. model-download progress).
+  The portable tray previously only logged these and never updated the icon.
+- **Hotkey auto-repeat suppressed** — holding a non-toggle hotkey (F-key, letter)
+  no longer re-fires the start event via OS key-repeat; only the first press and a
+  real release count (parity with the Linux X11 auto-repeat filter).
+- **Clipboard set as Ctrl+V fallback** after typing on Windows, matching the Linux
+  behaviour where the transcription is also placed on the clipboard.
+
+### Added
+- `docs/PLATFORM-PARITY.md` — Linux↔Windows parity spec aggregated from the
+  maintained feature cards, with a gap register tracking every remaining Windows
+  difference.
+
 ## [2.3.2] — 2026-06-26
 
 ### Fixed

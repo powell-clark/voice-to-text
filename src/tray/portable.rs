@@ -10,8 +10,9 @@ use muda::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu
 use tray_icon::{TrayIcon, TrayIconBuilder};
 
 pub struct Tray {
-    _tray_icon: TrayIcon,
+    tray_icon: TrayIcon,
     cmd_rx: mpsc::Receiver<MenuCmd>,
+    ui_rx: mpsc::Receiver<UiMessage>,
     ids: MenuIds,
     settings: Arc<RwLock<Settings>>,
 }
@@ -176,26 +177,17 @@ impl Tray {
                 }
             })?;
 
+        // UI updates (status text + icon colour) are applied on the main thread
+        // in poll_menu — tray-icon/muda handles are !Send, so the worker thread
+        // cannot touch them. Keep the receiver in the struct rather than spawning
+        // a thread that could only log.
         let (ui_tx, ui_rx) = mpsc::channel::<UiMessage>();
-        std::thread::Builder::new()
-            .name("ui-updates".into())
-            .spawn(move || {
-                while let Ok(msg) = ui_rx.recv() {
-                    match msg {
-                        UiMessage::SetStatus(text) => {
-                            crate::vtt_log!("[UI] Status: {}", text);
-                        }
-                        UiMessage::SetIcon(icon) => {
-                            crate::vtt_log!("[UI] Icon: {}", icon);
-                        }
-                    }
-                }
-            })?;
 
         Ok((
             Tray {
-                _tray_icon: tray_icon,
+                tray_icon,
                 cmd_rx,
+                ui_rx,
                 ids,
                 settings,
             },
@@ -205,6 +197,27 @@ impl Tray {
 
     /// Process pending menu commands. Call from the main event loop at ~10 Hz.
     pub fn poll_menu(&mut self) {
+        // Apply queued UI updates on the main thread — tray-icon handles are
+        // !Send so the worker cannot do this. Status → tooltip, state → icon
+        // colour (idle green, recording red, processing amber).
+        while let Ok(msg) = self.ui_rx.try_recv() {
+            match msg {
+                UiMessage::SetStatus(text) => {
+                    let _ = self
+                        .tray_icon
+                        .set_tooltip(Some(format!("Voice to Text — {text}")));
+                }
+                UiMessage::SetIcon(state) => {
+                    let (r, g, b) = match state.as_str() {
+                        "recording" => (220u8, 40u8, 40u8),
+                        "processing" => (230u8, 160u8, 0u8),
+                        _ => (0u8, 180u8, 0u8), // ready / idle
+                    };
+                    let _ = self.tray_icon.set_icon(Some(create_icon(r, g, b)));
+                }
+            }
+        }
+
         while let Ok(cmd) = self.cmd_rx.try_recv() {
             match cmd {
                 MenuCmd::Quit => {

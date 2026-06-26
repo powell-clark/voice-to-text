@@ -159,18 +159,18 @@ Canonical: cargo tests gate every change; CI on every push.
 
 ## Parity gap register (Windows → Linux)
 
-| Gap | Task | Priority |
-|---|---|---|
-| Tray icon colour + status text not shown | TASK-VTT093 | p1 |
-| Tray Logs submenu absent | TASK-VTT098 | p2 |
-| Clipboard not set as paste fallback | TASK-VTT099 | p2 |
-| Unicode typing unverified (£ é ñ emoji) | TASK-VTT092 (AC) | p1 |
-| Hotkey auto-repeat not suppressed (non-toggle keys) | TASK-VTT100 | p2 |
-| Autostart on login | TASK-VTT094 | p2 |
-| Default model not pre-provisioned by installer | TASK-VTT101 | p3 |
-| In-app update check | TASK-VTT095 | p2 |
-| `system_cache()` returns Linux path on Windows | TASK-VTT097 | p3 |
-| Cross-platform test matrix (run tests on win/mac) | TASK-VTT048 | p3 |
+| Gap | Task | Priority | Status |
+|---|---|---|---|
+| Tray icon colour + status text not shown | TASK-VTT093 | p1 | ✅ v2.3.3 |
+| Clipboard not set as paste fallback | TASK-VTT099 | p2 | ✅ v2.3.3 |
+| Hotkey auto-repeat not suppressed (non-toggle keys) | TASK-VTT100 | p2 | ✅ v2.3.3 |
+| Tray Logs submenu absent | TASK-VTT098 | p2 | ❌ |
+| Unicode typing unverified (£ é ñ emoji) | TASK-VTT092 (AC) | p1 | 🟡 needs hardware check |
+| Autostart on login | TASK-VTT094 | p2 | ❌ |
+| Default model not pre-provisioned by installer | TASK-VTT101 | p3 | ❌ |
+| In-app update check | TASK-VTT095 | p2 | ❌ |
+| `system_cache()` returns Linux path on Windows | TASK-VTT097 | p3 | ❌ |
+| Cross-platform test matrix (run tests on win/mac) | TASK-VTT048 | p3 | ❌ |
 
 **Parity is reached when every row above is ✅.** This register is the definition of
 done for "Windows feature parity with Linux". Update this spec whenever a maintained

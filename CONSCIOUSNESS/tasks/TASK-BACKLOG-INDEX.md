@@ -1,5 +1,7 @@
 id|priority|title|story_ids|epic_id|feature_ids|doc|blocked_by|blocks|assignee|parent_task_id|sequence
-TASK-VTT093|p1|Windows/macOS tray icon never changes state (recording/processing)|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT093.md|||||g1
+TASK-VTT098|p2|Windows tray Logs submenu — parity with Linux FEAT-VTT004|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT098.md|||||g1
+TASK-VTT101|p3|Windows installer pre-provisions the default model — parity FEAT-VTT028|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT101.md|||||g1a
+TASK-VTT097|p3|models::system_cache() returns a Linux path on Windows|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT097.md|||||g1b
 TASK-VTT094|p2|Start on login / autostart — Windows and platform parity|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT094.md|||||g2
 TASK-VTT095|p2|Update mechanism — how Windows/macOS users get new versions|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT095.md|||||g3
 TASK-VTT056|p0|Monitor v2.0.5 in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT056.md|||||b0

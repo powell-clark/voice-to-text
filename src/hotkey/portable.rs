@@ -1,7 +1,7 @@
 /// Portable hotkey monitor using rdev (macOS + Windows)
 use super::{HotkeyCmd, KeyEvent};
 use rdev::{self, EventType, Key};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread;
 
@@ -148,6 +148,12 @@ where
 
             crate::vtt_log!("Hotkey monitor started ({})", rdev_key_name(target_key));
 
+            // Suppress OS key auto-repeat: while a key is held the OS emits
+            // repeated KeyPress events. Track pressed state so only the first
+            // press fires Down and only a real release fires Up — parity with the
+            // Linux X11 auto-repeat filter (FEAT-VTT013 / TASK-VTT100).
+            let pressed = AtomicBool::new(false);
+
             // rdev::listen blocks forever
             if let Err(e) = rdev::listen(move |event| {
                 let current_kc = target_clone.load(Ordering::Relaxed) as u8;
@@ -155,10 +161,14 @@ where
 
                 match event.event_type {
                     EventType::KeyPress(key) if key == current_key => {
-                        callback(KeyEvent::Down);
+                        if !pressed.swap(true, Ordering::Relaxed) {
+                            callback(KeyEvent::Down);
+                        }
                     }
                     EventType::KeyRelease(key) if key == current_key => {
-                        callback(KeyEvent::Up);
+                        if pressed.swap(false, Ordering::Relaxed) {
+                            callback(KeyEvent::Up);
+                        }
                     }
                     _ => {}
                 }
