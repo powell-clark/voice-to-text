@@ -1,0 +1,84 @@
+name: PR Triage (find issues + duplicate PRs)
+
+# On every opened PR, ask Claude which existing issues it might fix and whether
+# it duplicates another open PR. Read-only triage — posts comments, never code.
+# Slash commands resolve from this repo's .claude/commands/.
+on:
+  pull_request:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to triage"
+        required: true
+        type: string
+
+jobs:
+  pr-triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: pr-triage-${{ github.event.pull_request.number || inputs.pr_number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Find issues this PR may fix
+        id: find-issues
+        uses: anthropics/claude-code-action@v1
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Triage runs on bot-authored PRs too (Dependabot)
+          allowed_bots: "dependabot[bot],github-actions[bot]"
+          prompt: "/find-issues ${{ github.repository }}/pull/${{ env.PR_NUMBER }}"
+          # Tier alias `sonnet` resolves to the latest Sonnet at run time — never
+          # goes stale as new models ship. No dated model ID to bump.
+          claude_args: "--max-turns 120 --model sonnet"
+
+      - name: Upload Claude transcript (find-issues)
+        if: ${{ always() && steps.find-issues.outputs.execution_file != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-transcript-find-issues-${{ github.run_id }}
+          path: ${{ steps.find-issues.outputs.execution_file }}
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Render transcript to run summary (find-issues)
+        if: ${{ always() && steps.find-issues.outputs.execution_file != '' }}
+        run: python3 scripts/ci/render-transcript.py "${{ steps.find-issues.outputs.execution_file }}" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Find duplicate PRs
+        id: find-dupes
+        if: always()
+        uses: anthropics/claude-code-action@v1
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: "dependabot[bot],github-actions[bot]"
+          prompt: "/find-duplicate-prs ${{ github.repository }}/pull/${{ env.PR_NUMBER }}"
+          claude_args: "--max-turns 120 --model sonnet"
+
+      - name: Upload Claude transcript (find-dupes)
+        if: ${{ always() && steps.find-dupes.outputs.execution_file != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-transcript-find-dupes-${{ github.run_id }}
+          path: ${{ steps.find-dupes.outputs.execution_file }}
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Render transcript to run summary (find-dupes)
+        if: ${{ always() && steps.find-dupes.outputs.execution_file != '' }}
+        run: python3 scripts/ci/render-transcript.py "${{ steps.find-dupes.outputs.execution_file }}" >> "$GITHUB_STEP_SUMMARY" || true
