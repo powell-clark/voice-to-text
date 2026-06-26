@@ -173,7 +173,10 @@ fn main() -> anyhow::Result<()> {
                     vtt_log!("First-run default: start-at-login enabled");
                 }
                 Err(e) => {
-                    vtt_log!("First-run autostart enable failed (will retry next launch): {}", e)
+                    vtt_log!(
+                        "First-run autostart enable failed (will retry next launch): {}",
+                        e
+                    )
                 }
             }
         }
