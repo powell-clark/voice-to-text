@@ -64,5 +64,5 @@ true state per platform from the actual code/packaging — not the feature-card 
 
 ## Next steps toward the testable spec (DIRECT-VTT005)
 1. ✅ Step 1 — this matrix (audit current state).
-2. ⬜ Step 2 — restructure feature cards to carry **per-platform** acceptance criteria + status, anchored to this matrix.
+2. 🟡 Step 2 (in progress) — per-platform acceptance criteria added to the variance-capability cards: FEAT-VTT005 (typing), FEAT-VTT012 (clipboard), FEAT-VTT004 (tray), FEAT-VTT013 (hotkey), FEAT-VTT026 (model download). Uniform-✅ capabilities (recording, transcription, prefix/prompt, multi-language, single-instance) keep a single shared criterion. Inherently per-platform capabilities already have their own cards (FEAT-VTT008 apt / FEAT-VTT029 .app / FEAT-VTT030 .msi packaging; FEAT-VTT015 + autostart).
 3. ⬜ Step 3 — wire each acceptance criterion to an automated test (TASK-VTT080, per-feature test-status), so the matrix stays green-by-test, not by assertion.

@@ -17,6 +17,21 @@ On Linux, VTT displays a system tray icon using GTK3 and the `libappindicator3` 
 - [x] Quit action stops the service cleanly — verified
 - [x] No GTK warnings on launch (`G_MESSAGES_DEBUG=all`) under normal use — verify after fresh install
 
+## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
+Anchored to `CONSCIOUSNESS/artifacts/PARITY-MATRIX.md` (capability 5 — system tray/menu). The tray capability spans this card (Linux/GTK) and the portable tray (`src/tray/portable.rs`) used on macOS + Windows.
+
+**🐧 Linux — ✅ works** (this card)
+- [x] GTK3 + libappindicator tray: status, model picker, Logs submenu, hotkey picker, quit — `src/tray/linux.rs`
+
+**🍎 macOS — 🟡 partial**
+- [ ] `tray/portable.rs` (tray-icon + muda) shows status, model picker, quit — compiles and ships, but a menu-bar item needs NSApplication/`.app` activation; untested without the `.app` (FEAT-VTT029)
+- [ ] No Logs submenu and no hotkey picker (parity gap vs Linux)
+
+**🪟 Windows — 🟡 partial**
+- [x] `tray/portable.rs` shows status, model picker, logging + autostart toggles, quit; Win32 message pump drives it — `src/main.rs:399-419` (TASK-VTT091)
+- [ ] Logs submenu missing (parity gap vs Linux) — TASK-VTT098
+- [ ] No hotkey picker (config-file only)
+
 ## Linked Tasks
 - TASK-VTT004, TASK-VTT019
 

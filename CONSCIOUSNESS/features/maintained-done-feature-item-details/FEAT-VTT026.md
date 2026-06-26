@@ -23,13 +23,23 @@ When the user selects a model that is not present in the local cache, VTT downlo
 
 ## Acceptance Criteria
 - [x] `src/models.rs` exposes `ensure_model(name, progress_callback) -> Result<PathBuf>` — verified in source
-- [x] `MODELS` constant contains real upstream SHA-256 hashes verified once during implementation; hashes are not placeholders — verified in `src/models.rs` TASK-VTT029
+- [ ] [deferred → TASK-VTT112] `MODELS` carries a stored expected SHA-256 per model — NOT implemented; `src/models.rs` computes and logs the download hash but does not check it against an expected constant
 - [x] Downloads use HTTPS with certificate validation (rustls-tls); no plain HTTP ever — verified in source (reqwest with rustls-tls)
 - [x] Partial downloads write to `<filename>.tmp` and atomically rename only after hash verification — verified in `src/models.rs`
 - [x] Progress callback fires at least every 256 KB of downloaded data — verified in source
 - [x] Network errors are user-friendly — verified in daily use (user-readable tray messages on failure)
-- [x] Already-cached models are validated by SHA on first use per session; if corrupted, re-downloaded — verified in source logic
+- [ ] [deferred → TASK-VTT112] Cached models re-validated by stored SHA on first use; corrupted ones re-downloaded — NOT implemented (no stored hashes to validate against)
 - [x] No partial files ever end up as the target filename — only atomic renames after verification — verified in source
+
+## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
+Anchored to `CONSCIOUSNESS/artifacts/PARITY-MATRIX.md` (capability 8 — model download). Behaviour is identical on all platforms (one `src/models.rs` path); the only gap is cross-cutting.
+
+**🐧 Linux / 🍎 macOS / 🪟 Windows — ✅ works (uniform)**
+- [x] Selecting an uncached model downloads from HuggingFace over HTTPS (rustls) with tray progress and atomic `.tmp`→rename — `src/models.rs:135-193`
+- [x] Cache path resolves per-OS via `dirs::cache_dir`: `~/.cache` (Linux), `~/Library/Caches` (macOS), `%LOCALAPPDATA%` (Windows)
+
+**Cross-cutting gap (all platforms) → TASK-VTT112**
+- [ ] In-app download verifies the bytes against a stored expected SHA-256 — NOT implemented (only the Linux `debian/postinst` pre-download hard-verifies, TASK-VTT110)
 
 ## Linked Tasks
 - TASK-VTT029

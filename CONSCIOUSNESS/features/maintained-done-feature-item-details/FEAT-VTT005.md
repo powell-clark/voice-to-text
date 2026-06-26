@@ -19,6 +19,22 @@ After transcription completes, the text is typed into the currently focused appl
 - [x] Injection works in X11 and XWayland sessions — verified on Ubuntu 24.04 with GNOME/XWayland
 - [x] `enigo` is used for keyboard simulation, not raw XTest calls — verified in source
 
+## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
+Anchored to `CONSCIOUSNESS/artifacts/PARITY-MATRIX.md` (capability 3 — text injection).
+
+**🐧 Linux — ✅ works**
+- [x] Text types at the cursor via `xdotool type` (primary) with `enigo`/x11rb fallback — `src/typing.rs:41-152`
+- [x] £/é/ñ/emoji type correctly; no duplicate characters in X11/XWayland
+
+**🍎 macOS — 🟡 partial**
+- [ ] Text types at the cursor via `enigo` once Accessibility permission is granted — code path exists (`src/typing.rs` non-Windows branch) but is untuned char-by-char and `xdotool` is always absent
+- [ ] Accessibility-permission prompt presented to the user — BLOCKED on the `.app` bundle (FEAT-VTT029); a raw binary cannot register the prompt
+- [ ] Verified typing into Safari, Notes, Terminal on a shipped build
+
+**🪟 Windows — ✅ works**
+- [x] Text types at the cursor via batched `enigo.text()` SendInput per newline segment — `src/typing.rs:69-105`
+- [x] No dropped or reordered characters (regression fixed in TASK-VTT092)
+
 ## Linked Tasks
 - TASK-VTT005, TASK-VTT018
 
