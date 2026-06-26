@@ -138,15 +138,27 @@ jobs:
           files: target\wix\voice-to-text-installer.msi
           draft: true
 
+  # macOS ships two native binaries — Intel (x86_64, macos-13 runner) and Apple
+  # Silicon (arm64, macos-latest). Both use the Metal whisper backend. Native
+  # builds (no cross-compile) keep the whisper.cpp/Metal build simple and
+  # low-risk. A single universal binary via lipo is a follow-up (TASK-VTT104);
+  # a signed .app is TASK-VTT040.
   build-macos:
-    name: Build macOS binary (Apple Silicon)
+    name: Build macOS binary (${{ matrix.label }})
     needs: build-and-release
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: write
-    # Compile-only proof exists in ci.yml; here we ship the binary. macOS uses
-    # the Metal whisper backend (Cargo.toml macos block). A signed .app bundle
-    # is the planned follow-up (TASK-VTT040) — for now this is a raw binary.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-13      # Intel x86_64
+            label: Intel
+            asset: vtt-macos-intel
+          - runner: macos-latest  # Apple Silicon arm64
+            label: Apple Silicon
+            asset: vtt-macos-arm64
     env:
       RUSTFLAGS: ""
     steps:
@@ -169,15 +181,14 @@ jobs:
       - name: Build release binary
         run: cargo build --release
 
-      # The [[bin]] name is vtt-linux on every platform; rename the artifact so
-      # the release asset reads vtt-macos.
-      - name: Rename artifact to vtt-macos
-        run: cp target/release/vtt-linux vtt-macos
+      # The [[bin]] name is vtt-linux on every platform; rename per-arch.
+      - name: Rename artifact
+        run: cp target/release/vtt-linux ${{ matrix.asset }}
 
       - name: Upload macOS binary to GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: vtt-macos
+          files: ${{ matrix.asset }}
           draft: true
 
   publish-release:
