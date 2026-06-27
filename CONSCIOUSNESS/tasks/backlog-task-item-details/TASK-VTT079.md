@@ -42,3 +42,17 @@ The /pgps two-bucket display split is deferred until this upstream fix lands.
 ## Notes
 Report to the consciousness plugin (use /consciousness:issue). Related to TASK-VTT065 (the partial
 feature-index migration) and TASK-VTT078 (folder collapse + card statuses, done).
+
+## Update 2026-06-27 — confirmed still present in consciousness v0.42.9
+Re-tested from VTT. The split-brain persists, now more precisely diagnosed:
+- `schema.json` HAS been updated — `index_schemas.features.columns_done` =
+  `[id, kano, status, description, story_ids, task_ids, doc, last_tested]` (status column defined).
+- The **display** script (`main.js`) honours it — an 8-col index with `status` splits
+  FEATURES.MAINTAINED (status=maintained) from FEATURES.DONE (status!=maintained) correctly.
+- The **validator** (Rule 31/33) still parses the feature terminal index with the legacy 6-col
+  map `id|kano|description|story_ids|task_ids|doc`, so the 8-col index shifts every field right and
+  produces ~48 false "Invalid reference ID" errors (validation 49/52, was 51/52).
+- Net: from a consumer you still cannot have BOTH clean validation AND the maintained/done split.
+- **Refined upstream fix:** point validator Rule 31/33 at `schema.columns_done` for the feature
+  terminal index (the column data already exists in schema.json) — backward-compatible if it accepts
+  either the 6-col or 8-col header. VTT then adopts the status column and drops the `[tag]` prefixes.
