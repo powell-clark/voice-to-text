@@ -45,6 +45,9 @@ libc = "0.2"
 # Hashing for model integrity
 sha2 = "0.10"
 
+# Whole-word/phrase matching for the correction dictionary (FEAT-VTT037)
+regex = "1"
+
 # HTTP downloads (rustls, no OpenSSL system dep)
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls", "stream"] }
 

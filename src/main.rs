@@ -6,6 +6,7 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 mod audio;
+mod corrections;
 // autostart is only consumed by the portable tray (Windows + macOS); compiling
 // it on Linux makes it dead code, which fails the -D warnings release build.
 #[cfg(any(target_os = "windows", target_os = "macos"))]
@@ -538,6 +539,7 @@ fn transcription_worker(
         let s = settings.read().unwrap();
         let language = s.selected_language.clone();
         let prompt = s.initial_prompt.clone();
+        let corrections = s.corrections.clone();
         let prefix = s.voice_prefix.clone();
         let append_newline = s.append_newline;
         let newline_type = s.newline_type;
@@ -563,7 +565,8 @@ fn transcription_worker(
             } else if trimmed.chars().any(|c| c.is_alphanumeric()) {
                 vtt_log!("Transcription: {}", trimmed);
 
-                let final_text = compose_final_text(is_truncated, &prefix, trimmed);
+                let corrected = corrections::apply(trimmed, &corrections);
+                let final_text = compose_final_text(is_truncated, &prefix, &corrected);
 
                 typing_active.store(true, Ordering::SeqCst);
                 if append_newline && typing_has_output.load(Ordering::Relaxed) {

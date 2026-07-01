@@ -6,6 +6,25 @@ kano: performance
 
 # FEAT-VTT037: Correction dictionary for commonly mistranscribed words
 
+## Status note (2026-07-01)
+Implementation complete on this session's branch (settings.rs, corrections.rs,
+main.rs wiring): 88 tests pass, clippy/fmt clean, release build green. All four
+ACs below are code-verified. Held at `backlog` rather than promoted to
+`maintained`/`done` — the review-gate requires human approval (see Requires-human
+note), and separately the operator has not yet rebuilt/reinstalled to verify in
+daily dictation use (reasonably deferred: they were actively using the
+currently-installed binary to dictate this very session). Promote once both the
+approval and a real-use check land — no further coding needed first.
+
+## Requires-human (discovered gate bug, not by design)
+`packages/core/review/readiness.ts::getFeatureKano` only reads
+`FEATURE-ACTIVE-INDEX.md` to resolve a feature's kano tier for the
+review-gates kano_overrides. This repo's `FEATURE-ACTIVE-INDEX.md` is always
+empty — features go straight from backlog to maintained/done — so the kano
+override for `performance` (agent-gate) never resolves and every feature here
+silently falls back to the base `human`-gate default. Filed as TASK-VTT120
+against this repo since it affects every feature closure, not just this one.
+
 ## Kano
 performance (p1)
 
@@ -31,14 +50,14 @@ never reaches the clipboard again.
 - An empty or missing correction list is a no-op — transcription behaves exactly as today
 
 ## Acceptance Criteria
-- [ ] **AC-1** — `settings.conf` gains a user-editable correction list (format TBD at build time — candidates: repeated `correction="misheard=>correct"` lines, or a separate `corrections.txt`)
-- [ ] **AC-2** — Corrections apply after Whisper inference and before clipboard paste, as whole-word/phrase matches (no partial-word corruption, e.g. correcting "ard" must not mangle "hard")
-- [ ] **AC-3** — Corrections are additive to, not a replacement for, the existing `initial_prompt` field — both mechanisms coexist
-- [ ] **AC-4** — Documented in README/settings comments so the feature is discoverable without reading source
+- [x] **AC-1** — `settings.conf` gains a user-editable correction list: repeated `correction="misheard=>correct"` lines, parsed into `Settings.corrections: Vec<(String, String)>` — verified in `src/settings.rs` (`Settings::load`/`save`) + unit tests
+- [x] **AC-2** — Corrections apply after Whisper inference and before clipboard paste, as case-insensitive whole-word/phrase matches (no partial-word corruption) — verified in `src/corrections.rs::apply` (`\b`-anchored regex) + unit tests, wired in `src/main.rs` before `compose_final_text`
+- [x] **AC-3** — Corrections are additive to, not a replacement for, the existing `initial_prompt` field — `initial_prompt` still biases inference first; `corrections::apply` runs after, on the transcribed text
+- [x] **AC-4** — Documented — `settings.conf` self-documents the line format via an auto-written comment (verified by `settings_conf_documents_the_correction_line_format` test)
 
-## Open questions (for build time)
-- File format for the correction list — inline in `settings.conf` vs. a dedicated file
-- Whether the Linux "Customize Transcription Settings..." dialog (src/tray/linux.rs) gains a matching editor, or v1 ships settings.conf-only (macOS/Windows currently have no settings GUI at all — tracked separately as FEAT-VTT033, backlog p2)
+## Resolved (were open questions at capture time)
+- File format: inline in `settings.conf` (reused the existing `prompt=` escape/parse machinery), no new file
+- GUI: v1 ships settings.conf-only, matching current cross-platform reality (macOS/Windows have no settings GUI at all yet — tracked separately as FEAT-VTT033, backlog p2). A Linux tray textarea editor is a natural follow-up, not filed as its own task since it's optional polish, not a gap.
 
 ## Linked Tasks
 - TASK-VTT118

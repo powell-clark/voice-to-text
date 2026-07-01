@@ -3140,6 +3140,7 @@ dependencies = [
  "libc",
  "muda",
  "rdev",
+ "regex",
  "reqwest",
  "sha2",
  "tempfile",

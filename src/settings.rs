@@ -32,6 +32,12 @@ pub struct Settings {
     /// by the tray dialog; longer values from hand-edited settings.conf are
     /// silently truncated by whisper-rs.
     pub initial_prompt: String,
+    /// User-editable list of `(misheard, correct)` pairs (FEAT-VTT037),
+    /// applied as a deterministic whole-word/phrase substitution pass after
+    /// Whisper transcribes, before the text is typed. Complements
+    /// `initial_prompt`: the prompt biases inference, this guarantees a fix
+    /// for a specific known mishearing regardless of how Whisper hears it.
+    pub corrections: Vec<(String, String)>,
     /// cpal device index. -1 means "use default". Read from settings.conf
     /// and saved back, but not yet consumed by `audio::Audio::new()` which
     /// currently always uses the default input device. Wiring is tracked
@@ -65,6 +71,7 @@ impl Default for Settings {
             selected_language: "en".into(),
             voice_prefix: "[Voice] ".into(),
             initial_prompt: String::new(),
+            corrections: Vec::new(),
             selected_device_index: -1,
             hotkey_keycode: 0, // 0 = use default Scroll Lock
             append_newline: true,
@@ -103,6 +110,13 @@ impl Settings {
                     "language" => settings.selected_language = value,
                     "prefix" => settings.voice_prefix = value,
                     "prompt" => settings.initial_prompt = value,
+                    "correction" => {
+                        if let Some((from, to)) = value.split_once("=>") {
+                            settings
+                                .corrections
+                                .push((from.trim().to_string(), to.trim().to_string()));
+                        }
+                    }
                     "device" => {
                         settings.selected_device_index = value.parse().unwrap_or(-1);
                     }
@@ -139,6 +153,14 @@ impl Settings {
         out.push_str(&format!("language={}\n", self.selected_language));
         out.push_str(&format!("prefix=\"{}\"\n", escape(&self.voice_prefix)));
         out.push_str(&format!("prompt=\"{}\"\n", escape(&self.initial_prompt)));
+        out.push_str("# correction=\"misheard=>correct\" — repeat this line for each word/phrase Whisper reliably mishears\n");
+        for (from, to) in &self.corrections {
+            out.push_str(&format!(
+                "correction=\"{}=>{}\"\n",
+                escape(from),
+                escape(to)
+            ));
+        }
         out.push_str(&format!("device={}\n", self.selected_device_index));
         if self.hotkey_keycode >= 8 {
             out.push_str(&format!("hotkey={}\n", self.hotkey_keycode));
@@ -247,6 +269,10 @@ mod tests {
             selected_language: "auto".into(),
             voice_prefix: "[Speech] ".into(),
             initial_prompt: "transcribe accurately".into(),
+            corrections: vec![
+                ("ard".into(), "odd".into()),
+                ("amala vajrayana".into(), "Amala Vijnana".into()),
+            ],
             selected_device_index: 3,
             hotkey_keycode: 78,
             append_newline: false,
@@ -262,6 +288,7 @@ mod tests {
         assert_eq!(loaded.selected_language, original.selected_language);
         assert_eq!(loaded.voice_prefix, original.voice_prefix);
         assert_eq!(loaded.initial_prompt, original.initial_prompt);
+        assert_eq!(loaded.corrections, original.corrections);
         assert_eq!(loaded.selected_device_index, original.selected_device_index);
         assert_eq!(loaded.hotkey_keycode, original.hotkey_keycode);
         assert_eq!(loaded.append_newline, original.append_newline);
@@ -312,6 +339,51 @@ mod tests {
         let s = Settings::load(dir.path());
         assert_eq!(s.selected_model, "medium");
         assert_eq!(s.selected_language, "en");
+    }
+
+    #[test]
+    fn settings_parses_multiple_correction_lines_in_order() {
+        let dir = tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.conf"),
+            "correction=\"ard=>odd\"\ncorrection=\"amala vajrayana=>Amala Vijnana\"\n",
+        )
+        .unwrap();
+        let s = Settings::load(dir.path());
+        assert_eq!(
+            s.corrections,
+            vec![
+                ("ard".to_string(), "odd".to_string()),
+                ("amala vajrayana".to_string(), "Amala Vijnana".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn settings_ignores_correction_line_missing_arrow() {
+        let dir = tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.conf"),
+            "correction=\"no arrow here\"\n",
+        )
+        .unwrap();
+        let s = Settings::load(dir.path());
+        assert!(s.corrections.is_empty());
+    }
+
+    #[test]
+    fn settings_conf_documents_the_correction_line_format() {
+        let dir = tempdir().unwrap();
+        let s = Settings {
+            config_dir: dir.path().to_path_buf(),
+            ..Settings::default()
+        };
+        s.save().unwrap();
+        let content = std::fs::read_to_string(dir.path().join("settings.conf")).unwrap();
+        assert!(
+            content.contains("correction=\"misheard=>correct\""),
+            "settings.conf should self-document the correction line format for discoverability"
+        );
     }
 
     #[test]

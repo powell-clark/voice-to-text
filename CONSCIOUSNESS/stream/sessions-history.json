@@ -705,20 +705,20 @@
         "autonomous_loops": 0,
         "tasks_completed": [],
         "commits": 0,
-        "turns": 5,
-        "human_prompts": 6,
+        "turns": 6,
+        "human_prompts": 7,
         "errors": 0,
         "compactions": 0,
         "hooks_latency_ms": {
           "session-init": 79,
-          "message-end": 22
+          "message-end": 23
         },
         "usage": {
           "input_tokens": 0,
           "output_tokens": 0
         },
         "ralph_loops": null,
-        "framing_checks_count": 3,
+        "framing_checks_count": 4,
         "framing_compliance_count": 0
       }
     }

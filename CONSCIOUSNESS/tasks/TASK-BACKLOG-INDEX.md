@@ -39,4 +39,4 @@ TASK-VTT114|p2|macOS clipboard auto-paste sends Ctrl+V — must be Cmd+V|STORY-V
 TASK-VTT115|p3|PGPS feature MAINTAINED/DONE display double-lists — validator rejects the status column the display script requires (consciousness v0.42.9, TASK-VTT079)||||TASK-VTT115.md|||||b2f||
 TASK-VTT116|p3|APGPS connectivity test — does the issue API land reports on the dashboard now that voice-to-text is connected?||||TASK-VTT116.md|||||b2g||
 TASK-VTT117|p3|APGPS connectivity re-test after OAuth re-auth — does the issue API land on the dashboard now?||||TASK-VTT117.md|||||b2h||
-TASK-VTT118|p0|Correction dictionary for commonly mistranscribed words|STORY-VTT019|DIRECT-VTT002|FEAT-VTT037|TASK-VTT118.md|||||b2i||
+TASK-VTT120|p2|Review-gate kano override never resolves (getFeatureKano bug)||DIRECT-VTT002||TASK-VTT120.md|||||b2i||
