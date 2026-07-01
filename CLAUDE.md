@@ -76,6 +76,21 @@ debian/              — Debian package metadata (must stay at root for dpkg)
 wix/                 — WiX installer template (must stay at root for cargo-wix)
 ```
 
+## Feature status: done vs maintained
+
+The PGPS status field currently blurs two distinct terminal states — separate them when grooming:
+
+- **done** — a one-time achievement that stays true forever with no per-release effort (e.g. the
+  pure-Rust/no-Python rewrite, dual-backend removal, ObjC removal). Once shipped, never revisited.
+- **maintained** — works, but must be re-tested every release or it can silently break (e.g. the
+  key-repeat filter, the resident model, auto model download, the apt PPA). An ongoing burden,
+  not a one-off win.
+
+Don't auto-stamp a feature `[maintained]` by default — check whether it's genuinely a one-time
+"done" or a per-release "maintained" burden. When an autonomous card audit sets a feature status
+based on absence-of-code, verify it matches actual intent before treating it as settled — absence
+of code in this tree does not mean a capability is unsupported (see the Homebrew tap note above).
+
 ## Commit messages
 
 Use conventional commit style (`feat:`, `fix:`, `chore:`, etc.).
