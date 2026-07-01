@@ -1,8 +1,8 @@
 # STORY-VTT013: Windows builds
 
 ## User Story
-As Emmanuel I want Windows builds so that my Windows desktop — and Kyle's
-Snapdragon laptop — has the same VTT as Linux and Mac.
+As Emmanuel I want Windows builds so that my Windows desktop — and the ARM64
+tester's Snapdragon laptop — has the same VTT as Linux and Mac.
 
 ## Why This Matters
 The IVM is explicit: "Free, open-source, cross-platform voice-to-text that
@@ -21,14 +21,14 @@ dependency block (enigo, tray-icon, muda, rdev, whisper-rs). But it has
 (theory); a green Windows build is gensho (actual proof). This story closes
 that gap.
 
-The concrete trigger: Kyle owns a Lenovo IdeaPad with a Snapdragon X Plus —
-Windows-on-ARM (aarch64). He becomes our first real Windows user and the
-proving ground. A built-in tool is an explicit *interim* stopgap that retires
-the moment our binary runs on his machine.
+The concrete trigger: the ARM64 tester owns a Lenovo IdeaPad with a Snapdragon
+X Plus — Windows-on-ARM (aarch64). They become our first real Windows user and
+the proving ground. A built-in tool is an explicit *interim* stopgap that
+retires the moment our binary runs on their machine.
 
 ## Scope
 - **In scope (this pass):** x86-64 Windows compile-green + a Windows CI job
-  (TASK-VTT063); ARM64/Snapdragon CPU build for Kyle (TASK-VTT064); the
+  (TASK-VTT063); ARM64/Snapdragon CPU build for the ARM64 tester (TASK-VTT064); the
   pre-existing runtime-feature fixes (singleton mutex TASK-VTT044, signal
   handler TASK-VTT045) once compilation is green; `.msi` installer
   (TASK-VTT046); Authenticode signing (TASK-VTT047).
@@ -47,7 +47,7 @@ cfg-gated — no platform hacks bleed into shared code.
 
 ## Tasks
 - TASK-VTT063 — Windows x86-64 compile-green + CI build job (foundational; the missing prerequisite)
-- TASK-VTT064 — Windows ARM64 (Snapdragon) CPU build for Kyle
+- TASK-VTT064 — Windows ARM64 (Snapdragon) CPU build
 - TASK-VTT044 — Windows singleton: replace flock with CreateMutexW named mutex
 - TASK-VTT045 — Windows signal handling: replace sigwait with SetConsoleCtrlHandler
 - TASK-VTT046 — cargo-wix .msi installer with Start Menu shortcut
@@ -55,5 +55,5 @@ cfg-gated — no platform hacks bleed into shared code.
 
 ## Definition of Done
 A green Windows CI build on every push/PR. A runnable Windows binary that does
-push-to-talk dictation. Kyle's Snapdragon transcribing with our tool, the
-built-in stopgap retired.
+push-to-talk dictation. The ARM64 tester's Snapdragon transcribing with our
+tool, the built-in stopgap retired.

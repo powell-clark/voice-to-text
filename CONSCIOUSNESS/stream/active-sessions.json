@@ -1,24 +1,24 @@
 {
   "sessions": {
-    "vtt-main-8db8f9db": {
+    "vtt-main-63e863c4": {
       "assignment_message_id": null,
-      "canonical_id": "8db8f9db-f8b9-4075-9847-9faeed776fb5",
+      "canonical_id": "63e863c4-1fb0-4ee2-acb9-a68416a24c64",
       "conscious_mode": false,
       "context": {
         "adapter": "claude-code",
-        "pane": "%5",
+        "pane": "%12",
         "project": "vtt"
       },
       "current_activity": null,
-      "current_task": "TASK-VTT063",
+      "current_task": "TASK-VTT106",
       "identity": null,
-      "last_activity": "2026-06-21T10:24:48.666Z",
-      "model": null,
+      "last_activity": "2026-07-01T03:45:48.565Z",
+      "model": "sonnet",
       "pane_id": null,
-      "role": null,
+      "role": "bodhisattva",
       "session_type": "cli",
       "specialty": null,
-      "started": "2026-06-21T09:47:22.370Z"
+      "started": "2026-07-01T02:28:24.656Z"
     }
   }
 }

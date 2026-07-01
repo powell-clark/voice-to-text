@@ -22,14 +22,14 @@ When the user selects a model that is not present in the local cache, VTT downlo
 - All downloaded models live at `~/.cache/voice-to-text/models/ggml-*.bin`
 
 ## Acceptance Criteria
-- [x] `src/models.rs` exposes `ensure_model(name, progress_callback) -> Result<PathBuf>` — verified in source
-- [ ] [deferred → TASK-VTT112] `MODELS` carries a stored expected SHA-256 per model — NOT implemented; `src/models.rs` computes and logs the download hash but does not check it against an expected constant
-- [x] Downloads use HTTPS with certificate validation (rustls-tls); no plain HTTP ever — verified in source (reqwest with rustls-tls)
-- [x] Partial downloads write to `<filename>.tmp` and atomically rename only after hash verification — verified in `src/models.rs`
-- [x] Progress callback fires at least every 256 KB of downloaded data — verified in source
-- [x] Network errors are user-friendly — verified in daily use (user-readable tray messages on failure)
-- [ ] [deferred → TASK-VTT112] Cached models re-validated by stored SHA on first use; corrupted ones re-downloaded — NOT implemented (no stored hashes to validate against)
-- [x] No partial files ever end up as the target filename — only atomic renames after verification — verified in source
+- [x] **AC-1** — `src/models.rs` exposes `ensure_model(name, progress_callback) -> Result<PathBuf>` — verified in source
+- [ ] **AC-2** — [deferred → TASK-VTT112] `MODELS` carries a stored expected SHA-256 per model — NOT implemented; `src/models.rs` computes and logs the download hash but does not check it against an expected constant
+- [x] **AC-3** — Downloads use HTTPS with certificate validation (rustls-tls); no plain HTTP ever — verified in source (reqwest with rustls-tls)
+- [x] **AC-4** — Partial downloads write to `<filename>.tmp` and atomically rename only after hash verification — verified in `src/models.rs`
+- [x] **AC-5** — Progress callback fires at least every 256 KB of downloaded data — verified in source
+- [x] **AC-6** — Network errors are user-friendly — verified in daily use (user-readable tray messages on failure)
+- [ ] **AC-7** — [deferred → TASK-VTT112] Cached models re-validated by stored SHA on first use; corrupted ones re-downloaded — NOT implemented (no stored hashes to validate against)
+- [x] **AC-8** — No partial files ever end up as the target filename — only atomic renames after verification — verified in source
 
 ## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
 Anchored to `CONSCIOUSNESS/artifacts/PARITY-MATRIX.md` (capability 8 — model download). Behaviour is identical on all platforms (one `src/models.rs` path); the only gap is cross-cutting.

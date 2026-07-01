@@ -23,30 +23,30 @@
       }
     },
     "stories": {
-      "columns": ["id", "priority", "title", "epic_id", "task_ids", "feature_ids", "doc"],
-      "columns_active": ["id", "status", "priority", "title", "epic_id", "task_ids", "feature_ids", "doc"],
-      "columns_done": ["id", "title", "epic_id", "task_ids", "feature_ids", "doc"],
+      "columns": ["id", "priority", "title", "directive_id", "task_ids", "feature_ids", "doc"],
+      "columns_active": ["id", "status", "priority", "title", "directive_id", "task_ids", "feature_ids", "doc"],
+      "columns_done": ["id", "title", "directive_id", "task_ids", "feature_ids", "doc"],
       "required": ["id", "title"],
       "id_pattern": "^STORY-[A-Z0-9]{2,6}\\d{1,5}$",
       "priority_values": ["p0", "p1", "p2", "p3", "p4", "p5"],
       "status_values": ["upcoming", "in_progress", "in_review", "blocked", "dropped", ""],
       "fk_patterns": {
-        "epic_id": "^DIRECT-[A-Z0-9]{2,6}\\d{1,5}$",
+        "directive_id": "^DIRECT-[A-Z0-9]{2,6}\\d{1,5}$",
         "feature_ids": "^FEAT-[A-Z0-9]{2,6}\\d{1,5}$",
         "task_ids": "^TASK-[A-Z0-9]{2,6}\\d{1,5}$"
       }
     },
     "tasks": {
-      "columns": ["id", "priority", "title", "story_ids", "epic_id", "feature_ids", "doc", "blocked_by", "blocks", "assignee", "parent_task_id", "sequence"],
-      "columns_active": ["id", "status", "priority", "title", "story_ids", "epic_id", "feature_ids", "doc", "blocked_by", "blocks", "assignee", "parent_task_id", "sequence"],
-      "columns_done": ["id", "title", "story_ids", "epic_id", "feature_ids", "doc"],
+      "columns": ["id", "priority", "title", "story_ids", "directive_id", "feature_ids", "doc", "blocked_by", "blocks", "assignee", "parent_task_id", "sequence"],
+      "columns_active": ["id", "status", "priority", "title", "story_ids", "directive_id", "feature_ids", "doc", "blocked_by", "blocks", "assignee", "parent_task_id", "sequence"],
+      "columns_done": ["id", "title", "story_ids", "directive_id", "feature_ids", "doc"],
       "required": ["id", "title"],
       "id_pattern": "^TASK-[A-Z0-9]{2,6}\\d{1,5}$",
       "priority_values": ["p0", "p1", "p2", "p3", "p4", "p5"],
       "status_values": ["upcoming", "in_progress", "in_review", "blocked", "dropped", ""],
       "fk_patterns": {
         "story_ids": "^STORY-[A-Z0-9]{2,6}\\d{1,5}$",
-        "epic_id": "^DIRECT-[A-Z0-9]{2,6}\\d{1,5}$",
+        "directive_id": "^DIRECT-[A-Z0-9]{2,6}\\d{1,5}$",
         "feature_ids": "^FEAT-[A-Z0-9]{2,6}\\d{1,5}$",
         "blocked_by": "^([A-Z]{2,6}:)?(DIRECT|STORY|TASK|FEAT)-[A-Z0-9]{2,6}\\d{1,5}$",
         "blocks": "^([A-Z]{2,6}:)?(DIRECT|STORY|TASK|FEAT)-[A-Z0-9]{2,6}\\d{1,5}$",

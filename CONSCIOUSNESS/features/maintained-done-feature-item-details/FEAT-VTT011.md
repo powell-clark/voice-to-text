@@ -12,10 +12,10 @@ The `initial_prompt` field in `settings.conf` is passed directly to the Whisper 
 **Note:** The original feature description referenced "both backends" (Python CT2 + whisper.cpp). The Python backend was retired in ADR-0003 (v2.0.0). This feature now covers only the whisper-rs backend.
 
 ## Acceptance Criteria
-- [x] `initial_prompt` value from `settings.conf` is passed to the whisper-rs `full_params` `initial_prompt` field — verified in `src/whisper.rs`
-- [x] A prompt of `Emmanuel Powell-Clark` causes "Emmanuel Powell-Clark" to be transcribed correctly when spoken — verified in daily use
-- [x] Setting `initial_prompt` to empty string is a no-op (no Whisper errors) — verified
-- [x] The prompt is not prepended to the transcription output — it is only passed as inference context — verify by checking output
+- [x] **AC-1** — `initial_prompt` value from `settings.conf` is passed to the whisper-rs `full_params` `initial_prompt` field — verified in `src/whisper.rs`
+- [x] **AC-2** — A prompt of `Emmanuel Powell-Clark` causes "Emmanuel Powell-Clark" to be transcribed correctly when spoken — verified in daily use
+- [x] **AC-3** — Setting `initial_prompt` to empty string is a no-op (no Whisper errors) — verified
+- [x] **AC-4** — The prompt is not prepended to the transcription output — it is only passed as inference context — verify by checking output
 
 ## Linked Tasks
 - TASK-VTT009

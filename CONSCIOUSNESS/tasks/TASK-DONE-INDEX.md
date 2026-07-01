@@ -1,4 +1,4 @@
-id|title|story_ids|epic_id|feature_ids|doc
+id|title|story_ids|directive_id|feature_ids|doc
 TASK-VTT107|Smooth release CI/CD — never hang or fail a publish|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT107.md
 TASK-VTT094|Start on login / autostart — Windows (HKCU Run) + tray toggle|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT094.md
 TASK-VTT093|Windows/macOS tray icon never changes state (recording/processing)|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT093.md
@@ -18,15 +18,15 @@ TASK-VTT046|cargo-wix .msi installer with Start Menu shortcut|STORY-VTT013|DIREC
 TASK-VTT069|macOS CI job, Rust release workflow, stale ObjC scripts removed||DIRECT-VTT002||
 TASK-VTT067|Root-level scripts tidy and RELEASE_SETUP rewrite||DIRECT-VTT002||
 TASK-VTT066|Repo structure tidy — remove empty stale CONSCIOUSNESS dirs and build artifacts||DIRECT-VTT002||TASK-VTT066.md
-TASK-VTT001|Implement PortAudio recording with quality filters|STORY-VTT001||FEAT-VTT001|
-TASK-VTT002|Integrate faster-whisper with CUDA GPU acceleration|STORY-VTT001||FEAT-VTT002,FEAT-VTT009|
-TASK-VTT003|Create macOS menu bar app with Cocoa/Objective-C|STORY-VTT001||FEAT-VTT003|
-TASK-VTT004|Create Linux system tray with GTK3|STORY-VTT001||FEAT-VTT004|
-TASK-VTT005|Implement text injection via XTest (Linux) and Accessibility API (macOS)|STORY-VTT001||FEAT-VTT005|
-TASK-VTT006|Add multi-language support with auto-detection|STORY-VTT001||FEAT-VTT006|
-TASK-VTT007|Create Homebrew cask formula for macOS distribution|STORY-VTT002||FEAT-VTT007|
-TASK-VTT008|Create APT PPA for Linux distribution|STORY-VTT002||FEAT-VTT008|
-TASK-VTT009|Wire initial_prompt setting through to both transcription backends with shell-escaping|STORY-VTT003||FEAT-VTT011|
+TASK-VTT001|Implement PortAudio recording with quality filters|STORY-VTT001|DIRECT-VTT001|FEAT-VTT001|
+TASK-VTT002|Integrate faster-whisper with CUDA GPU acceleration|STORY-VTT001|DIRECT-VTT001|FEAT-VTT002,FEAT-VTT009|
+TASK-VTT003|Create macOS menu bar app with Cocoa/Objective-C|STORY-VTT001|DIRECT-VTT001|FEAT-VTT003|
+TASK-VTT004|Create Linux system tray with GTK3|STORY-VTT001|DIRECT-VTT001|FEAT-VTT004|
+TASK-VTT005|Implement text injection via XTest (Linux) and Accessibility API (macOS)|STORY-VTT001|DIRECT-VTT001|FEAT-VTT005|
+TASK-VTT006|Add multi-language support with auto-detection|STORY-VTT001|DIRECT-VTT001|FEAT-VTT006|
+TASK-VTT007|Create Homebrew cask formula for macOS distribution|STORY-VTT002|DIRECT-VTT001|FEAT-VTT007|
+TASK-VTT008|Create APT PPA for Linux distribution|STORY-VTT002|DIRECT-VTT001|FEAT-VTT008|
+TASK-VTT009|Wire initial_prompt setting through to both transcription backends with shell-escaping|STORY-VTT003|DIRECT-VTT001|FEAT-VTT011|
 TASK-VTT010|Add large-v3-turbo and distil-large-v3 models, trim obsolete models from menu|STORY-VTT004||FEAT-VTT017|
 TASK-VTT011|Create hardened PPA release script with pre-flight checks and git tagging|STORY-VTT004||FEAT-VTT016|
 TASK-VTT012|Fix clipboard paste via xclip subprocess replacing broken XSetSelectionOwner|STORY-VTT006||FEAT-VTT012|
@@ -70,6 +70,6 @@ TASK-VTT081|Split directives by platform; ready Windows handoff||DIRECT-VTT002||
 TASK-VTT084|Pre-stage Windows handoff from Linux — verify CI green, add smoke-test script|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT084.md
 TASK-VTT085|Upgrade quinn-proto to >=0.11.15 — close RUSTSEC-2026-0185|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT085.md
 TASK-VTT105|Claude PR-automation workflow parity|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT105.md
-TASK-VTT110|Debian packaging fixes — xclip dep, postinst sha256 verify, postrm purge cleanup||DIRECT-VTT002|FEAT-VTT012,FEAT-VTT028|
+TASK-VTT110|Harden Debian packaging — xclip dep, postinst sha256 verify, postrm purge cleanup||DIRECT-VTT002|FEAT-VTT012,FEAT-VTT028|
 TASK-VTT111|Correct stale feature-card acceptance criteria + add README CI badge||DIRECT-VTT002|FEAT-VTT017,FEAT-VTT027,FEAT-VTT035|
 TASK-VTT113|Consciousness health repair and feature review backfill|STORY-VTT018|DIRECT-VTT002||

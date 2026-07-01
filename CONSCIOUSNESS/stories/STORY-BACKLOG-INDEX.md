@@ -1,5 +1,6 @@
-id|priority|title|epic_id|task_ids|feature_ids|doc
+id|priority|title|directive_id|task_ids|feature_ids|doc
 STORY-VTT012|p1|As Emmanuel I want macOS builds for my 2019 Intel i9 and Apple Silicon so that I can dictate on all my machines|DIRECT-VTT003|TASK-VTT040,TASK-VTT041,TASK-VTT042,TASK-VTT043,TASK-VTT114|FEAT-VTT029,FEAT-VTT036|
+STORY-VTT019|p1|As Emmanuel I want a correction dictionary for commonly mistranscribed words so that recurring words and phrases transcribe correctly without retraining the model|DIRECT-VTT002|TASK-VTT118|FEAT-VTT037|
 STORY-VTT014|p2|As Emmanuel I want GitHub Actions matrix builds so that every tag auto-releases binaries for Linux, macOS Intel, macOS ARM and Windows|DIRECT-VTT002|TASK-VTT048,TASK-VTT049|FEAT-VTT031|
 STORY-VTT015|p2|As Emmanuel I want Silero VAD integration so that recording auto-stops on silence and filters background noise|DIRECT-VTT002|TASK-VTT050|FEAT-VTT032|
 STORY-VTT016|p2|As Emmanuel I want a settings GUI dialog so that I do not have to edit settings.conf by hand|DIRECT-VTT002|TASK-VTT051|FEAT-VTT033|

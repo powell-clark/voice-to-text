@@ -21,12 +21,12 @@ On first install from the PPA, a postinst script downloads `ggml-small.en.bin` (
 - On package purge (`apt purge voice-to-text`), the shared model cache at `/usr/share/voice-to-text/models/` is removed; the user's personal cache at `~/.cache/voice-to-text/models/` is preserved
 
 ## Acceptance Criteria
-- [x] `debian/postinst` downloads `ggml-small.en.bin` to a `.tmp` file, verifies SHA-256, and atomically renames — verified in `debian/postinst`
-- [x] Postinst is idempotent — running twice with the file present is a no-op — verified in source (checks if file exists first)
-- [x] Postinst network failure prints a user-friendly warning but does not fail the install (`exit 0`) — verified in `debian/postinst`
-- [x] `src/models.rs::model_path` checks `/usr/share/voice-to-text/models/` before `~/.cache/voice-to-text/models/` — verified in source
-- [x] `debian/postrm` on `purge` removes `/usr/share/voice-to-text/models/` — verify in `debian/postrm`
-- [x] Fresh install: binary transcribes on first launch without a second download prompt — verified in v2.0.0 local install testing
+- [x] **AC-1** — `debian/postinst` downloads `ggml-small.en.bin` to a `.tmp` file, verifies SHA-256, and atomically renames — verified in `debian/postinst`
+- [x] **AC-2** — Postinst is idempotent — running twice with the file present is a no-op — verified in source (checks if file exists first)
+- [x] **AC-3** — Postinst network failure prints a user-friendly warning but does not fail the install (`exit 0`) — verified in `debian/postinst`
+- [x] **AC-4** — `src/models.rs::model_path` checks `/usr/share/voice-to-text/models/` before `~/.cache/voice-to-text/models/` — verified in source
+- [x] **AC-5** — `debian/postrm` on `purge` removes `/usr/share/voice-to-text/models/` — verify in `debian/postrm`
+- [x] **AC-6** — Fresh install: binary transcribes on first launch without a second download prompt — verified in v2.0.0 local install testing
 
 ## Linked Tasks
 - TASK-VTT037

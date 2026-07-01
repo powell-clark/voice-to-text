@@ -1,4 +1,4 @@
-id|priority|title|story_ids|epic_id|feature_ids|doc|blocked_by|blocks|assignee|parent_task_id|sequence
+id|priority|title|story_ids|directive_id|feature_ids|doc|blocked_by|blocks|assignee|parent_task_id|sequence
 TASK-VTT098|p2|Windows tray Logs submenu — parity with Linux FEAT-VTT004|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT098.md|||||g1
 TASK-VTT108|p2|Branded Windows app + installer icon and version info|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT108.md|||||g1b
 TASK-VTT101|p3|Windows installer pre-provisions the default model — parity FEAT-VTT028|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT101.md|||||g1a
@@ -10,7 +10,7 @@ TASK-VTT095|p2|Update mechanism — how Windows/macOS users get new versions|STO
 TASK-VTT056|p3|Monitor current release in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover (was scoped to v2.0.5, now superseded by v2.3.7)|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT056.md|||||b0
 TASK-VTT070|p1|Vendor refresh — upgrade rustls-webpki to >=0.103.13 to close RUSTSEC-2026-0104||DIRECT-VTT002||TASK-VTT070.md|||||b1
 TASK-VTT060|p1|Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT060.md|||||b2
-TASK-VTT064|p1|Windows ARM64 Snapdragon CPU build for Kyle|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT064.md|TASK-VTT082||||b2a
+TASK-VTT064|p1|Windows ARM64 Snapdragon CPU build|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT064.md|TASK-VTT082||||b2a
 TASK-VTT047|p1|Windows Authenticode code signing|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT047.md|TASK-VTT064||||b3
 TASK-VTT040|p1|cargo bundle macOS .app with metal feature, Info.plist with NSMicrophoneUsageDescription|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT040.md|||||b4
 TASK-VTT041|p2|Verify transcription on 2019 Intel i9 Mac with Radeon Pro 5500M via Metal|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT041.md|TASK-VTT040||||b5
@@ -36,3 +36,7 @@ TASK-VTT080|p3|Features and testing are not connected — add per-feature test-s
 TASK-VTT083|p3|Story and task indexes still use 'epic_id' column header instead of 'directive_id' (naming-precision residue; drives fk-asymmetry validator warnings)||||TASK-VTT083.md|||||b2e||
 TASK-VTT112|p3|Add stored per-model SHA-256 verification to src/models.rs||DIRECT-VTT002|FEAT-VTT026||||||
 TASK-VTT114|p2|macOS clipboard auto-paste sends Ctrl+V — must be Cmd+V|STORY-VTT012|DIRECT-VTT003|FEAT-VTT012||||||
+TASK-VTT115|p3|PGPS feature MAINTAINED/DONE display double-lists — validator rejects the status column the display script requires (consciousness v0.42.9, TASK-VTT079)||||TASK-VTT115.md|||||b2f||
+TASK-VTT116|p3|APGPS connectivity test — does the issue API land reports on the dashboard now that voice-to-text is connected?||||TASK-VTT116.md|||||b2g||
+TASK-VTT117|p3|APGPS connectivity re-test after OAuth re-auth — does the issue API land on the dashboard now?||||TASK-VTT117.md|||||b2h||
+TASK-VTT118|p0|Correction dictionary for commonly mistranscribed words|STORY-VTT019|DIRECT-VTT002|FEAT-VTT037|TASK-VTT118.md|||||b2i||
