@@ -1,6 +1,7 @@
 id|title|story_ids|directive_id|feature_ids|doc
 TASK-VTT106|cargo audit red — RUSTSEC-2026-0186 memmap2 unsound|||||TASK-VTT106.md
 TASK-VTT118|Correction dictionary for commonly mistranscribed words|STORY-VTT019|DIRECT-VTT002|FEAT-VTT037|TASK-VTT118.md
+TASK-VTT119|cargo audit red — RUSTSEC-2026-0190 anyhow unsound||DIRECT-VTT002||TASK-VTT119.md
 TASK-VTT107|Smooth release CI/CD — never hang or fail a publish|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT107.md
 TASK-VTT094|Start on login / autostart — Windows (HKCU Run) + tray toggle|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT094.md
 TASK-VTT093|Windows/macOS tray icon never changes state (recording/processing)|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT093.md
