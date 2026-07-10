@@ -6,7 +6,7 @@ After=graphical-session.target
 [Service]
 Type=simple
 ExecStart=/usr/bin/vtt-linux
-Restart=on-failure
+Restart=always
 RestartSec=5
 
 # Environment - inherit from user session

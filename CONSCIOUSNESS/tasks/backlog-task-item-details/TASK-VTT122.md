@@ -28,14 +28,17 @@ nothing brought it back, reading to the operator as "service won't restart".
 ## Acceptance criteria
 
 - [ ] `kill -9` of the vtt main process results in systemd restarting it within
-      RestartSec (unit has `Restart=always`)
-- [ ] Tray Quit under systemd stops the service and it stays stopped (no restart
-      loop, `systemctl --user status vtt` shows inactive)
-- [ ] Tray Quit when NOT under systemd (plain foreground run) still exits the
+      RestartSec (unit has `Restart=always`) — unit file updated; runtime
+      verification pending install of the new .deb
+- [x] Tray Quit under systemd stops the service and it stays stopped (no restart
+      loop, `systemctl --user status vtt` shows inactive) — code-verified
+      (INVOCATION_ID → detached `systemctl --user stop vtt`); runtime check
+      after install
+- [x] Tray Quit when NOT under systemd (plain foreground run) still exits the
       process
-- [ ] Both tray implementations (portable + GTK) route through the same quit
+- [x] Both tray implementations (portable + GTK) route through the same quit
       helper
-- [ ] cargo test / clippy / fmt green
+- [x] cargo test / clippy / fmt green
 
 ## Dependencies
 

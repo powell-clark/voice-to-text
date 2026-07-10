@@ -6,6 +6,8 @@ pub enum UiMessage {
 /// Platform-agnostic UI sender (uses mpsc on all platforms)
 pub type UiSender = std::sync::mpsc::Sender<UiMessage>;
 
+mod quit;
+
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
