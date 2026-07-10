@@ -360,6 +360,32 @@ fn main() -> anyhow::Result<()> {
                             hk_ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
                         }
                     }
+                    Some(RecordingResult::NoAudioCaptured) => {
+                        // Dead stream detected and re-opened inside audio.rs;
+                        // tell the user honestly instead of the old misleading
+                        // "Recording too short (0.00s)" (TASK-VTT121).
+                        vtt_log!("No audio captured — mic changed/suspended; stream re-opened");
+                        hk_ui_tx
+                            .send(tray::UiMessage::SetStatus(
+                                "No audio — check microphone".into(),
+                            ))
+                            .ok();
+                        hk_ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
+                        #[cfg(target_os = "linux")]
+                        {
+                            let result = std::process::Command::new("notify-send")
+                                .args([
+                                    "--icon=dialog-warning",
+                                    "--expire-time=5000",
+                                    "Voice to Text",
+                                    "No audio captured — check your microphone and try again",
+                                ])
+                                .status();
+                            if let Err(e) = result {
+                                vtt_log!("notify-send failed: {}", e);
+                            }
+                        }
+                    }
                     Some(RecordingResult::TooShort) | Some(RecordingResult::TooQuiet) => {
                         hk_ui_tx
                             .send(tray::UiMessage::SetStatus("Ready".into()))
