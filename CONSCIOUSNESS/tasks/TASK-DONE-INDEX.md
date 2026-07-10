@@ -78,3 +78,4 @@ TASK-VTT111|Correct stale feature-card acceptance criteria + add README CI badge
 TASK-VTT113|Consciousness health repair and feature review backfill|STORY-VTT018|DIRECT-VTT002||
 TASK-VTT121|Audio capture must recover when input device changes or suspends||DIRECT-VTT005||TASK-VTT121.md
 TASK-VTT122|Service restart semantics — Restart=always + tray Quit stops the unit||DIRECT-VTT002||TASK-VTT122.md
+TASK-VTT126|PPA source tarball must exclude .claude/ and chats/||DIRECT-VTT002||TASK-VTT126.md
