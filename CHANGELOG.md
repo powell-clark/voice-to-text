@@ -9,6 +9,35 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.3.9] — 2026-07-10
+
+### Fixed
+- **Recordings no longer silently die when your microphone changes.** vtt held
+  one audio capture stream open from startup forever; if the mic re-enumerated
+  (USB re-plug), the audio session restarted (logout/login), or
+  PipeWire/WirePlumber suspended the source, every recording came back with
+  zero samples until vtt was manually restarted. The stream is now
+  self-healing: a stream error flags it dead and the next recording re-opens
+  it against the current default device, and any zero-sample capture
+  immediately re-opens the stream so the following press works.
+- **"Recording too short (0.00s)" no longer masks a dead microphone.** A
+  capture that produces zero samples is now reported honestly as
+  "No audio captured — check microphone" (tray status, error icon, and a
+  desktop notification on Linux) instead of blaming your timing.
+- **vtt now restarts automatically after a crash.** The systemd unit uses
+  `Restart=always` (was `on-failure`, which missed clean-but-wrong exits),
+  and tray Quit now stops the service properly via `systemctl --user stop vtt`
+  so an intentional quit stays quit instead of fighting the restart policy.
+
+### Added
+- **Correction dictionary.** A user-editable list of `misheard -> correct`
+  word/phrase pairs in `settings.conf`, applied deterministically after
+  transcription — fixes recurring mistranscriptions (names, jargon) that the
+  `initial_prompt` bias alone cannot pin down.
+
+### Security
+- `anyhow` bumped 1.0.102 → 1.0.103 (RUSTSEC-2026-0190).
+
 ## [2.3.8] — 2026-06-26
 
 ### Changed
