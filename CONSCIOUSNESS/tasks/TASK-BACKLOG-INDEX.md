@@ -40,3 +40,6 @@ TASK-VTT115|p3|PGPS feature MAINTAINED/DONE display double-lists — validator r
 TASK-VTT116|p3|APGPS connectivity test — does the issue API land reports on the dashboard now that voice-to-text is connected?||||TASK-VTT116.md|||||b2g||
 TASK-VTT117|p3|APGPS connectivity re-test after OAuth re-auth — does the issue API land on the dashboard now?||||TASK-VTT117.md|||||b2h||
 TASK-VTT120|p2|Review-gate kano override never resolves (getFeatureKano bug)||DIRECT-VTT002||TASK-VTT120.md|||||b2i||
+TASK-VTT122|p1|Service restart semantics — Restart=always + tray Quit stops the unit||DIRECT-VTT002||TASK-VTT122.md|||||b2j
+TASK-VTT123|p2|Copy last transcription tray menu item|STORY-VTT018|DIRECT-VTT005|FEAT-VTT038|TASK-VTT123.md|||||b2k
+TASK-VTT124|p2|Guard the SIGSEGV at the whisper/FFI boundary — coredumps + JSOC audit||DIRECT-VTT002||TASK-VTT124.md|||||b2l

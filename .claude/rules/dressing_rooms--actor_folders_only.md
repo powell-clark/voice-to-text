@@ -5,7 +5,7 @@
 
 # Dressing rooms actor folders only
 
-CONSCIOUSNESS/dressing-rooms/ contains only actor-named subdirectories plus README.md and .gitkeep; loose files at the dressing-rooms root are forbidden because plumbing files belong in stream/ and actor-private content belongs inside actor subdirectories.
+CONSCIOUSNESS/dressing-rooms/ contains only actor-named subdirectories plus README.md; loose files at the dressing-rooms root are forbidden because plumbing files belong in stream/ and actor-private content belongs inside actor subdirectories.
 
 ## Narrative
 
@@ -30,14 +30,14 @@ semantically claim the space for plumbing, blocking actor-authorship.
 
 ## Requires
 
-- MUST keep CONSCIOUSNESS/dressing-rooms/ free of loose files at root level — only directories named after actor identities, plus README.md and .gitkeep, are permitted
+- MUST keep CONSCIOUSNESS/dressing-rooms/ free of loose files at root level — only directories named after actor identities plus README.md are permitted
 - MUST route auto-tracked state (character.yaml, preferences.yaml, version markers) to CONSCIOUSNESS/stream/, not CONSCIOUSNESS/dressing-rooms/
 - MUST author actor-private content inside CONSCIOUSNESS/dressing-rooms/{actor-name}/ subdirectories rather than at the dressing-rooms root
 - MUST treat the default (unclaimed bodhisattva) as a legitimate session shape — actors are not required to claim a dressing room to be present
 
 ## Forbids
 
-- MUST NOT write loose files to CONSCIOUSNESS/dressing-rooms/ root (except README.md and .gitkeep which document the space)
+- MUST NOT write loose files to CONSCIOUSNESS/dressing-rooms/ root (except README.md, which documents the space)
 - MUST NOT use the dressing-rooms space for plumbing, communal notes, or shared backstage content — plumbing goes to stream/, free-form thinking to artifacts/, structured project state to the relevant PGPS directory
 - MUST NOT force actors to claim an identity at session start — identity claiming is anytime, not gated to entry
 

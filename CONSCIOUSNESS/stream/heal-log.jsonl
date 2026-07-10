@@ -9,3 +9,5 @@
 {"healer_id":"lifecycle-reconcile","ran_at":"2026-06-28T15:22:07.984Z","session_id":"cc2a28f5-66e3-47a8-ba27-6f8767488c70","summary":"reconciled 0 story transition(s), surfaced 4 maturity/open-work notice(s)","files_changed":[],"dry_run":false}
 {"healer_id":"fk-asymmetry","ran_at":"2026-07-01T02:29:43.097Z","session_id":"neurologist-fkrepair-20260701032943","summary":"patched 28 fk back-reference(s)","files_changed":["directives/DIRECT-ACTIVE-INDEX.md"],"dry_run":false}
 {"healer_id":"lifecycle-reconcile","ran_at":"2026-07-01T02:29:43.116Z","session_id":"neurologist-fkrepair-20260701032943","summary":"reconciled 0 story transition(s), surfaced 4 maturity/open-work notice(s)","files_changed":[],"dry_run":false}
+{"healer_id":"fk-asymmetry","ran_at":"2026-07-10T03:32:49.118Z","session_id":"vtt-main-8e922f21","summary":"patched 1 fk back-reference(s)","files_changed":["directives/DIRECT-ACTIVE-INDEX.md"],"dry_run":false}
+{"healer_id":"lifecycle-reconcile","ran_at":"2026-07-10T03:32:49.136Z","session_id":"vtt-main-8e922f21","summary":"reconciled 0 story transition(s), surfaced 4 maturity/open-work notice(s)","files_changed":[],"dry_run":false}

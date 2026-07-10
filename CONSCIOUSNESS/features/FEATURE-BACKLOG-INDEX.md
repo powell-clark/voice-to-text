@@ -13,3 +13,4 @@ FEAT-VTT020|p3|performance|Superseded feature record — kept for archaeological
 FEAT-VTT021|p3|delighter|Batch file transcription mode via --file flag|STORY-VTT009|TASK-VTT023|
 FEAT-VTT018|p3|must-have|Single Rust codebase for Linux macOS and Windows — partial delivery moved to STORY-VTT010|STORY-VTT005|TASK-VTT014,TASK-VTT015,TASK-VTT016,TASK-VTT017,TASK-VTT018,TASK-VTT019,TASK-VTT020|
 FEAT-VTT019|p3|must-have|Windows push-to-talk transcription (superseded by FEAT-VTT030)|STORY-VTT007|TASK-VTT021|
+FEAT-VTT038|p2|delighter|Copy last transcription from the tray menu — recovery net when typed output is lost|STORY-VTT018|TASK-VTT123|FEAT-VTT038.md

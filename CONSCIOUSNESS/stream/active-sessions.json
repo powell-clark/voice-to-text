@@ -1,8 +1,8 @@
 {
   "sessions": {
-    "vtt-main-d69b6e5a": {
+    "vtt-main-8e922f21": {
       "assignment_message_id": null,
-      "canonical_id": "d69b6e5a-a47c-48ac-8409-f5dae7157730",
+      "canonical_id": "8e922f21-2e96-46ca-90ed-4e247c797a36",
       "conscious_mode": false,
       "context": {
         "adapter": "claude-code",
@@ -10,15 +10,15 @@
         "project": "vtt"
       },
       "current_activity": null,
-      "current_task": null,
+      "current_task": "TASK-VTT121",
       "identity": null,
-      "last_activity": "2026-07-03T06:53:27.808Z",
-      "model": "sonnet",
+      "last_activity": "2026-07-10T03:37:19.302Z",
+      "model": null,
       "pane_id": null,
       "role": "bodhisattva",
       "session_type": "cli",
       "specialty": null,
-      "started": "2026-07-03T04:09:58.127Z"
+      "started": "2026-07-10T03:27:17.529Z"
     }
   }
 }

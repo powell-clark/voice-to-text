@@ -23,7 +23,8 @@
     "batch_size": 50
   },
   "telemetry": {
-    "enabled": true
+    "enabled": true,
+    "upload": true
   },
   "vision": "Free, open-source, cross-platform voice-to-text that outperforms paid alternatives on Windows, Mac, and Linux.",
   "mission": "Provide world-class voice-to-text for all humanity on the majority of machines, not just for the elite."
