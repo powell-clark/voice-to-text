@@ -52,14 +52,34 @@ Make capture self-healing and honest, portably (cpal 0.15, all platforms):
 - [ ] After the default input device re-enumerates or suspends while vtt runs,
       the next recording captures audio with no manual restart (reproduce by
       re-plugging the USB mic / toggling the default source)
+      *(deferred: live-hardware verification — mechanism shipped 2026-07-10;
+      verify on next real USB re-plug after installing the release)*
 - [ ] After the PipeWire session restarts under vtt (e.g. logout/login) the next
       recording captures audio with no manual restart
-- [ ] A zero-frame capture is reported as `NoAudioCaptured` (distinct log line +
+      *(deferred: live verification on next logout/login with the release
+      installed; the systemd PartOf drop-in independently covers this trigger)*
+- [x] A zero-frame capture is reported as `NoAudioCaptured` (distinct log line +
       user-visible tray/notification), not `Recording too short (0.00s)`
-- [ ] The stream error callback (`src/audio.rs:110`) triggers a re-open rather
-      than only printing to stderr
-- [ ] A genuine <0.5s recording of real audio still reports `TooShort`
-- [ ] Unit test covers empty-capture vs too-short classification
+- [x] The stream error callback (`src/audio.rs:110`) triggers a re-open rather
+      than only printing to stderr (flags the stream dead; next
+      `start_recording` re-opens)
+- [x] A genuine <0.5s recording of real audio still reports `TooShort`
+- [x] Unit test covers empty-capture vs too-short classification (7 tests on
+      the pure `classify_capture`)
+
+## Resolution (2026-07-10, commit bb326c7)
+
+Three-layer recovery in `src/audio.rs`, device/session-agnostic:
+1. Stream error callback sets a `stream_dead` flag (was print-only).
+2. `start_recording` re-opens a dead stream before capturing.
+3. Zero-sample capture watchdog: `stop_recording` re-opens the stream and
+   returns the new `NoAudioCaptured` result; `main.rs` shows "No audio — check
+   microphone" (tray status + error icon + notify-send on Linux).
+
+Stream construction extracted to `open_capture_stream` (same 16 kHz-direct →
+native-format fallback chain); `Audio._stream` became
+`Mutex<Option<cpal::Stream>>` so recovery can replace it at runtime.
+95 tests, clippy `-D warnings`, fmt all green.
 
 ## Follow-ups (separate tasks, filed when picked up)
 

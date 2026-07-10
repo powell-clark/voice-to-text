@@ -1098,7 +1098,7 @@
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
-        "commits": 0,
+        "commits": 2,
         "turns": 0,
         "human_prompts": 5,
         "errors": 0,
