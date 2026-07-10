@@ -1098,20 +1098,21 @@
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
-        "commits": 3,
-        "turns": 0,
-        "human_prompts": 5,
+        "commits": 5,
+        "turns": 12,
+        "human_prompts": 8,
         "errors": 0,
         "compactions": 0,
         "hooks_latency_ms": {
-          "session-init": 248
+          "session-init": 248,
+          "message-end": 11
         },
         "usage": {
           "input_tokens": 0,
           "output_tokens": 0
         },
         "ralph_loops": null,
-        "framing_checks_count": 0,
+        "framing_checks_count": 4,
         "framing_compliance_count": 0
       }
     }

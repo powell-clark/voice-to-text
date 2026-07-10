@@ -42,3 +42,4 @@ TASK-VTT117|p3|APGPS connectivity re-test after OAuth re-auth — does the issue
 TASK-VTT120|p2|Review-gate kano override never resolves (getFeatureKano bug)||DIRECT-VTT002||TASK-VTT120.md|||||b2i||
 TASK-VTT123|p2|Copy last transcription tray menu item|STORY-VTT018|DIRECT-VTT005|FEAT-VTT038|TASK-VTT123.md|||||b2k
 TASK-VTT124|p2|Guard the SIGSEGV at the whisper/FFI boundary — coredumps + JSOC audit||DIRECT-VTT002||TASK-VTT124.md|||||b2l
+TASK-VTT125|p2|Re-register the macOS Intel self-hosted runner||DIRECT-VTT003||TASK-VTT125.md|||Emmanuel||b2m

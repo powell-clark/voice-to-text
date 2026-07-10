@@ -186,3 +186,15 @@
 {"timestamp":"2026-07-10 04:14:03.022 bst","session_id":"vtt-main-58abd808","hook_name":"message-end","latency_ms":22}
 {"timestamp":"2026-07-10 04:22:16.202 bst","session_id":"vtt-main-c327b59e","hook_name":"session-init","latency_ms":211}
 {"timestamp":"2026-07-10 04:27:17.601 bst","session_id":"vtt-main-8e922f21","hook_name":"session-init","latency_ms":248}
+{"timestamp":"2026-07-10 04:54:13.087 bst","session_id":"vtt-main-8e922f21","hook_name":"message-end","latency_ms":10}
+{"timestamp":"2026-07-10 04:54:56.491 bst","session_id":"vtt-main-8e922f21","hook_name":"message-end","latency_ms":8}
+{"timestamp":"2026-07-10 04:57:16.892 bst","session_id":"vtt-main-8e922f21","hook_name":"message-end","latency_ms":6}
+{"timestamp":"2026-07-10 04:57:55.723 bst","session_id":"vtt-main-8e922f21","hook_name":"message-end","latency_ms":10}
+{"timestamp":"2026-07-10 04:59:36.369 bst","session_id":"vtt-main-8e922f21","hook_name":"message-end","latency_ms":9}
+{"timestamp":"2026-07-10 05:01:17.587 bst","session_id":"vtt-main-8e922f21","hook_name":"message-end","latency_ms":6}
+{"timestamp":"2026-07-10 05:01:37.201 bst","session_id":"vtt-main-8e922f21","hook_name":"message-end","latency_ms":8}
+{"timestamp":"2026-07-10 05:02:03.177 bst","session_id":"vtt-main-8e922f21","hook_name":"message-end","latency_ms":9}
+{"timestamp":"2026-07-10 05:02:29.628 bst","session_id":"vtt-main-8e922f21","hook_name":"message-end","latency_ms":6}
+{"timestamp":"2026-07-10 05:02:29.932 bst","session_id":"vtt-main-8e922f21","hook_name":"message-end","latency_ms":10}
+{"timestamp":"2026-07-10 05:02:40.695 bst","session_id":"vtt-main-8e922f21","hook_name":"message-end","latency_ms":12}
+{"timestamp":"2026-07-10 05:43:42.225 bst","session_id":"vtt-main-8e922f21","hook_name":"message-end","latency_ms":11}
