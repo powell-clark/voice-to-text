@@ -91,3 +91,4 @@ debian/voice-to-text.substvars
 .claude/universe-last-poll.txt
 .claude/universe-snapshot.json
 .claude/consciousness-loop.*.md
+chats/
