@@ -235,10 +235,10 @@ impl Tray {
             show_about_dialog();
         });
 
-        // Quit
+        // Quit — shared helper stops the systemd unit when one manages us,
+        // otherwise exits the process directly (TASK-VTT122).
         quit_item.connect_activate(|_| {
-            crate::vtt_log!("Quit requested");
-            gtk::main_quit();
+            super::quit::quit();
         });
 
         // Microphone label auto-refresh

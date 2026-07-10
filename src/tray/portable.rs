@@ -242,8 +242,7 @@ impl Tray {
         while let Ok(cmd) = self.cmd_rx.try_recv() {
             match cmd {
                 MenuCmd::Quit => {
-                    crate::vtt_log!("Quit requested");
-                    std::process::exit(0);
+                    super::quit::quit();
                 }
                 MenuCmd::About => {
                     crate::vtt_log!(
