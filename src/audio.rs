@@ -35,21 +35,72 @@ pub enum RecordingResult {
     /// the hotkey. Samples are up to the cap; transcription is prefixed
     /// with "[Truncated]" so the user knows to rehearse shorter.
     MaxLength { samples: Vec<f32>, path: PathBuf },
+    /// The stream delivered zero samples for the whole hold — the device
+    /// re-enumerated, the audio session restarted, or the source was
+    /// suspended underneath us. Distinct from TooShort so the user learns
+    /// their mic is the problem, not their timing. The stream has already
+    /// been re-opened against the current default device by the time the
+    /// caller sees this, so the next press should capture normally.
+    NoAudioCaptured,
+}
+
+/// Pure classification of a finished capture, separated from `stop_recording`
+/// so the empty-vs-short-vs-quiet boundaries are unit-testable without a
+/// live audio device.
+#[derive(Debug, PartialEq, Eq)]
+enum CaptureClass {
+    /// 0 samples — the stream is dead, not the user too quick.
+    Empty,
+    /// Real samples but under MIN_DURATION_SECS.
+    TooShort,
+    /// Long enough but peak amplitude under MIN_AMPLITUDE.
+    TooQuiet,
+    /// Normal recording.
+    Normal,
+    /// Hit the MAX_RECORDING_SECONDS cap mid-hold.
+    MaxLength,
+}
+
+fn classify_capture(sample_count: usize, max_amp: i16, was_full: bool) -> CaptureClass {
+    if sample_count == 0 {
+        return CaptureClass::Empty;
+    }
+    let duration = sample_count as f32 / SAMPLE_RATE as f32;
+    if duration < MIN_DURATION_SECS {
+        return CaptureClass::TooShort;
+    }
+    if max_amp < MIN_AMPLITUDE {
+        return CaptureClass::TooQuiet;
+    }
+    if was_full {
+        CaptureClass::MaxLength
+    } else {
+        CaptureClass::Normal
+    }
 }
 
 type BufferFullCallback = Arc<Mutex<Option<Box<dyn Fn() + Send>>>>;
 
 pub struct Audio {
-    _stream: cpal::Stream,
+    /// The live cpal stream, or None between a death and a successful
+    /// re-open. Mutex because recovery replaces it from the hotkey thread.
+    stream: Mutex<Option<cpal::Stream>>,
     buffer: Arc<Mutex<Vec<f32>>>,
     recording: Arc<AtomicBool>,
     buffer_full: Arc<AtomicBool>,
     buffer_full_callback: BufferFullCallback,
+    /// Set by the stream error callback (audio thread) when the device goes
+    /// away; cleared by `try_reopen`. Checked at every `start_recording` so
+    /// a dead stream heals before the recording instead of after it fails.
+    stream_dead: Arc<AtomicBool>,
 }
 
 // Safety: cpal::Stream is Send but not marked as such in all versions.
-// The stream is created on the main thread and never moved between threads;
-// only the Arc-wrapped shared state is accessed from multiple threads.
+// The stream is created on the main thread and, on recovery, dropped and
+// re-created from the hotkey monitor thread — it is only ever owned and
+// driven through the Mutex above, never aliased across threads. On the
+// backends we ship (ALSA, WASAPI, CoreAudio) moving the owning handle
+// between threads is sound; all other shared state is Arc-wrapped.
 unsafe impl Send for Audio {}
 unsafe impl Sync for Audio {}
 
@@ -66,6 +117,81 @@ impl Audio {
     /// Calling code only interacts with `start_recording`, `stop_recording`,
     /// and `set_buffer_full_callback`.
     pub fn new() -> anyhow::Result<Self> {
+        let max_samples = SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
+        let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::with_capacity(max_samples)));
+        let recording = Arc::new(AtomicBool::new(false));
+        let buffer_full = Arc::new(AtomicBool::new(false));
+        let buffer_full_callback: BufferFullCallback = Arc::new(Mutex::new(None));
+        let stream_dead = Arc::new(AtomicBool::new(false));
+
+        let stream = Self::open_capture_stream(
+            &buffer,
+            &recording,
+            &buffer_full,
+            &buffer_full_callback,
+            &stream_dead,
+        )?;
+
+        Ok(Audio {
+            stream: Mutex::new(Some(stream)),
+            buffer,
+            recording,
+            buffer_full,
+            buffer_full_callback,
+            stream_dead,
+        })
+    }
+
+    /// Drop the current stream (if any) and open a fresh one against the
+    /// current default input device. This is the recovery path for all three
+    /// observed stream-death triggers: PipeWire idle-suspend, USB
+    /// re-enumeration, and audio-session restart on logout/login — in every
+    /// case the held stream is bound to a node that no longer delivers frames
+    /// and only a fresh connection recovers (TASK-VTT121).
+    ///
+    /// Returns true on success. On failure the dead flag stays set so the
+    /// next `start_recording` retries.
+    fn try_reopen(&self) -> bool {
+        // Drop the old stream before opening the new one — a dead-but-held
+        // handle can keep the ALSA/WASAPI device claimed.
+        *self.stream.lock().unwrap() = None;
+        self.stream_dead.store(false, Ordering::SeqCst);
+        match Self::open_capture_stream(
+            &self.buffer,
+            &self.recording,
+            &self.buffer_full,
+            &self.buffer_full_callback,
+            &self.stream_dead,
+        ) {
+            Ok(s) => {
+                *self.stream.lock().unwrap() = Some(s);
+                crate::vtt_log!("Audio stream re-opened against current default input device");
+                true
+            }
+            Err(e) => {
+                self.stream_dead.store(true, Ordering::SeqCst);
+                crate::vtt_log!("Audio stream re-open failed: {}", e);
+                false
+            }
+        }
+    }
+
+    /// Open (or re-open) a cpal input stream on the current default input
+    /// device, wired to the shared capture state. Extracted from `new` so
+    /// recovery (`try_reopen`) rebuilds the stream with identical fallback
+    /// behaviour, including the 16 kHz-direct → native-format chain.
+    ///
+    /// Fails with a helpful error if no default input device exists:
+    /// distinguishes "no devices at all" (hardware/driver missing) from
+    /// "devices exist but no default set" (PulseAudio misconfiguration,
+    /// with `pactl set-default-source` hint).
+    fn open_capture_stream(
+        buffer: &Arc<Mutex<Vec<f32>>>,
+        recording: &Arc<AtomicBool>,
+        buffer_full: &Arc<AtomicBool>,
+        buffer_full_callback: &BufferFullCallback,
+        stream_dead: &Arc<AtomicBool>,
+    ) -> anyhow::Result<cpal::Stream> {
         let host = cpal::default_host();
         let device = match host.default_input_device() {
             Some(d) => d,
@@ -100,14 +226,25 @@ impl Audio {
             device.name().unwrap_or_else(|_| "unknown".into())
         );
 
-        let max_samples = SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
-        let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::with_capacity(max_samples)));
-        let recording = Arc::new(AtomicBool::new(false));
-        let buffer_full = Arc::new(AtomicBool::new(false));
-        let buffer_full_callback: BufferFullCallback = Arc::new(Mutex::new(None));
-
-        let max = max_samples;
-        let err_cb = |err| eprintln!("Audio stream error: {}", err);
+        let max = SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
+        // The error callback is the death signal, not just a log line: cpal
+        // fires it when the device disappears or the backend fails, and the
+        // flag makes the next start_recording re-open the stream instead of
+        // recording silence forever (TASK-VTT121).
+        let err_cb = {
+            let dead = stream_dead.clone();
+            move |err| {
+                eprintln!("Audio stream error: {}", err);
+                dead.store(true, Ordering::SeqCst);
+            }
+        };
+        // Owned clones so the per-callback clones below stay unchanged.
+        let (buffer, recording, buffer_full, buffer_full_callback) = (
+            buffer.clone(),
+            recording.clone(),
+            buffer_full.clone(),
+            buffer_full_callback.clone(),
+        );
 
         // Attempt 1: ask the device for 16 kHz mono f32 directly. ALSA (Linux)
         // accepts this and resamples internally, so the Linux path is unchanged.
@@ -127,7 +264,7 @@ impl Audio {
             match device.build_input_stream(
                 &preferred,
                 move |data: &[f32], _: &cpal::InputCallbackInfo| ingest(&b, &r, &f, &c, max, data),
-                err_cb,
+                err_cb.clone(),
                 None,
             ) {
                 Ok(s) => {
@@ -168,7 +305,7 @@ impl Audio {
                                     let rs = resample_to_16k(&mono, rate);
                                     ingest(&b, &r, &f, &c, max, &rs);
                                 },
-                                err_cb,
+                                err_cb.clone(),
                                 None,
                             )?
                         }
@@ -188,7 +325,7 @@ impl Audio {
                                     let rs = resample_to_16k(&mono, rate);
                                     ingest(&b, &r, &f, &c, max, &rs);
                                 },
-                                err_cb,
+                                err_cb.clone(),
                                 None,
                             )?
                         }
@@ -206,13 +343,7 @@ impl Audio {
         stream.play()?;
         crate::vtt_log!("Audio capture started (target {} Hz mono)", SAMPLE_RATE);
 
-        Ok(Audio {
-            _stream: stream,
-            buffer,
-            recording,
-            buffer_full,
-            buffer_full_callback,
-        })
+        Ok(stream)
     }
 
     /// Register a callback that fires when the recording buffer first reaches
@@ -232,6 +363,13 @@ impl Audio {
     /// Safe to call while a previous recording is still being transcribed
     /// (transcription works from a cloned Vec<f32>, not the live buffer).
     pub fn start_recording(&self) {
+        // Heal before recording: if the stream died since the last press
+        // (device unplugged, session restarted), re-open now so this
+        // recording captures instead of coming back empty.
+        if self.stream_dead.load(Ordering::SeqCst) {
+            crate::vtt_log!("Audio stream flagged dead — re-opening before recording");
+            self.try_reopen();
+        }
         let mut buf = self.buffer.lock().unwrap();
         buf.clear();
         self.buffer_full.store(false, Ordering::SeqCst);
@@ -244,6 +382,8 @@ impl Audio {
     /// Returns `None` if no recording was in progress. Otherwise returns
     /// a `RecordingResult` variant:
     /// - `Audio` for a normal recording that passed the duration + amplitude thresholds
+    /// - `NoAudioCaptured` if the stream delivered 0 samples (dead device/
+    ///   session — the stream is re-opened before returning)
     /// - `TooShort` if < MIN_DURATION_SECS (discarded, tray resets)
     /// - `TooQuiet` if peak amplitude < MIN_AMPLITUDE (discarded)
     /// - `MaxLength` if the buffer hit MAX_RECORDING_SECONDS mid-recording
@@ -260,13 +400,7 @@ impl Audio {
         let sample_count = buf.len();
         let duration = sample_count as f32 / SAMPLE_RATE as f32;
 
-        // Check minimum duration
-        if duration < MIN_DURATION_SECS {
-            crate::vtt_log!("Recording too short ({:.2}s)", duration);
-            return Some(RecordingResult::TooShort);
-        }
-
-        // Check amplitude (convert to i16 range for comparison)
+        // Amplitude in i16 range for comparison (0 for an empty capture)
         let max_amp: i16 = buf
             .iter()
             .map(|&s| (s.clamp(-1.0, 1.0) * 32767.0) as i16)
@@ -274,9 +408,25 @@ impl Audio {
             .max()
             .unwrap_or(0);
 
-        if max_amp < MIN_AMPLITUDE {
-            crate::vtt_log!("Audio too quiet (amplitude {})", max_amp);
-            return Some(RecordingResult::TooQuiet);
+        match classify_capture(sample_count, max_amp, was_full) {
+            CaptureClass::Empty => {
+                // Zero samples is a dead stream, never a hasty user. Say so,
+                // and re-open now so the next press works without a manual
+                // restart (TASK-VTT121 zero-frame watchdog).
+                crate::vtt_log!("No audio captured (0 samples) — re-opening capture stream");
+                drop(buf);
+                self.try_reopen();
+                return Some(RecordingResult::NoAudioCaptured);
+            }
+            CaptureClass::TooShort => {
+                crate::vtt_log!("Recording too short ({:.2}s)", duration);
+                return Some(RecordingResult::TooShort);
+            }
+            CaptureClass::TooQuiet => {
+                crate::vtt_log!("Audio too quiet (amplitude {})", max_amp);
+                return Some(RecordingResult::TooQuiet);
+            }
+            CaptureClass::Normal | CaptureClass::MaxLength => {}
         }
 
         crate::vtt_log!(
@@ -481,6 +631,63 @@ mod tests {
         let (take, full) = compute_append(max - 100, 160, max);
         assert_eq!(take, 100, "only 100 samples fit in the last slice");
         assert!(full, "buffer is at capacity after the append");
+    }
+
+    #[test]
+    fn classify_zero_samples_is_empty_not_too_short() {
+        // The historic bug: 0 samples logged as "Recording too short (0.00s)",
+        // hiding a dead stream behind a user-timing message (TASK-VTT121).
+        assert_eq!(classify_capture(0, 0, false), CaptureClass::Empty);
+    }
+
+    #[test]
+    fn classify_zero_samples_with_full_flag_is_still_empty() {
+        // Shouldn't happen (full implies samples), but empty must win: a dead
+        // stream must never masquerade as a max-length recording.
+        assert_eq!(classify_capture(0, 32767, true), CaptureClass::Empty);
+    }
+
+    #[test]
+    fn classify_one_sample_is_too_short_not_empty() {
+        // The boundary: any real samples below MIN_DURATION_SECS are the
+        // user's timing, not a device failure.
+        assert_eq!(classify_capture(1, 32767, false), CaptureClass::TooShort);
+    }
+
+    #[test]
+    fn classify_just_under_min_duration_is_too_short() {
+        let just_under = (SAMPLE_RATE as f32 * MIN_DURATION_SECS) as usize - 1;
+        assert_eq!(
+            classify_capture(just_under, 32767, false),
+            CaptureClass::TooShort
+        );
+    }
+
+    #[test]
+    fn classify_long_enough_but_quiet_is_too_quiet() {
+        let one_second = SAMPLE_RATE as usize;
+        assert_eq!(
+            classify_capture(one_second, MIN_AMPLITUDE - 1, false),
+            CaptureClass::TooQuiet
+        );
+    }
+
+    #[test]
+    fn classify_normal_recording() {
+        let one_second = SAMPLE_RATE as usize;
+        assert_eq!(
+            classify_capture(one_second, MIN_AMPLITUDE, false),
+            CaptureClass::Normal
+        );
+    }
+
+    #[test]
+    fn classify_full_buffer_is_max_length() {
+        let five_minutes = SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
+        assert_eq!(
+            classify_capture(five_minutes, 20_000, true),
+            CaptureClass::MaxLength
+        );
     }
 
     #[test]
