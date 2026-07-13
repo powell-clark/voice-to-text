@@ -189,8 +189,11 @@ fn main() -> anyhow::Result<()> {
     let typing_has_output = Arc::new(AtomicBool::new(false));
     let last_transcription: tray::LastTranscription = Arc::new(Mutex::new(None));
 
-    // Initialize audio
-    let audio = Arc::new(audio::Audio::new()?);
+    // Initialize audio against the user's saved input-device choice (settings
+    // `device=N`); a negative value means "follow the system default".
+    let selected_device_index =
+        usize::try_from(settings.read().unwrap().selected_device_index).ok();
+    let audio = Arc::new(audio::Audio::new(selected_device_index)?);
 
     // Buffer full notification (shells to notify-send on Linux; libnotify-bin
     // is a runtime dependency. This avoids the notify-rust crate which pulls

@@ -93,6 +93,20 @@ pub struct Audio {
     /// away; cleared by `try_reopen`. Checked at every `start_recording` so
     /// a dead stream heals before the recording instead of after it fails.
     stream_dead: Arc<AtomicBool>,
+    /// User-selected input-device ordinal (settings `device=N`), or `None` to
+    /// track the system default. Held so `try_reopen` rebuilds against the
+    /// same chosen device rather than silently reverting to default.
+    device_index: Option<usize>,
+}
+
+/// Resolve a saved input-device ordinal against the number of devices cpal
+/// currently reports. Returns `Some(ordinal)` when the index addresses a real
+/// device, or `None` when it is out of range — the caller then falls back to
+/// the default device (with a warning). The `< 0` "no selection" sentinel is
+/// filtered to `None` before this point, so reaching here with `None` result
+/// always means an out-of-range selection worth warning about.
+fn resolve_device_ordinal(index: usize, count: usize) -> Option<usize> {
+    (index < count).then_some(index)
 }
 
 // Safety: cpal::Stream is Send but not marked as such in all versions.
@@ -116,7 +130,10 @@ impl Audio {
     /// The stream is driven by cpal on its own high-priority audio thread.
     /// Calling code only interacts with `start_recording`, `stop_recording`,
     /// and `set_buffer_full_callback`.
-    pub fn new() -> anyhow::Result<Self> {
+    /// `device_index` is the user's chosen input-device ordinal (settings
+    /// `device=N`), or `None` to follow the system default. An out-of-range
+    /// choice logs a warning and falls back to the default rather than failing.
+    pub fn new(device_index: Option<usize>) -> anyhow::Result<Self> {
         let max_samples = SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
         let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::with_capacity(max_samples)));
         let recording = Arc::new(AtomicBool::new(false));
@@ -130,6 +147,7 @@ impl Audio {
             &buffer_full,
             &buffer_full_callback,
             &stream_dead,
+            device_index,
         )?;
 
         Ok(Audio {
@@ -139,6 +157,7 @@ impl Audio {
             buffer_full,
             buffer_full_callback,
             stream_dead,
+            device_index,
         })
     }
 
@@ -162,10 +181,11 @@ impl Audio {
             &self.buffer_full,
             &self.buffer_full_callback,
             &self.stream_dead,
+            self.device_index,
         ) {
             Ok(s) => {
                 *self.stream.lock().unwrap() = Some(s);
-                crate::vtt_log!("Audio stream re-opened against current default input device");
+                crate::vtt_log!("Audio stream re-opened against selected/default input device");
                 true
             }
             Err(e) => {
@@ -191,9 +211,37 @@ impl Audio {
         buffer_full: &Arc<AtomicBool>,
         buffer_full_callback: &BufferFullCallback,
         stream_dead: &Arc<AtomicBool>,
+        device_index: Option<usize>,
     ) -> anyhow::Result<cpal::Stream> {
         let host = cpal::default_host();
-        let device = match host.default_input_device() {
+
+        // Honour a user-selected input device (settings `device=N`) when it
+        // resolves to a real cpal ordinal; otherwise fall through to the
+        // default-device path below. Out-of-range or an unreadable device list
+        // is a warning, never a hard failure — a USB mic may have been
+        // unplugged since the index was saved.
+        let selected = device_index.and_then(|idx| {
+            let devices: Vec<cpal::Device> = match host.input_devices() {
+                Ok(iter) => iter.collect(),
+                Err(e) => {
+                    crate::vtt_log!("Could not enumerate input devices ({e}); using default");
+                    return None;
+                }
+            };
+            match resolve_device_ordinal(idx, devices.len()) {
+                Some(ordinal) => devices.into_iter().nth(ordinal),
+                None => {
+                    crate::vtt_log!(
+                        "Selected input device index {idx} is out of range ({} available); \
+                         falling back to default",
+                        devices.len()
+                    );
+                    None
+                }
+            }
+        });
+
+        let device = match selected.or_else(|| host.default_input_device()) {
             Some(d) => d,
             None => {
                 // Help the user see what cpal can see — the "no default" case is
@@ -583,6 +631,24 @@ mod tests {
     #[test]
     fn compute_append_room_for_full_chunk() {
         assert_eq!(compute_append(100, 50, 1000), (50, false));
+    }
+
+    #[test]
+    fn resolve_device_ordinal_picks_in_range_index() {
+        assert_eq!(resolve_device_ordinal(0, 3), Some(0));
+        assert_eq!(resolve_device_ordinal(2, 3), Some(2));
+    }
+
+    #[test]
+    fn resolve_device_ordinal_falls_back_when_out_of_range() {
+        // Index equal to or beyond the device count -> None (use default).
+        assert_eq!(resolve_device_ordinal(3, 3), None);
+        assert_eq!(resolve_device_ordinal(9, 3), None);
+    }
+
+    #[test]
+    fn resolve_device_ordinal_falls_back_when_no_devices() {
+        assert_eq!(resolve_device_ordinal(0, 0), None);
     }
 
     #[test]

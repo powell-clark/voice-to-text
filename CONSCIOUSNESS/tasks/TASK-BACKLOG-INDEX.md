@@ -17,7 +17,6 @@ TASK-VTT042|p2|Apple Silicon build with coreml + metal features enabled|STORY-VT
 TASK-VTT043|p2|Apple developer signing + notarisation|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT043.md|TASK-VTT041,TASK-VTT042||||b7
 TASK-VTT048|p2|GitHub Actions matrix workflow: ubuntu-latest + macos-latest + macos-14 (ARM) + windows-latest|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT048.md|TASK-VTT047,TASK-VTT041,TASK-VTT042||||b8
 TASK-VTT049|p2|Auto-release on tag push with binaries + .deb + .dmg + .msi attached|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT049.md|TASK-VTT048||||b9
-TASK-VTT062|p2|Wire Settings.selected_device_index through to audio::Audio::new() so users with multiple mics can pick one from the tray — field is saved to settings.conf but currently unused; audio.rs hardcodes default_input_device()||DIRECT-VTT002||TASK-VTT062.md|||||ba
 TASK-VTT050|p2|Integrate silero-rs VAD for auto-stop on silence and noise filtering|STORY-VTT015|DIRECT-VTT002|FEAT-VTT032|TASK-VTT050.md|||||bb
 TASK-VTT051|p2|GTK settings dialog replacing settings.conf hand-editing|STORY-VTT016|DIRECT-VTT002|FEAT-VTT033|TASK-VTT051.md|||||bc
 TASK-VTT052|p2|Design persistent Python daemon protocol (stdin/stdout line-delimited JSON) for optional CT2 backend|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT052.md|||||bd
@@ -39,3 +38,4 @@ TASK-VTT117|p3|APGPS connectivity re-test after OAuth re-auth — does the issue
 TASK-VTT120|p2|Review-gate kano override never resolves (getFeatureKano bug)||DIRECT-VTT002||TASK-VTT120.md|||||b2i||
 TASK-VTT125|p2|Re-register the macOS Intel self-hosted runner||DIRECT-VTT003||TASK-VTT125.md|||Emmanuel||b2m
 TASK-VTT128|p3|stall||||TASK-VTT128.md|||||b2n||
+TASK-VTT129|p2|Tray Microphone submenu — device picker UX|STORY-VTT016|DIRECT-VTT005|FEAT-VTT033|TASK-VTT129.md|TASK-VTT062||||bo

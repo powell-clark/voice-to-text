@@ -17,23 +17,27 @@ totally stuck. But a proper tray-menu "Microphone:" submenu would be
 world-class UX and closer to paid alternatives (Otter, Dragon).
 
 ## Acceptance Criteria
-1. `audio::Audio::new()` accepts or reads the `selected_device_index`
-   and picks the matching cpal input device if set (>= 0), falling back
-   to default if -1 or out of range.
-2. Out-of-range / missing device: log a warning, fall back to default.
-   Don't bail — user might have unplugged a USB mic.
-3. Tray menu has a "Microphone" submenu showing:
-   - "Default (<current default name>)" radio item
-   - One radio item per available input device, labelled with the device
-     description (not just the source name)
-4. Selecting a new device:
-   - Saves `selected_device_index` to settings.conf
-   - Rebuilds the cpal stream in `Audio::new()` equivalent flow (can
-     require daemon restart if cpal doesn't support hot-swap cleanly;
-     acceptable but noted in the tray label: "Microphone: X (restart
-     required)")
-5. Device list refreshes on submenu open so hot-plugged devices appear
-   without daemon restart.
+1. [x] `audio::Audio::new(device_index: Option<usize>)` picks the matching cpal
+   input device when set, falling back to default when `None` or out of range.
+   The `i32` sentinel is converted at the main.rs boundary via
+   `usize::try_from(...).ok()` (`< 0` → `None`).
+2. [x] Out-of-range / missing device: `resolve_device_ordinal` returns `None`,
+   `open_capture_stream` logs a warning and falls back to default rather than
+   bailing. `try_reopen` also honours the stored `device_index`, so recovery
+   after a USB unplug does not silently revert to default. Unit-tested
+   (`resolve_device_ordinal_*`); build/clippy/fmt/102 tests green on Linux.
+
+Criteria 3–5 below are the tray "Microphone" submenu UX. **Deferred to
+TASK-VTT129** — their acceptance is GUI + 2+-mic-hardware bound (see that
+card's test strategy) and cannot be verified honestly in the headless sandbox.
+The selection plumbing they build on is complete here.
+
+3. [deferred → TASK-VTT129] Tray "Microphone" submenu (Default + per-device
+   radio items labelled with the device description).
+4. [deferred → TASK-VTT129] Selecting a device saves `selected_device_index`
+   and rebuilds the stream (restart-required label acceptable).
+5. [deferred → TASK-VTT129] Device list refreshes on submenu open so
+   hot-plugged devices appear without a restart.
 
 ## Technical Approach
 1. Change `audio::Audio::new()` signature to

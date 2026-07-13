@@ -85,3 +85,4 @@ TASK-VTT124|Guard the SIGSEGV at the whisper/FFI boundary — coredumps + JSOC a
 TASK-VTT114|macOS clipboard auto-paste sends Ctrl+V — must be Cmd+V|STORY-VTT012|DIRECT-VTT003|FEAT-VTT012|TASK-VTT114.md
 TASK-VTT112|Add stored per-model SHA-256 verification to src/models.rs||DIRECT-VTT002|FEAT-VTT026|TASK-VTT112.md
 TASK-VTT123|Copy last transcription tray menu item|STORY-VTT018|DIRECT-VTT005|FEAT-VTT038|TASK-VTT123.md
+TASK-VTT062|Wire selected_device_index through to audio::Audio::new()||DIRECT-VTT002||TASK-VTT062.md
