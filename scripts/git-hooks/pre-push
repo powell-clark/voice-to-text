@@ -17,6 +17,9 @@
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
+echo "[pre-push] validate regression gates"
+bash scripts/ci/check-regression-gates.sh
+
 # git sends push info on stdin as: <local ref> <local sha> <remote ref> <remote sha>
 # We ignore the specific refs and check against origin/main for changed files.
 remote_sha=$(git rev-parse origin/main 2>/dev/null || echo "")
