@@ -80,3 +80,4 @@ TASK-VTT121|Audio capture must recover when input device changes or suspends||DI
 TASK-VTT122|Service restart semantics — Restart=always + tray Quit stops the unit||DIRECT-VTT002||TASK-VTT122.md
 TASK-VTT126|PPA source tarball must exclude .claude/ and chats/||DIRECT-VTT002||TASK-VTT126.md
 TASK-VTT070|Vendor refresh — rustls-webpki security upgrade||DIRECT-VTT002||TASK-VTT070.md
+TASK-VTT124|Guard the SIGSEGV at the whisper/FFI boundary — coredumps + JSOC audit||DIRECT-VTT002||TASK-VTT124.md

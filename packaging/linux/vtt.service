@@ -9,6 +9,11 @@ ExecStart=/usr/bin/vtt-linux
 Restart=always
 RestartSec=5
 
+# Coredump capture (TASK-VTT124) - a SEGV at the whisper/CUDA-Vulkan or ALSA
+# FFI boundary is otherwise unrecoverable evidence. Requires systemd-coredump
+# on the host; retrieve with `coredumpctl list vtt-linux` / `coredumpctl debug`.
+LimitCORE=infinity
+
 # Environment - inherit from user session
 PassEnvironment=DISPLAY XAUTHORITY WAYLAND_DISPLAY XDG_SESSION_TYPE
 
