@@ -35,7 +35,8 @@ Depends: ${shlibs:Depends},
          xdotool,
          xclip
 Recommends: vulkan-tools,
-            mesa-vulkan-drivers
+            mesa-vulkan-drivers,
+            systemd-coredump
 Description: Free, world-class voice-to-text for Ubuntu, macOS and Windows
  Voice to Text is a push-to-talk offline voice transcription app that runs the
  Whisper model in-process for sub-second latency. The model loads once at
