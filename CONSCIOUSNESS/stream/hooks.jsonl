@@ -705,3 +705,4 @@
 {"timestamp":"2026-07-13 18:29:01.146 bst","session_id":"vtt-main-d0abf55a","hook_name":"session-init","latency_ms":328}
 {"timestamp":"2026-07-13 18:45:50.612 bst","session_id":"vtt-main-d0abf55a","hook_name":"user-prompt-submit","latency_ms":27}
 {"timestamp":"2026-07-13 19:00:21.788 bst","session_id":"vtt-main-d0abf55a","hook_name":"user-prompt-submit","latency_ms":265}
+{"timestamp":"2026-07-13 19:14:59.394 bst","session_id":"vtt-main-d0abf55a","hook_name":"user-prompt-submit","latency_ms":23}
