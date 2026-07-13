@@ -212,3 +212,4 @@
 {"timestamp":"2026-07-13 12:49:49.737 bst","session_id":"vtt-main-4c143bbc","hook_name":"message-end","latency_ms":9}
 {"timestamp":"2026-07-13 12:52:11.707 bst","session_id":"vtt-main-4c143bbc","hook_name":"message-end","latency_ms":9}
 {"timestamp":"2026-07-13 12:59:18.711 bst","session_id":"vtt-main-4c143bbc","hook_name":"message-end","latency_ms":10}
+{"timestamp":"2026-07-13 13:04:59.777 bst","session_id":"vtt-main-4c143bbc","hook_name":"message-end","latency_ms":12}
