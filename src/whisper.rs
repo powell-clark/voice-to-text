@@ -86,10 +86,105 @@ impl WhisperEngine {
     }
 }
 
+/// Decode a 16 kHz WAV file into the mono f32 PCM samples whisper expects
+/// (`--file` batch mode, TASK-VTT023). Stereo is down-mixed by averaging
+/// channels; 16-bit (and wider) integer and 32-bit float sample formats are
+/// supported. A non-16 kHz file is rejected with an actionable error rather
+/// than silently mis-transcribed — resampling is out of scope for this pass.
+pub fn decode_wav_to_samples(path: &Path) -> anyhow::Result<Vec<f32>> {
+    let mut reader = hound::WavReader::open(path)
+        .map_err(|e| anyhow::anyhow!("open {}: {}", path.display(), e))?;
+    let spec = reader.spec();
+    if spec.sample_rate != 16_000 {
+        anyhow::bail!(
+            "{} is {} Hz — --file needs 16 kHz mono audio. Resample first, e.g.: \
+             `ffmpeg -i in.wav -ar 16000 -ac 1 out.wav`",
+            path.display(),
+            spec.sample_rate
+        );
+    }
+
+    // Read every interleaved sample as f32 in roughly [-1, 1].
+    let interleaved: Vec<f32> = match spec.sample_format {
+        hound::SampleFormat::Int => {
+            // Normalise by the format's full-scale so 16/24/32-bit all land in
+            // the same range. `samples::<i32>()` sign-extends narrower depths.
+            let full_scale = (1i64 << (spec.bits_per_sample - 1)) as f32;
+            reader
+                .samples::<i32>()
+                .map(|s| s.map(|v| v as f32 / full_scale))
+                .collect::<Result<_, _>>()?
+        }
+        hound::SampleFormat::Float => reader.samples::<f32>().collect::<Result<_, _>>()?,
+    };
+
+    let channels = spec.channels.max(1) as usize;
+    if channels == 1 {
+        return Ok(interleaved);
+    }
+    Ok(interleaved
+        .chunks(channels)
+        .map(|frame| frame.iter().sum::<f32>() / channels as f32)
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    /// Write `samples` (interleaved) as a 16-bit PCM WAV at `rate`/`channels`
+    /// into a fresh temp file and return the temp dir (keep it alive) + path.
+    fn write_test_wav(samples: &[f32], rate: u32, channels: u16) -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("clip.wav");
+        let spec = hound::WavSpec {
+            channels,
+            sample_rate: rate,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut w = hound::WavWriter::create(&path, spec).expect("create wav");
+        for &s in samples {
+            w.write_sample((s * 32767.0) as i16).expect("write sample");
+        }
+        w.finalize().expect("finalize wav");
+        (dir, path)
+    }
+
+    #[test]
+    fn decode_wav_reads_mono_16k_into_normalised_samples() {
+        let input: Vec<f32> = (0..64).map(|i| i as f32 / 64.0 - 0.5).collect();
+        let (_dir, path) = write_test_wav(&input, 16_000, 1);
+        let out = decode_wav_to_samples(&path).expect("decode mono");
+        assert_eq!(out.len(), input.len(), "mono sample count preserved");
+        for (a, b) in input.iter().zip(out.iter()) {
+            assert!((a - b).abs() < 0.001, "sample within i16 quantisation");
+        }
+    }
+
+    #[test]
+    fn decode_wav_downmixes_stereo_to_mono() {
+        // Frames of (L, R): averaging gives the mono value. 4 frames -> 4 samples.
+        let interleaved = [0.5, -0.5, 0.2, 0.2, 1.0, 0.0, -0.4, -0.4];
+        let (_dir, path) = write_test_wav(&interleaved, 16_000, 2);
+        let out = decode_wav_to_samples(&path).expect("decode stereo");
+        assert_eq!(out.len(), 4, "stereo down-mixed to one sample per frame");
+        let expected = [0.0, 0.2, 0.5, -0.4];
+        for (a, b) in expected.iter().zip(out.iter()) {
+            assert!((a - b).abs() < 0.001, "channel average: got {b}, want {a}");
+        }
+    }
+
+    #[test]
+    fn decode_wav_rejects_non_16khz() {
+        let (_dir, path) = write_test_wav(&[0.1, 0.2, 0.3], 44_100, 1);
+        let err = decode_wav_to_samples(&path).expect_err("44.1 kHz must be rejected");
+        assert!(
+            err.to_string().contains("16 kHz"),
+            "error should name the required rate: {err}"
+        );
+    }
 
     #[test]
     fn new_returns_err_for_missing_model_file() {

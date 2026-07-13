@@ -22,7 +22,6 @@ TASK-VTT051|p2|GTK settings dialog replacing settings.conf hand-editing|STORY-VT
 TASK-VTT052|p2|Design persistent Python daemon protocol (stdin/stdout line-delimited JSON) for optional CT2 backend|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT052.md|||||bd
 TASK-VTT053|p2|Implement transcribe_daemon.py with faster-whisper persistent model and IPC loop|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT053.md|TASK-VTT052||||be
 TASK-VTT054|p2|Settings toggle CT2 vs native backend; spawn daemon at startup when enabled; fall back to whisper-rs if daemon crashes|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT054.md|TASK-VTT053||||bf
-TASK-VTT023|p3|Add --file flag for batch audio transcription|STORY-VTT009|DIRECT-VTT002|FEAT-VTT021|TASK-VTT023.md|||||bg
 TASK-VTT021|p5|Windows WASAPI/Win32/SendInput (superseded by TASK-VTT044 to TASK-VTT047)|STORY-VTT007|DIRECT-VTT004|FEAT-VTT019|TASK-VTT021.md|||||bh
 TASK-VTT022|p3|Remove whisper.cpp backend (CANCELLED — ADR-0003 keeps whisper.cpp as sole backend)|STORY-VTT008|DIRECT-VTT002|FEAT-VTT020|TASK-VTT022.md|||||bi
 TASK-VTT072|p3|Unknown command /consciousness:sequence — is it part of pgps or a separate command?||||TASK-VTT072.md|||||a0
@@ -39,3 +38,4 @@ TASK-VTT120|p2|Review-gate kano override never resolves (getFeatureKano bug)||DI
 TASK-VTT125|p2|Re-register the macOS Intel self-hosted runner||DIRECT-VTT003||TASK-VTT125.md|||Emmanuel||b2m
 TASK-VTT128|p3|stall||||TASK-VTT128.md|||||b2n||
 TASK-VTT129|p2|Tray Microphone submenu — device picker UX|STORY-VTT016|DIRECT-VTT005|FEAT-VTT033|TASK-VTT129.md|TASK-VTT062||||bo
+TASK-VTT130|p3|--file multi-format decode + long-file chunking|STORY-VTT009|DIRECT-VTT002|FEAT-VTT021|TASK-VTT130.md|TASK-VTT023||||bp

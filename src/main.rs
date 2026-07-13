@@ -64,11 +64,18 @@ fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let wants_version = args.iter().any(|a| a == "--version" || a == "-V");
     let wants_help = args.iter().any(|a| a == "--help" || a == "-h");
+    // Batch mode: `--file <PATH>` transcribes a 16 kHz WAV and prints the
+    // transcript to stdout, then exits — no tray, no hotkey (TASK-VTT023).
+    let wants_file = args.iter().any(|a| a == "--file" || a == "-f");
+    let file_path = args
+        .iter()
+        .position(|a| a == "--file" || a == "-f")
+        .and_then(|i| args.get(i + 1).cloned());
     // On Windows the binary is windowed (no console of its own), so re-attach to
     // the launching terminal before printing CLI output — otherwise --version /
-    // --help would silently produce nothing when run from a shell.
+    // --help / --file would silently produce nothing when run from a shell.
     #[cfg(target_os = "windows")]
-    if wants_version || wants_help {
+    if wants_version || wants_help || wants_file {
         attach_parent_console();
     }
     if wants_version {
@@ -80,8 +87,9 @@ fn main() -> anyhow::Result<()> {
             "voice-to-text {} — push-to-talk offline transcription\n\n\
              Usage: vtt-linux [options]\n\n\
              Options:\n  \
-             -V, --version    Print version and exit\n  \
-             -h, --help       Print this help and exit\n\n\
+             -V, --version      Print version and exit\n  \
+             -h, --help         Print this help and exit\n  \
+             -f, --file <PATH>  Transcribe a 16 kHz WAV to stdout and exit\n\n\
              With no options, launches the tray icon. Hold the configured\n\
              hotkey (default: Scroll Lock) and speak. Release to transcribe.\n\n\
              Config:   ~/.local/share/voice-to-text/settings.conf\n\
@@ -90,6 +98,9 @@ fn main() -> anyhow::Result<()> {
             env!("CARGO_PKG_VERSION")
         );
         return Ok(());
+    }
+    if wants_file {
+        return run_file_mode(file_path.as_deref());
     }
 
     // Platform-specific init
@@ -692,6 +703,51 @@ fn load_engine(
             None
         }
     }
+}
+
+/// Batch transcription: decode a 16 kHz WAV and print the transcript to stdout,
+/// reusing the tray app's model resolution + download (TASK-VTT023). Runs fully
+/// headless — no GTK, no singleton lock, no tray — so it composes in shell
+/// pipelines. Progress and diagnostics go to stderr/the log; only the transcript
+/// goes to stdout.
+fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
+    let path =
+        path.ok_or_else(|| anyhow::anyhow!("--file needs a path, e.g. `--file clip.wav`"))?;
+
+    let config_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("/tmp"))
+        .join("voice-to-text");
+    // Deliberately NOT calling logging::init here: the file logger also echoes
+    // every line to stdout (harmless for the tray app), which would corrupt a
+    // `--file … | …` pipe. With no init the logger's dir stays empty and every
+    // vtt_log! is a no-op, so stdout carries only the transcript; errors and
+    // progress go to stderr. Silence whisper.cpp/ggml C chatter for the same
+    // reason.
+    whisper_rs::install_logging_hooks();
+    let settings = settings::Settings::load(&config_dir);
+
+    // Decode first so a bad path/format fails fast, before any model download.
+    let samples = whisper::decode_wav_to_samples(std::path::Path::new(path))?;
+    if samples.is_empty() {
+        anyhow::bail!("{}: decoded to zero samples", path);
+    }
+
+    let migrated = migrate_legacy_model_name(&settings.selected_model);
+    let resolved = models::resolve_variant(&migrated, &settings.selected_language);
+    let info = models::find(&resolved)
+        .or_else(|| models::find(&migrated))
+        .or_else(|| models::find("small.en"))
+        .ok_or_else(|| anyhow::anyhow!("no usable model in the catalogue"))?;
+    let model_path = models::ensure(info, |done, total| {
+        let pct = (done * 100).checked_div(total).unwrap_or(0);
+        eprint!("\rDownloading {}... {pct}%", info.name);
+    })?;
+    eprintln!();
+
+    let engine = whisper::WhisperEngine::new(&model_path, info.name)?;
+    let text = engine.transcribe(&samples, &settings.selected_language, None)?;
+    println!("{text}");
+    Ok(())
 }
 
 /// Translate legacy settings.conf model names ("CT2 large-v3-turbo", "W medium")
