@@ -36,6 +36,7 @@ STORY-VTT018 — Automated regression tests and release hygiene.
 - TASK-VTT057 unit tests
 - TASK-VTT058 GitHub Actions CI
 - TASK-VTT059 local pre-push hook
+- TASK-VTT127 regression and release gate contract checks
 
 ## Measurable Outcome
 Before: 0 tests, 0 CI runs per push, regression caught by Emmanuel at the PPA stage.

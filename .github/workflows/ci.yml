@@ -38,6 +38,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Validate regression gates
+        run: bash scripts/ci/check-regression-gates.sh
+
       - name: Install system build deps (matches debian/control Build-Depends)
         run: |
           sudo apt-get update

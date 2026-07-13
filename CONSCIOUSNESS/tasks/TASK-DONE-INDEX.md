@@ -1,4 +1,5 @@
 id|title|story_ids|directive_id|feature_ids|doc
+TASK-VTT127|CI contract gate for regression and release workflow parity|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT127.md
 TASK-VTT106|cargo audit red — RUSTSEC-2026-0186 memmap2 unsound|||||TASK-VTT106.md
 TASK-VTT118|Correction dictionary for commonly mistranscribed words|STORY-VTT019|DIRECT-VTT002|FEAT-VTT037|TASK-VTT118.md
 TASK-VTT119|cargo audit red — RUSTSEC-2026-0190 anyhow unsound||DIRECT-VTT002||TASK-VTT119.md
