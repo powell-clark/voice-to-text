@@ -1196,19 +1196,93 @@
       "id": "vtt-main-019f5c42",
       "prev": "vtt-main-019f5c3c",
       "started": "2026-07-13 17:15:28.715 bst",
-      "ended": null,
+      "ended": "2026-07-13 17:53:25.278 bst",
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
-        "commits": 3,
+        "commits": 4,
+        "turns": 3,
+        "human_prompts": 3,
+        "errors": 0,
+        "compactions": 0,
+        "framing_checks_count": 0,
+        "framing_compliance_count": 0,
+        "hooks_latency_ms": {
+          "codex-session-init": 69,
+          "user-prompt-submit": 11,
+          "message-end": 7
+        },
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "vtt-main-019f5c65",
+      "prev": "vtt-main-019f5c42",
+      "started": "2026-07-13 17:53:25.278 bst",
+      "ended": "2026-07-13 18:10:44.344 bst",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
         "turns": 1,
         "human_prompts": 1,
         "errors": 0,
         "compactions": 0,
+        "framing_checks_count": 0,
+        "framing_compliance_count": 0,
         "hooks_latency_ms": {
-          "codex-session-init": 69,
-          "user-prompt-submit": 11,
+          "codex-session-init": 86,
           "message-end": 5
+        },
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "vtt-main-feaba9b6",
+      "prev": "vtt-main-019f5c65",
+      "started": "2026-07-13 18:10:44.344 bst",
+      "ended": "2026-07-13 18:29:00.999 bst",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 0,
+        "human_prompts": 1,
+        "errors": 0,
+        "compactions": 0,
+        "framing_checks_count": 0,
+        "framing_compliance_count": 0,
+        "hooks_latency_ms": {
+          "session-init": 382
+        },
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "vtt-main-d0abf55a",
+      "prev": "vtt-main-feaba9b6",
+      "started": "2026-07-13 18:29:00.999 bst",
+      "ended": null,
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 1,
+        "turns": 0,
+        "human_prompts": 1,
+        "errors": 0,
+        "compactions": 0,
+        "hooks_latency_ms": {
+          "session-init": 328,
+          "user-prompt-submit": 27
         },
         "usage": {
           "input_tokens": 0,

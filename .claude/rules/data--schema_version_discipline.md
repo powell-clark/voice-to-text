@@ -5,98 +5,27 @@
 
 # Data schema version discipline
 
-Every change to CONSCIOUSNESS/schema.json bumps the marker file
-CONSCIOUSNESS/.schema-version atomically. Both files carry the same
-value. Drift between them is a structural integrity failure that
-must be repaired before further schema work proceeds.
+Every change to packages/core/pgps/schema.json that affects content (column shape, enum values, entity types, frontmatter requirements, JSONL shape) MUST bump CONSCIOUSNESS/stream/schema-version atomically with the schema_version field inside schema.json; both files carry the same 17-digit timestamp value plus an optional underscore-separated description; drift between them is a structural integrity failure repaired before further schema work proceeds.
 
-The marker is the canonical source of truth for "what schema does
-this repo currently honour". The schema.json field documents intent
-and is what tooling reads. They MUST agree.
+## Requires
 
-Discovered 2026-05-06: the marker had been stale 5 months while
-schema.json actively churned (TASK-CCC29015 feature lifecycle,
-story_points column, EPIC->DIRECTIVE rename, advisory-board fixes).
-PGPS reported a 5-month-stable schema version while the underlying
-file format was changing. That is exactly the silent rot S-1 was
-meant to prevent. Manual realignment landed; this precept locks
-the gate so it cannot recur.
+- MUST bump CONSCIOUSNESS/stream/schema-version atomically with the schema_version field in packages/core/pgps/schema.json on any structural schema change
+- MUST use the marker pattern ^[0-9]{17}(_[A-Za-z0-9_-]+)?$ — 17-digit YYYYMMDDHHMMSSmmm timestamp, optional underscore description suffix
+- MUST author every breaking schema change as a TypeScript migration in packages/core/pgps/migrations/YYYYMMDDHHMMSSmmm_description.ts exporting `migration: Migration` (id, description, isApplied, up) and register it in packages/core/pgps/migrations/index.ts ALL_MIGRATIONS
+- MUST treat the marker file as canonical for what-schema-this-repo-honours; schema.json field documents intent and is consumer-readable
 
-## Scope
+## Forbids
 
-universal
-
-## Marker format
-
-### Pattern
-
-^[0-9]{17}(_[A-Za-z0-9_-]+)?$
-
-### Description
-
-17-digit timestamp YYYYMMDDHHMMSSmmm, optionally followed by an
-underscore-separated description. The 17-digit prefix sorts
-lexically as it sorts chronologically — useful for diff readers
-and audit reconstruction.
-
-### Examples
-
-- 20251209233807764_add_commentary_steering_files
-- 20260506190440587_align_with_schema_state_post_drift
-- 20260507120000000
-
-## Bump required when
-
-- Adding, removing, or renaming a column in any INDEX header
-- Changing the allowed values of an enum field (status, priority, kano, etc.)
-- Adding, removing, or renaming a top-level entity type (DIRECTIVE, STORY, TASK, FEATURE, REVIEW)
-- Changing the YAML/Markdown frontmatter requirements on a detail card
-- Changing the JSONL schema for steering, commentary, task-events, handoffs, etc.
-- Any structural change to schema.json content beyond formatting/comments
-
-## Bump not required when
-
-- Comment-only edits to schema.json
-- Whitespace-only edits
-- Reordering keys without changing values (when consumers don't depend on key order)
-
-## Migration doc
-
-### Required when breaking
-
-true
-
-### Location
-
-CONSCIOUSNESS/MIGRATIONS.md (when authored)
-
-### Format
-
-For every breaking schema change, append:
-  ## {marker-value}
-  - Date: YYYY-MM-DD
-  - Change: brief description
-  - Migration: how consumers update (or "no consumer action required")
-  - Affected: list of INDEX files / detail cards / JSONL stores impacted
+- MUST NOT skip the bump for any change that adds, removes, or renames an INDEX column, changes an enum, renames an entity type, alters detail-card frontmatter requirements, or changes JSONL shape
+- MUST NOT bypass the pre-commit gate via --no-verify unless the schema change is genuinely whitespace or comment-only
+- MUST NOT use a marker value that fails the 17-digit pattern; freeform descriptive strings are not legal markers
 
 ## References
 
-### Directive
+- precept:precept_specification
+- doc:CONSCIOUSNESS/directives/active-directive-item-details/DIRECT-CCC029
+- doc:packages/core/pgps/migrations/index.ts
 
-DIRECT-CCC029
+## Verified by
 
-### Discipline gate
-
-S-1
-
-### Discovery task
-
-TASK-CCC29061
-
-### Discovery context
-
-2026-05-06 evening, operator skepticism led to investigation
-
-### Related
-
-- TASK-CCC29033 (append-task-cli ID counter desync — sibling silent-drift bug)
+packages/core/pgps/migrations/runner.ts:runMigrations

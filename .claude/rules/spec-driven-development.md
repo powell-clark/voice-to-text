@@ -5,91 +5,30 @@
 
 # Spec driven development
 
-Feature detail cards are the product specification. Each feature's XML
-file in CONSCIOUSNESS/features/{status}-feature-item-details/ defines
-what must be built, how it must behave, and how to verify it works.
+Feature detail cards are the capability specification — each card defines capability scope (description), how it must behave (acceptance criteria), and how to verify it works; the set of all active feature cards IS the capability specification; ADRs own architectural decisions, feature cards own capability acceptance, precepts own validation rules.
 
-When building a feature, the detail card is the authoritative reference.
-When reviewing a feature, the acceptance criteria in the card determine
-pass or fail. When composing a product specification, the set of all
-active feature cards IS the specification.
+## Requires
 
-## Scope
+- MUST read the relevant feature card AND any architecture ADR it implements before building
+- MUST create a feature card before writing code when no card exists for the capability being built
+- MUST mark acceptance criteria done as they become verifiable and add criteria discovered during build
+- MUST resolve every non-deferred criterion to done before requesting review
+- MUST keep card frontmatter complete: id, status, priority, kano, title, description, acceptance_criteria with at least one criterion, stories linked, tasks linked
+- MUST file each card under CONSCIOUSNESS/features/{status}-feature-item-details/ matching its lifecycle status
 
-universal
+## Forbids
 
-## Principles
+- MUST NOT place architectural decisions inside feature cards — those belong in ADRs with consequences and considered-alternatives shape
+- MUST NOT place capability acceptance inside ADRs — those belong on feature cards
+- MUST NOT request review when an acceptance criterion is in pending state without an explicit deferred annotation
+- MUST NOT ship code that has no feature card or no acceptance criteria — invisible work
 
-### Single source
+## References
 
-The feature detail card is the single source of truth for what a
-feature does. Requirements are not scattered across ADRs, stories,
-and conversations — they are consolidated in the card.
+- adr:adrs--serve_as_specifications
+- precept:precept_specification
+- doc:CONSCIOUSNESS/features
 
-### Living document
+## Verified by
 
-Feature cards are updated as understanding improves. Acceptance
-criteria are added, refined, and marked done as implementation
-progresses. The card reflects current state, not initial intent.
-
-### Acceptance as spec
-
-Each <criterion> in the acceptance_criteria block is a testable
-specification line. "Done" means the criterion is verifiable in
-the codebase. "Pending" means it is specified but not yet built.
-
-### Composability
-
-The product specification at any point is the union of all active
-feature detail cards. Reading all active cards in priority order
-gives a complete picture of what the product does and will do.
-
-## Card structure
-
-### Format
-
-XML in CONSCIOUSNESS/features/{status}-feature-item-details/FEAT-CCC###.xml
-
-### Required elements
-
-- feature[@id, @status, @priority, @kano]
-- title
-- description
-- acceptance_criteria with at least one criterion
-- stories (linked story IDs)
-- tasks (linked task IDs)
-
-### Criterion statuses
-
-- done — implemented and verifiable
-- pending — specified but not yet built
-- deferred — intentionally postponed
-
-## Workflow
-
-### Before building
-
-Read the feature detail card. If no card exists, create one before
-writing any code. The card defines what you are building.
-
-### During building
-
-Mark criteria as done when their implementation is verifiable.
-Add new criteria discovered during implementation.
-
-### Before review
-
-All non-deferred criteria should be done. The card is the checklist
-the reviewer uses. Partial completion is noted, not hidden.
-
-## Composite specification
-
-### Status
-
-planned (TASK-CCC28711)
-
-### Concept
-
-A /pgps specs view would read all active feature cards and render
-a composite product specification. This is the full picture of what
-the product does — on demand, never committed, always current.
+packages/core/pgps/card-validator.ts:validateCard

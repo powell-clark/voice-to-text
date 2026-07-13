@@ -5,27 +5,29 @@
 
 # Director handoff
 
-Director sessions share state across repos through an append-only
-JSONL log. Write on leave (Stop hook), read on enter (SessionStart
-hook). Other roles do not write or read this log.
+Director sessions share state across repos through an append-only JSONL log at CONSCIOUSNESS/director-context.jsonl; the Stop hook writes on leave, the SessionStart hook reads on enter; only Director sessions write or read the handoff log.
 
-- Only Director sessions write or read the handoff log
-- Write-on-leave fires from Stop hook on every turn end when role is director
-- Read-on-enter fires from SessionStart for director sessions; auto-appends an enter entry to close the loop
-- context_id (UUID at leave time) threads leave/enter pairs
-- Federation read scans local repo + every sibling in config.json federation.siblings
-- Pending handoff = most recent leave with no matching enter anywhere in the federation
-- Best-effort writes — failures logged to stderr, never thrown
-- schema_version pinned to 1 in every entry
+## Requires
 
-## Scope
+- MUST write a leave entry from the Stop hook on every turn end when the actor's role is director
+- MUST read pending handoffs from the SessionStart hook for director sessions and auto-append a matching enter entry threaded by context_id (UUID generated at leave time)
+- MUST scan the local repo plus every sibling listed in config.json federation.siblings when computing pending-handoff state
+- MUST pin schema_version to 1 in every handoff entry
+- MUST treat all handoff writes as best-effort — failures log to stderr, never throw
 
-universal
+## Forbids
 
-## Log file
+- MUST NOT write or read the handoff log from non-Director sessions
+- MUST NOT mutate previously-written entries — the log is strictly append-only
+- MUST NOT block the turn lifecycle on handoff write failure
+- MUST NOT skip the context_id thread — every leave must carry a UUID and every matching enter must reuse it
 
-CONSCIOUSNESS/director-context.jsonl
+## References
 
-## Implementation module
+- precept:precept_specification
+- doc:CONSCIOUSNESS/directives/active-directive-item-details/DIRECT-CCC021
+- doc:CONSCIOUSNESS/director-context.jsonl
 
-src/core/session/director-context.ts
+## Verified by
+
+packages/core/session/director-context.ts:appendDirectorLeave

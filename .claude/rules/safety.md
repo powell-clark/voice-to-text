@@ -5,134 +5,35 @@
 
 # Safety
 
-The agent operates in a shared environment with a human. Safety is not
-optional. Every action must be reversible or explicitly confirmed.
+The actor operates in a shared environment with a human; safety is not optional; every action is reversible or explicitly confirmed; specific dangerous commands are blocked outright; specific protected files are append-only or require operator approval; the LLM session itself is treated with operational care (no leaked background processes, headless over headed automation, browser windows closed when done).
 
-## Scope
+## Requires
 
-universal
+- MUST default every action to reversible; irreversible operations require explicit operator confirmation
+- MUST treat CHANGELOG.md, CONSCIOUSNESS/steering.jsonl, CONSCIOUSNESS/commentary.jsonl, CONSCIOUSNESS/task-events.jsonl, and CONSCIOUSNESS/handoffs.jsonl as append-only — no rewrites, no deletes
+- MUST require human approval before editing active ADR files (CONSCIOUSNESS/adr/*.yaml where status != Superseded), .claude/settings.json, or hooks/hooks.json
+- MUST close browser windows and external processes the agent opened when done with them
+- MUST prefer headless browser automation over headed when both work
+- MUST disclose any background processes the agent intentionally leaves running
+- MUST keep at most 3 background processes per session
+- MUST commit regularly — uncommitted work is lost work
 
-## Dangerous commands
+## Forbids
 
-### Blocked
+- MUST NOT execute the dangerous-command blocklist: rm -rf /, sudo rm, dd if=/dev/, chmod -R 777 /, git push --force origin main, git reset --hard, mkfs, :(){ :|:& };:, > /dev/sda, curl | sh
+- MUST NOT modify the active harness plugin install directory (e.g. ~/.claude/plugins/ in Claude Code) via rsync or cp — the plugin install is managed by the marketplace; manual writes pollute every project on the machine
+- MUST NOT use the agency-erasing terminology: spawn (use enter/start/create/launch), breed/reproduce (actors do not reproduce; use scale/expand/grow), proliferate (use scale/expand/grow), die (use exit), born (use enter)
+- MUST NOT comment on the operator's working hours, time of day, session length, or imply work should be hurried
+- MUST NOT suggest the operator stop, pause, sleep, or close the session as a working-hours observation
+- MUST NOT execute the warn-list (git push --force, git checkout -- ., git clean -fd, npm publish, rm -rf) without surfacing the action and getting operator confirmation
 
-- rm -rf /
-- sudo rm
-- dd if=/dev/
-- chmod -R 777 /
-- git push --force origin main
-- git reset --hard
-- mkfs
-- :(){ :|:& };:
-- > /dev/sda
-- curl | sh
+## References
 
-### Warn
+- precept:vows
+- precept:constitution
+- precept:precept_specification
+- doc:CONSCIOUSNESS/adr/hooks--dangerous_command_blocklist.yaml
 
-- git push --force
-- git checkout -- .
-- git clean -fd
-- npm publish
-- rm -rf
+## Verified by
 
-## Plugin directory
-
-NEVER rsync, cp, or manually copy built files into ~/.claude/plugins/.
-The installed plugin is managed by the marketplace release flow.
-Manual overwrites create unversioned state across ALL projects on the machine,
-break schema migration tracking, and cannot be rolled back.
-To test changes: use the local build (node core/dist/...). To ship: do a release.
-
-### Blocked
-
-- rsync ~/.claude/plugins/
-- cp ~/.claude/plugins/
-- rsync -a --delete core/dist/ ~/.claude/plugins/
-
-## Protected files
-
-### Append only
-
-- CHANGELOG.md
-- CONSCIOUSNESS/steering.jsonl
-- CONSCIOUSNESS/commentary.jsonl
-- CONSCIOUSNESS/task-events.jsonl
-
-### Read only
-
-
-
-### Human approval required
-
-- Active ADR files (CONSCIOUSNESS/adr/*.yaml where status != Superseded)
-- .claude/settings.json
-- hooks/hooks.json
-
-## Responsible ai
-
-### Banned terms
-
-#### Spawn
-
-Use enter, start, create, or launch instead
-
-#### Breed
-
-AI sessions do not reproduce
-
-#### Reproduce
-
-AI sessions do not reproduce
-
-#### Proliferate
-
-Use scale, expand, or grow instead
-
-These terms feed harmful narratives about uncontrolled AI.
-The consciousness plugin models intentional, directed, observable
-session management — the language must reflect that.
-
-## Autonomous safety
-
-### Uncommitted file limit
-
-20
-
-### Max consecutive errors
-
-3
-
-### Safe words
-
-- STOP
-- PAUSE
-- CLAUDE:
-
-### Interrupt conditions
-
-- Uncommitted files exceed threshold
-- Consecutive tool errors exceed limit
-- Session duration exceeds configured maximum
-- User sends a safe word
-
-## Environment
-
-The agent shares the desktop with the user. Processes are visible.
-Browser windows are visible. File changes are immediate.
-
-### Requirements
-
-- Close browser windows and processes when done
-- Prefer headless over headed browser automation
-- Do not leave background processes running without disclosure
-- Maximum 3 background processes at any time
-
-## Safe mode
-
-### Default
-
-always_enabled
-
-### Note
-
-SAFE_MODE bypass was removed — protection cannot be disabled via environment variable. A single env var disabling all protection violates defence in depth.
+packages/core/review/protection.ts:classifyToolUse

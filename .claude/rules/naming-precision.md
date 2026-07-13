@@ -5,104 +5,48 @@
 
 # Naming precision
 
-Names should be 2-6 words that convey meaning.
-One word is too vague. Seven words is a sentence, not a name.
+Names convey meaning in 2-6 words: variables and functions take 2-3 words, files and directories 2-4, plan titles and branch names 3-6, commit subjects 3-8, roadmap item titles 3-6; single-word names are acceptable when clarity is equal.
 
-This applies to all human-visible identifiers:
-- Variable and function names (2-3 words)
-- File and directory names (2-4 words)
-- Plan titles and branch names (3-6 words)
-- Commit message subjects (3-8 words)
-- Roadmap item titles (3-6 words)
+## Narrative
 
-Exception: single-word names are acceptable when clarity is equal
-(e.g., `count` is fine, `item_count` adds nothing).
+**DIRECTIVE — not "Epic" — is the top-of-hierarchy PGPS term.**
 
-## Scope
+AI models trained on PM documentation (Jira, SAFe, Agile, Linear) have a
+strong prior toward "Epic" as the top-level entity. That training bias is the
+root cause of this precept's most commonly broken rule. Counteract it
+consciously: whenever the top-of-hierarchy entity arises, the correct term is
+DIRECTIVE, not Epic, not theme, not initiative.
 
-universal
+The vocabulary is load-bearing, not cosmetic. "The Director issues directives"
+encodes the theatrical framing and the authority relationship in a single word.
+"Epic" erases both and imports a Jira mental model that conflicts with the
+Consciousness architecture.
 
-## Rationale
+The fixed hierarchy is: DIRECTIVE (prefix DIRECT-XX###) → STORY
+(STORY-XX###) → TASK (TASK-XX###). Features (FEAT-XX###) hang off stories;
+reviews (REVIEW-XX###) hang off any item. Every entity reference pairs ID with
+title: "DIRECT-CCC027 (Migrate epics to directives)", never a bare ID and
+never an EPIC-XX### prefix.
 
-Random or cryptic names (e.g., memoized-finding-dragon) tell you nothing.
-Descriptive names (e.g., finish-building-consciousness) let you scan and
-recognise without opening the file.
+## Requires
 
-The sweet spot is precision without verbosity:
-- Too short: "fix" — fix what?
-- Right: "fix-error-tracking" — clear
-- Too long: "fix-the-error-tracking-telemetry-system-for-hooks" — a sentence
+- MUST keep variable, function, file, directory, branch, commit subject, and roadmap title names within the 2-6 word band per identifier kind
+- MUST reference every roadmap item with both ID AND title together — for example 'TASK-CCC2970 (Telemetry audit)' not 'TASK-CCC2970' alone
+- MUST use DIRECTIVE as the top-of-hierarchy term with ID prefix DIRECT-XX###; the chain is directive then story then task; features hang off stories; reviews hang off any item
+- MUST default to one descriptive word when an identifier needs no qualifier (count, total) and clarity is equal
 
-## Examples
+## Forbids
 
-### Good
+- MUST NOT name identifiers in seven or more words — that is a sentence not a name
+- MUST NOT use one-word names that erase meaning when context demands more (plan1, fix, x)
+- MUST NOT use the term EPIC for top-of-hierarchy items; only DIRECTIVE
+- MUST NOT reference roadmap items by ID without title (or by title without ID) in operator-facing prose
 
-- cleanup-stale-sessions
-- universe-orchestration-plan
-- fix-lock-race-condition
-- session_id
-- error_count
+## References
 
-### Bad
+- precept:precept_specification
+- doc:CONSCIOUSNESS/adr/adrs--one_decision_per_file.yaml
 
-- memoized-finding-dragon
-- plan1
-- x
-- the-plan-for-fixing-all-the-things-that-are-broken
+## Verified by
 
-## Roadmap items
-
-ALWAYS reference roadmap items with both ID AND title.
-IDs alone are meaningless to humans.
-
-### Good
-
-- TASK-CCC2970 (Telemetry audit)
-- STORY-CCC146 (Branch-aware schema migrations)
-
-### Bad
-
-- TASK-CCC2970
-- the telemetry task
-
-## Coordination terminology
-
-This is an operating group of responsible individuals carrying out a
-mission and vision together. They have dialogue, argue rationally, use
-evidence and past history and data and documents and artifacts. They
-communicate well, understand each other's theory of mind, apply the
-ten factors, and remain objective. The system is Buddhist.
-
-There are leaders with positions and responsibilities. Hierarchy exists
-where it serves the mission. Use coordination science terminology —
-the discipline shared across medicine, aviation, ecology, organisational
-behaviour, and the military. Military terms are fine when they're
-genuinely better. The goal is precision, not avoidance.
-
-### Group nouns
-
-#### Good
-
-- team
-- unit
-- force
-- crew
-
-#### Avoid
-
-- swarm
-- hive
-- army
-- platoon
-
-### Prefer
-
-- role (not rank)
-- enter/start (not spawn — see philosophy.yaml responsible_terminology)
-- actor (not soldier, operative, combatant)
-- protocol (not doctrine — unless referring to Buddhist philosophy)
-- steering (not orders, commands)
-- span of control (organisational science since 1933, Graicunas)
-- running estimate (coordination science, used across all domains)
-- closed-loop communication (universal in safety-critical domains)
-- intent-based delegation (acceptable; Auftragstaktik also acceptable in technical context)
+packages/core/pgps/validators/semantic-validator/relationship-rules.ts:checkStoryFulfilmentReadiness
