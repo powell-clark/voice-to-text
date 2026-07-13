@@ -26,14 +26,14 @@ pub struct ModelInfo {
     /// that wants to filter the model list without re-parsing the ".en" suffix.
     #[allow(dead_code)]
     pub multilingual: bool,
+    /// Expected SHA-256, lowercase hex, sourced from the upstream HuggingFace
+    /// git-lfs pointer file (`.../raw/main/<filename>` returns `oid sha256:...`)
+    /// rather than a full download. `ensure()` hard-fails on mismatch (TASK-VTT112).
+    pub sha256: &'static str,
 }
 
 /// Canonical catalogue of supported GGML models. URLs point at the upstream
 /// ggerganov/whisper.cpp HuggingFace repo which is the authoritative source.
-///
-/// Note: SHA-256 verification is best-effort — we download to a `.tmp` file, hash it,
-/// and rename only on success. Upstream hashes can change if Hugging Face re-uploads
-/// a file; we log mismatches but do not yet hard-fail in v2.0.0.
 pub const MODELS: &[ModelInfo] = &[
     ModelInfo {
         name: "small.en",
@@ -41,6 +41,7 @@ pub const MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
         size_mb: 466,
         multilingual: false,
+        sha256: "c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d",
     },
     ModelInfo {
         name: "small",
@@ -48,6 +49,7 @@ pub const MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",
         size_mb: 466,
         multilingual: true,
+        sha256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
     },
     ModelInfo {
         name: "medium.en",
@@ -55,6 +57,7 @@ pub const MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin",
         size_mb: 1462,
         multilingual: false,
+        sha256: "cc37e93478338ec7700281a7ac30a10128929eb8f427dda2e865faa8f6da4356",
     },
     ModelInfo {
         name: "medium",
@@ -62,6 +65,7 @@ pub const MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
         size_mb: 1462,
         multilingual: true,
+        sha256: "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208",
     },
     ModelInfo {
         name: "large-v3-turbo",
@@ -69,6 +73,7 @@ pub const MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin",
         size_mb: 1536,
         multilingual: true,
+        sha256: "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
     },
     ModelInfo {
         name: "large-v3",
@@ -76,6 +81,7 @@ pub const MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin",
         size_mb: 2963,
         multilingual: true,
+        sha256: "64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2",
     },
 ];
 
@@ -179,13 +185,23 @@ pub fn ensure<F: FnMut(u64, u64)>(info: &ModelInfo, mut progress: F) -> anyhow::
     out.flush()?;
     drop(out);
 
-    let digest = hasher.finalize();
+    let digest = format!("{:x}", hasher.finalize());
     crate::vtt_log!(
-        "Downloaded {} ({} bytes, sha256: {:x})",
+        "Downloaded {} ({} bytes, sha256: {})",
         info.filename,
         downloaded,
         digest
     );
+
+    if !digest.eq_ignore_ascii_case(info.sha256) {
+        fs::remove_file(&tmp).ok();
+        anyhow::bail!(
+            "SHA-256 mismatch for {}: expected {}, got {} — download discarded, not installed",
+            info.filename,
+            info.sha256,
+            digest
+        );
+    }
 
     fs::rename(&tmp, &path)?;
     progress(downloaded, total);
@@ -276,6 +292,33 @@ mod tests {
             assert_eq!(
                 has_en, !m.multilingual,
                 "model {} has inconsistent .en/multilingual flags",
+                m.name
+            );
+            assert_eq!(
+                m.sha256.len(),
+                64,
+                "model {} sha256 is not 64 hex chars: {}",
+                m.name,
+                m.sha256
+            );
+            assert!(
+                m.sha256
+                    .chars()
+                    .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
+                "model {} sha256 is not lowercase hex: {}",
+                m.name,
+                m.sha256
+            );
+        }
+    }
+
+    #[test]
+    fn catalogue_models_have_unique_sha256() {
+        let mut seen = std::collections::HashSet::new();
+        for m in MODELS {
+            assert!(
+                seen.insert(m.sha256),
+                "model {} shares a sha256 with another catalogue entry",
                 m.name
             );
         }
