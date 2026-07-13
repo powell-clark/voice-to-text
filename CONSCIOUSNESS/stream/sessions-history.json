@@ -1094,17 +1094,57 @@
       "id": "vtt-main-8e922f21",
       "prev": "vtt-main-c327b59e",
       "started": "2026-07-10 04:27:17.474 bst",
-      "ended": null,
+      "ended": "2026-07-10 15:48:16.423 bst",
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
-        "commits": 6,
-        "turns": 13,
-        "human_prompts": 9,
+        "commits": 7,
+        "turns": 15,
+        "human_prompts": 10,
+        "errors": 0,
+        "compactions": 0,
+        "framing_checks_count": 6,
+        "framing_compliance_count": 0,
+        "hooks_latency_ms": {
+          "session-init": 248,
+          "message-end": 11
+        },
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "commit_shas": [
+        "115fac4dfce92e679d6c39b819c34dfd48d654ba",
+        "ecb796acbafa98af67517e12698475edf0f01d61",
+        "f76754cd75fc0659fdbe29a7ffc9845c2f772359",
+        "5d964fecf2c6de53bb52f84d53682c2ff58738e0",
+        "3b0bdb1787ab0308875424171eedcfad46c10303",
+        "b379bed7b973809cebbd23e7885c8fcd1cad17c2",
+        "a1c2f0fa598e3cfcd3354fa3037644dedf5497dc",
+        "a55b7f904976cc9b2add0a718c57ff3f6eb37ea7",
+        "63b3676257eb917b59c0d1b60a9b16c93297f8e8",
+        "dd76a7d4a0692ded2d30442268c120e3439e34cd",
+        "ceb3f781814d0dbbc7b602a0e51ff245cab441a6",
+        "bb326c78fd9ee1e3df800012626a7944a3a3944f",
+        "7099a8687df89eb24611bfbbc2466131fc8d17d1"
+      ],
+      "end_reason": "queue_empty"
+    },
+    {
+      "id": "vtt-main-4c143bbc",
+      "prev": "vtt-main-8e922f21",
+      "started": "2026-07-13 11:50:10.431 bst",
+      "ended": null,
+      "metrics": {
+        "autonomous_loops": 2,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 5,
+        "human_prompts": 0,
         "errors": 0,
         "compactions": 0,
         "hooks_latency_ms": {
-          "session-init": 248,
           "message-end": 9
         },
         "usage": {
@@ -1112,7 +1152,7 @@
           "output_tokens": 0
         },
         "ralph_loops": null,
-        "framing_checks_count": 4,
+        "framing_checks_count": 5,
         "framing_compliance_count": 0
       }
     }

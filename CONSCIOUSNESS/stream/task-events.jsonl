@@ -4,3 +4,5 @@
 {"schema_version":1,"event":"status-change","task_id":"TASK-VTT084","from":"upcoming","to":"in_progress","note":"Pre-staging Windows handoff from Linux","timestamp":"2026-06-25 16:52:59.048 bst","session_id":"vtt-main-7871c871","branch":"main","id":"TEVT-VTT004"}
 {"schema_version":1,"event":"status-change","task_id":"TASK-VTT084","from":"in_progress","to":"in_review","note":"CI verified green; smoke-test script added; card tightened","timestamp":"2026-06-25 16:54:05.844 bst","session_id":"vtt-main-7871c871","branch":"main","id":"TEVT-VTT005"}
 {"schema_version":1,"event":"status-change","task_id":"TASK-VTT084","from":"in_review","to":"done","timestamp":"2026-06-25 16:54:05.906 bst","session_id":"vtt-main-7871c871","branch":"main","id":"TEVT-VTT006"}
+{"task_id":"TASK-VTT109","event":"claimed","timestamp":"2026-07-13 12:45:30.918 bst","session_id":"vtt-main-4c143bbc","branch":"main","id":"TEVT-VTT007"}
+{"schema_version":1,"event":"status-change","task_id":"TASK-VTT109","from":"upcoming","to":"in_progress","timestamp":"2026-07-13 12:45:30.937 bst","session_id":"vtt-main-4c143bbc","branch":"main","id":"TEVT-VTT008"}

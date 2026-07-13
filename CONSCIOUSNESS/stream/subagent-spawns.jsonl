@@ -15,3 +15,5 @@
 {"event":"subagent_spawned","parent_session_id":"vtt-main-63e863c4","child_session_id":null,"spawn_method":"Agent","intent":"Diagnose and repair consciousness issues","ts":"2026-07-01 03:29:06.964 bst"}
 {"event":"subagent_spawned","parent_session_id":"vtt-main-8e922f21","child_session_id":null,"spawn_method":"Agent","intent":"Consciousness health diagnostics pass","ts":"2026-07-10 04:31:19.162 bst"}
 {"event":"subagent_spawned","parent_session_id":"vtt-main-8e922f21","child_session_id":null,"spawn_method":"Agent","intent":"Build TASK-VTT122 restart semantics","ts":"2026-07-10 04:38:20.837 bst"}
+{"event":"subagent_spawned","parent_session_id":"vtt-main-4c143bbc","child_session_id":null,"spawn_method":"Agent","intent":"Check autostart default-on implementation status","ts":"2026-07-13 12:45:14.907 bst"}
+{"event":"subagent_spawned","parent_session_id":"vtt-main-4c143bbc","child_session_id":null,"spawn_method":"Agent","intent":"Find task claiming CLI tooling","ts":"2026-07-13 12:47:30.583 bst"}

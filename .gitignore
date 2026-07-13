@@ -91,4 +91,9 @@ debian/voice-to-text.substvars
 .claude/universe-last-poll.txt
 .claude/universe-snapshot.json
 .claude/consciousness-loop.*.md
+.claude/framing-blocked.*.txt
+.claude/framing-version-snapshot.*.json
+.claude/naming-precision-reminder.*.md
+.claude/turn-start-ts.*.txt
+.claude/last-claim.md
 chats/
