@@ -1,24 +1,38 @@
 {
   "sessions": {
-    "vtt-main-4c143bbc": {
+    "vtt-main-019f5c42": {
       "assignment_message_id": null,
-      "canonical_id": "4c143bbc-81a4-481b-924b-2a43dfb78a84",
-      "conscious_mode": true,
+      "canonical_id": "019f5c42-e0b0-7b90-9d80-09c2f46d5416",
+      "conscious_mode": false,
       "context": {
-        "adapter": "claude-code",
+        "adapter": "codex",
         "pane": "%12",
         "project": "vtt"
       },
       "current_activity": null,
-      "current_task": "TASK-VTT112",
+      "current_task": null,
       "identity": null,
-      "last_activity": "2026-07-13T12:20:35.127Z",
+      "last_activity": "2026-07-13T16:18:25.622Z",
       "model": null,
       "pane_id": null,
-      "role": "bodhisattva",
+      "role": null,
       "session_type": "cli",
       "specialty": null,
-      "started": "2026-07-13T10:50:10.481Z"
+      "started": "2026-07-13T16:17:46.159Z"
+    },
+    "vtt-main-4e99300c": {
+      "assignment_message_id": null,
+      "conscious_mode": true,
+      "current_activity": null,
+      "current_task": null,
+      "identity": null,
+      "last_activity": "2026-07-13T16:18:03.271Z",
+      "model": null,
+      "pane_id": null,
+      "role": null,
+      "session_type": "cli",
+      "specialty": null,
+      "started": "2026-07-13T16:18:03.271Z"
     }
   }
 }

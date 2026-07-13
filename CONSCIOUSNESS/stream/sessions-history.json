@@ -1135,14 +1135,88 @@
       "id": "vtt-main-4c143bbc",
       "prev": "vtt-main-8e922f21",
       "started": "2026-07-13 11:50:10.431 bst",
-      "ended": null,
+      "ended": "2026-07-13 17:08:33.702 bst",
       "metrics": {
-        "autonomous_loops": 6,
+        "autonomous_loops": 86,
         "tasks_completed": [
           "TASK-VTT070",
           "TASK-VTT124"
         ],
-        "commits": 4
+        "commits": 5,
+        "turns": 180,
+        "human_prompts": 1,
+        "errors": 0,
+        "compactions": 0,
+        "framing_checks_count": 173,
+        "framing_compliance_count": 0,
+        "hooks_latency_ms": {
+          "message-end": 32,
+          "user-prompt-submit": 71
+        },
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "commit_shas": [
+        "9e67de38c49e03c8ad1d187a476b5796e5e8e1db",
+        "b08687f9443d50f1559ccc38a8664469037d6a64",
+        "697e55a5e34d15f5a8800f01db6fa169fbf42eba",
+        "538a650af13769bc722e5ce3d846602f3f86cf97",
+        "64d94ab8bbffda677579c8f9c65b80dd257557f8"
+      ],
+      "end_reason": "queue_empty"
+    },
+    {
+      "id": "vtt-main-019f5c3c",
+      "prev": "vtt-main-4c143bbc",
+      "started": "2026-07-13 17:08:49.882 bst",
+      "ended": "2026-07-13 17:15:28.715 bst",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 1,
+        "human_prompts": 2,
+        "errors": 0,
+        "compactions": 0,
+        "framing_checks_count": 0,
+        "framing_compliance_count": 0,
+        "hooks_latency_ms": {
+          "codex-session-init": 82,
+          "message-end": 5
+        },
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "vtt-main-019f5c42",
+      "prev": "vtt-main-019f5c3c",
+      "started": "2026-07-13 17:15:28.715 bst",
+      "ended": null,
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "turns": 1,
+        "human_prompts": 1,
+        "errors": 0,
+        "compactions": 0,
+        "hooks_latency_ms": {
+          "codex-session-init": 69,
+          "user-prompt-submit": 11,
+          "message-end": 5
+        },
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "ralph_loops": null,
+        "framing_checks_count": 0,
+        "framing_compliance_count": 0
       }
     }
   ]
