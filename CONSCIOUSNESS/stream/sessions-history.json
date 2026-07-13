@@ -1275,14 +1275,14 @@
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
-        "commits": 3,
+        "commits": 5,
         "turns": 0,
-        "human_prompts": 1,
+        "human_prompts": 2,
         "errors": 0,
         "compactions": 0,
         "hooks_latency_ms": {
           "session-init": 328,
-          "user-prompt-submit": 27
+          "user-prompt-submit": 265
         },
         "usage": {
           "input_tokens": 0,

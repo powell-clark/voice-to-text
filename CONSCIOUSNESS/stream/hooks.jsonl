@@ -704,3 +704,4 @@
 {"timestamp":"2026-07-13 18:10:44.594 bst","session_id":"vtt-main-feaba9b6","hook_name":"session-init","latency_ms":382}
 {"timestamp":"2026-07-13 18:29:01.146 bst","session_id":"vtt-main-d0abf55a","hook_name":"session-init","latency_ms":328}
 {"timestamp":"2026-07-13 18:45:50.612 bst","session_id":"vtt-main-d0abf55a","hook_name":"user-prompt-submit","latency_ms":27}
+{"timestamp":"2026-07-13 19:00:21.788 bst","session_id":"vtt-main-d0abf55a","hook_name":"user-prompt-submit","latency_ms":265}

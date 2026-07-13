@@ -18,3 +18,6 @@
 {"task_id":"TASK-VTT112","event":"released","timestamp":"2026-07-13 13:22:35.567 bst","session_id":"vtt-main-4c143bbc","branch":"main","id":"TEVT-VTT018"}
 {"task_id":"TASK-VTT109","event":"claimed","timestamp":"2026-07-13 13:22:35.596 bst","session_id":"vtt-main-4c143bbc","branch":"main","id":"TEVT-VTT019"}
 {"schema_version":1,"event":"status-change","task_id":"TASK-VTT109","from":"upcoming","to":"in_progress","timestamp":"2026-07-13 13:22:35.617 bst","session_id":"vtt-main-4c143bbc","branch":"main","id":"TEVT-VTT020"}
+{"task_id":"TASK-VTT123","event":"released","timestamp":"2026-07-13 19:00:21.738 bst","session_id":"vtt-main-d0abf55a","branch":"main","id":"TEVT-VTT021"}
+{"task_id":"TASK-VTT109","event":"claimed","timestamp":"2026-07-13 19:00:21.827 bst","session_id":"vtt-main-d0abf55a","branch":"main","id":"TEVT-VTT022"}
+{"schema_version":1,"event":"status-change","task_id":"TASK-VTT109","from":"upcoming","to":"in_progress","timestamp":"2026-07-13 19:00:21.859 bst","session_id":"vtt-main-d0abf55a","branch":"main","id":"TEVT-VTT023"}
