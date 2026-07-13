@@ -1137,23 +1137,11 @@
       "started": "2026-07-13 11:50:10.431 bst",
       "ended": null,
       "metrics": {
-        "autonomous_loops": 2,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 5,
-        "human_prompts": 0,
-        "errors": 0,
-        "compactions": 0,
-        "hooks_latency_ms": {
-          "message-end": 9
-        },
-        "usage": {
-          "input_tokens": 0,
-          "output_tokens": 0
-        },
-        "ralph_loops": null,
-        "framing_checks_count": 5,
-        "framing_compliance_count": 0
+        "autonomous_loops": 3,
+        "tasks_completed": [
+          "TASK-VTT070"
+        ],
+        "commits": 1
       }
     }
   ]

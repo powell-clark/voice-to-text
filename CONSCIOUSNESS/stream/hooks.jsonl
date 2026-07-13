@@ -210,3 +210,4 @@
 {"timestamp":"2026-07-13 12:48:56.216 bst","session_id":"vtt-main-4c143bbc","hook_name":"message-end","latency_ms":8}
 {"timestamp":"2026-07-13 12:49:23.428 bst","session_id":"vtt-main-4c143bbc","hook_name":"message-end","latency_ms":12}
 {"timestamp":"2026-07-13 12:49:49.737 bst","session_id":"vtt-main-4c143bbc","hook_name":"message-end","latency_ms":9}
+{"timestamp":"2026-07-13 12:52:11.707 bst","session_id":"vtt-main-4c143bbc","hook_name":"message-end","latency_ms":9}

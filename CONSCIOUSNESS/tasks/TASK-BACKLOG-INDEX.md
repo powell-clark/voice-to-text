@@ -8,7 +8,6 @@ TASK-VTT102|p2|Rename binary — drop the misleading vtt-linux name|STORY-VTT013
 TASK-VTT103|p3|Evaluate unifying Linux GTK tray onto the portable tray (ADR)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT103.md|||||g2a
 TASK-VTT095|p2|Update mechanism — how Windows/macOS users get new versions|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT095.md|||||g3
 TASK-VTT056|p3|Monitor current release in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover (was scoped to v2.0.5, now superseded by v2.3.7)|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT056.md|||||b0
-TASK-VTT070|p1|Vendor refresh — upgrade rustls-webpki to >=0.103.13 to close RUSTSEC-2026-0104||DIRECT-VTT002||TASK-VTT070.md|||||b1
 TASK-VTT060|p1|Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT060.md|||||b2
 TASK-VTT064|p1|Windows ARM64 Snapdragon CPU build|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT064.md|TASK-VTT082||||b2a
 TASK-VTT047|p1|Windows Authenticode code signing|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT047.md|TASK-VTT064||||b3
