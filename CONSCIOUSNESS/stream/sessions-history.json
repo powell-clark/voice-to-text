@@ -1273,17 +1273,14 @@
       "started": "2026-07-13 18:29:00.999 bst",
       "ended": null,
       "metrics": {
-        "autonomous_loops": 0,
+        "autonomous_loops": 1,
         "tasks_completed": [],
-        "commits": 6,
+        "commits": 8,
         "turns": 0,
-        "human_prompts": 3,
+        "human_prompts": 0,
         "errors": 0,
         "compactions": 0,
-        "hooks_latency_ms": {
-          "session-init": 328,
-          "user-prompt-submit": 23
-        },
+        "hooks_latency_ms": {},
         "usage": {
           "input_tokens": 0,
           "output_tokens": 0
