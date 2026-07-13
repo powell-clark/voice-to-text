@@ -1200,7 +1200,7 @@
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
-        "commits": 2,
+        "commits": 3,
         "turns": 1,
         "human_prompts": 1,
         "errors": 0,
