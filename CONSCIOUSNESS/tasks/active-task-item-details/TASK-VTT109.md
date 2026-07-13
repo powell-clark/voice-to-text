@@ -33,7 +33,11 @@ the release. Doing it in app code is testable and cannot break the installer.
 - [x] First Windows launch enables start-at-login when the marker is unset
 - [x] Marker is set only after a successful enable (transient failure retries)
 - [x] Tray "Start at login" toggle still turns it off, and the off-state sticks
-- [ ] Verified on Windows: fresh launch writes HKCU Run; untick removes it; relaunch does not re-add
+- [deferred] Verified on Windows: fresh launch writes HKCU Run; untick removes it; relaunch does not re-add
+      — needs Windows hardware; not verifiable on the Linux dev box (no Windows
+      target installed for cross-compile; CI windows-latest `.msi` job covers
+      compilation). Emmanuel to confirm the HKCU Run round-trip on his next
+      Windows launch. Mirrors the macOS deferral on TASK-VTT114 / REVIEW-VTT121.
 
 ## Dependencies
 

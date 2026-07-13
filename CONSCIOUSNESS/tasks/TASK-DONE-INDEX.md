@@ -86,3 +86,4 @@ TASK-VTT114|macOS clipboard auto-paste sends Ctrl+V — must be Cmd+V|STORY-VTT0
 TASK-VTT112|Add stored per-model SHA-256 verification to src/models.rs||DIRECT-VTT002|FEAT-VTT026|TASK-VTT112.md
 TASK-VTT123|Copy last transcription tray menu item|STORY-VTT018|DIRECT-VTT005|FEAT-VTT038|TASK-VTT123.md
 TASK-VTT062|Wire selected_device_index through to audio::Audio::new()||DIRECT-VTT002||TASK-VTT062.md
+TASK-VTT109|Windows autostart on by default — first-run enable + tray off-switch|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT109.md
