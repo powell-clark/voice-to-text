@@ -206,6 +206,26 @@ fn paste_text(enigo: &mut Enigo, text: &str) {
     thread::sleep(Duration::from_millis(10));
 }
 
+/// Places `text` on the system clipboard without simulating a paste
+/// keystroke — used by the tray "Copy last transcription" recovery action
+/// (FEAT-VTT038), where the user picks the destination window afterwards.
+pub fn set_clipboard_text(text: &str) {
+    match arboard::Clipboard::new() {
+        Ok(mut clipboard) => {
+            if let Err(e) = clipboard.set_text(text.to_string()) {
+                crate::vtt_log!("Failed to set clipboard: {}", e);
+                #[cfg(not(target_os = "windows"))]
+                paste_via_xclip(text);
+            }
+        }
+        Err(e) => {
+            crate::vtt_log!("Failed to open clipboard: {}", e);
+            #[cfg(not(target_os = "windows"))]
+            paste_via_xclip(text);
+        }
+    }
+}
+
 /// The paste modifier: Cmd+V on macOS, Ctrl+V everywhere else this fn is
 /// compiled for (Linux; Windows has its own paste_text above). Using the
 /// wrong modifier on macOS opens Mission Control / does nothing instead of

@@ -26,12 +26,17 @@ Implements FEAT-VTT038.
 
 ## Acceptance criteria
 
-- [ ] After a successful transcription, tray menu "Copy last transcription"
-      puts the exact typed text on the clipboard
-- [ ] Works for `[Truncated]` max-length results too
-- [ ] Selecting the item before any transcription this run is a safe no-op
-- [ ] Present on both the Linux GTK tray and the portable (Windows/macOS) tray
-- [ ] cargo test / clippy / fmt green
+- [x] After a successful transcription, tray menu "Copy last transcription"
+      puts the exact typed text on the clipboard — worker stores `final_text`
+      into `LastTranscription`; tray calls `set_clipboard_text` (arboard, xclip
+      fallback)
+- [x] Works for `[Truncated]` max-length results too — stored *after*
+      `compose_final_text`, so the `[Truncated] ` prefix is included
+- [x] Selecting the item before any transcription this run is a safe no-op —
+      `None` branch logs "nothing transcribed yet this run" and returns
+- [x] Present on both the Linux GTK tray and the portable (Windows/macOS) tray
+- [x] cargo test / clippy / fmt green — fmt clean, clippy `-D warnings` clean,
+      99 passed / 0 failed
 
 ## Dependencies
 

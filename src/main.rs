@@ -23,7 +23,7 @@ mod whisper;
 use audio::RecordingResult;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc, RwLock};
+use std::sync::{mpsc, Arc, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -187,6 +187,7 @@ fn main() -> anyhow::Result<()> {
     let recording = Arc::new(AtomicBool::new(false));
     let typing_active = Arc::new(AtomicBool::new(false));
     let typing_has_output = Arc::new(AtomicBool::new(false));
+    let last_transcription: tray::LastTranscription = Arc::new(Mutex::new(None));
 
     // Initialize audio
     let audio = Arc::new(audio::Audio::new()?);
@@ -235,9 +236,11 @@ fn main() -> anyhow::Result<()> {
     // poll_menu() each tick so menu events are processed on the main thread
     // (muda uses Rc internally — menu items are !Send).
     #[cfg(target_os = "linux")]
-    let (_tray, ui_tx) = tray::Tray::new(settings.clone(), &config_dir)?;
+    let (_tray, ui_tx) =
+        tray::Tray::new(settings.clone(), &config_dir, last_transcription.clone())?;
     #[cfg(not(target_os = "linux"))]
-    let (mut tray, ui_tx) = tray::Tray::new(settings.clone(), &config_dir)?;
+    let (mut tray, ui_tx) =
+        tray::Tray::new(settings.clone(), &config_dir, last_transcription.clone())?;
 
     // Worker thread — transcribes audio and types result
     let worker_settings = settings.clone();
@@ -246,6 +249,7 @@ fn main() -> anyhow::Result<()> {
     let worker_running = running.clone();
     let worker_ui_tx = ui_tx.clone();
     let worker_config_dir = config_dir.clone();
+    let worker_last_transcription = last_transcription.clone();
 
     thread::Builder::new()
         .name("transcription-worker".into())
@@ -258,6 +262,7 @@ fn main() -> anyhow::Result<()> {
                 worker_running,
                 worker_ui_tx,
                 worker_config_dir,
+                worker_last_transcription,
             );
         })?;
 
@@ -469,6 +474,10 @@ fn main() -> anyhow::Result<()> {
 
 // ─── Transcription worker ───────────────────────────────────────
 
+/// Owns the transcription loop for the lifetime of the process — the extra
+/// param over clippy's default threshold is independent cross-thread handles,
+/// not a design smell to fix by bundling into a struct only this fn would use.
+#[allow(clippy::too_many_arguments)]
 fn transcription_worker(
     rx: mpsc::Receiver<WorkItem>,
     settings: Arc<RwLock<settings::Settings>>,
@@ -477,6 +486,7 @@ fn transcription_worker(
     running: Arc<AtomicBool>,
     ui_tx: tray::UiSender,
     config_dir: PathBuf,
+    last_transcription: tray::LastTranscription,
 ) {
     vtt_log!("Transcription worker started");
     let typer = match typing::Typer::new() {
@@ -593,6 +603,7 @@ fn transcription_worker(
 
                 let corrected = corrections::apply(trimmed, &corrections);
                 let final_text = compose_final_text(is_truncated, &prefix, &corrected);
+                *last_transcription.lock().unwrap() = Some(final_text.clone());
 
                 typing_active.store(true, Ordering::SeqCst);
                 if append_newline && typing_has_output.load(Ordering::Relaxed) {

@@ -1,5 +1,5 @@
 /// Portable tray implementation using tray-icon + muda (macOS + Windows)
-use super::{UiMessage, UiSender};
+use super::{LastTranscription, UiMessage, UiSender};
 use crate::logging;
 use crate::settings::Settings;
 use std::path::Path;
@@ -15,6 +15,7 @@ pub struct Tray {
     ui_rx: mpsc::Receiver<UiMessage>,
     ids: MenuIds,
     settings: Arc<RwLock<Settings>>,
+    last_transcription: LastTranscription,
 }
 
 struct MenuIds {
@@ -23,6 +24,7 @@ struct MenuIds {
     about: MenuItem,
     logging: MenuItem,
     autostart: Option<CheckMenuItem>,
+    copy_last: MenuItem,
     models: Vec<(CheckMenuItem, String)>,
     lang_en: CheckMenuItem,
     lang_multi: CheckMenuItem,
@@ -34,6 +36,7 @@ enum MenuCmd {
     About,
     LoggingToggle,
     AutostartToggle,
+    CopyLastTranscription,
     LanguageSel(String),
     ModelSel(String),
 }
@@ -42,6 +45,7 @@ impl Tray {
     pub fn new(
         settings: Arc<RwLock<Settings>>,
         _config_dir: &Path,
+        last_transcription: LastTranscription,
     ) -> anyhow::Result<(Self, UiSender)> {
         let s = settings.read().unwrap();
         let current_model = s.selected_model.clone();
@@ -117,6 +121,10 @@ impl Tray {
             None
         };
 
+        // Copy last transcription — recovery net (FEAT-VTT038)
+        let copy_last = MenuItem::new("Copy last transcription", true, None);
+        menu.append(&copy_last)?;
+
         // About
         let about = MenuItem::new("About Voice to Text", true, None);
         menu.append(&about)?;
@@ -140,6 +148,7 @@ impl Tray {
             about,
             logging,
             autostart,
+            copy_last,
             models,
             lang_en,
             lang_multi,
@@ -153,6 +162,7 @@ impl Tray {
         let about_id = ids.about.id().clone();
         let logging_id = ids.logging.id().clone();
         let autostart_id = ids.autostart.as_ref().map(|i| i.id().clone());
+        let copy_last_id = ids.copy_last.id().clone();
         let lang_en_id = ids.lang_en.id().clone();
         let lang_multi_id = ids.lang_multi.id().clone();
         let model_ids: Vec<(muda::MenuId, String)> = ids
@@ -177,6 +187,8 @@ impl Tray {
                         Some(MenuCmd::LoggingToggle)
                     } else if autostart_id.as_ref() == Some(&id) {
                         Some(MenuCmd::AutostartToggle)
+                    } else if id == copy_last_id {
+                        Some(MenuCmd::CopyLastTranscription)
                     } else if id == lang_en_id {
                         Some(MenuCmd::LanguageSel("en".into()))
                     } else if id == lang_multi_id {
@@ -208,6 +220,7 @@ impl Tray {
                 ui_rx,
                 ids,
                 settings,
+                last_transcription,
             },
             ui_tx,
         ))
@@ -279,6 +292,21 @@ impl Tray {
                     }
                     Err(e) => crate::vtt_log!("Autostart toggle failed: {}", e),
                 },
+                MenuCmd::CopyLastTranscription => {
+                    let text = self.last_transcription.lock().unwrap().clone();
+                    match text {
+                        Some(text) => {
+                            crate::typing::set_clipboard_text(&text);
+                            crate::vtt_log!(
+                                "Copied last transcription to clipboard ({} bytes)",
+                                text.len()
+                            );
+                        }
+                        None => crate::vtt_log!(
+                            "Copy last transcription: nothing transcribed yet this run"
+                        ),
+                    }
+                }
                 MenuCmd::LanguageSel(lang) => {
                     let is_en = lang == "en";
                     self.settings.write().unwrap().selected_language = lang;

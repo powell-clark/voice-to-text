@@ -1,4 +1,4 @@
-use super::UiMessage;
+use super::{LastTranscription, UiMessage};
 use crate::hotkey::{self, HotkeyCmd};
 use crate::logging;
 use crate::settings::{NewlineType, Settings};
@@ -32,6 +32,7 @@ impl Tray {
     pub fn new(
         settings: Arc<RwLock<Settings>>,
         _config_dir: &Path,
+        last_transcription: LastTranscription,
     ) -> anyhow::Result<(Self, super::UiSender)> {
         // Create AppIndicator
         let mut indicator = AppIndicator::new("voice-to-text-linux", "audio-input-microphone");
@@ -95,6 +96,11 @@ impl Tray {
         // --- Customize Transcription Settings ---
         let prompt_item = gtk::MenuItem::with_label("Customize Transcription Settings...");
         menu.append(&prompt_item);
+
+        // --- Copy last transcription (recovery net, FEAT-VTT038) ---
+        let copy_last_item = gtk::MenuItem::with_label("Copy last transcription");
+        menu.append(&copy_last_item);
+
         menu.append(&gtk::SeparatorMenuItem::new());
 
         // --- Logging toggle ---
@@ -227,6 +233,27 @@ impl Tray {
             let st = state.clone();
             prompt_item.connect_activate(move |_| {
                 show_prompt_dialog(&st);
+            });
+        }
+
+        // Copy last transcription — safe no-op (with a log line) when nothing
+        // has been transcribed yet this run.
+        {
+            let lt = last_transcription.clone();
+            copy_last_item.connect_activate(move |_| {
+                let text = lt.lock().unwrap().clone();
+                match text {
+                    Some(text) => {
+                        crate::typing::set_clipboard_text(&text);
+                        crate::vtt_log!(
+                            "Copied last transcription to clipboard ({} bytes)",
+                            text.len()
+                        );
+                    }
+                    None => {
+                        crate::vtt_log!("Copy last transcription: nothing transcribed yet this run")
+                    }
+                }
             });
         }
 
