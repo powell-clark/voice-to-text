@@ -196,23 +196,32 @@ fn paste_text(enigo: &mut Enigo, text: &str) {
         Err(e) => {
             crate::vtt_log!("Failed to open clipboard: {}", e);
             paste_via_xclip(text);
-            simulate_ctrl_v(enigo);
+            simulate_paste_shortcut(enigo);
             return;
         }
     }
 
     thread::sleep(Duration::from_millis(100));
-    simulate_ctrl_v(enigo);
+    simulate_paste_shortcut(enigo);
     thread::sleep(Duration::from_millis(10));
 }
 
+/// The paste modifier: Cmd+V on macOS, Ctrl+V everywhere else this fn is
+/// compiled for (Linux; Windows has its own paste_text above). Using the
+/// wrong modifier on macOS opens Mission Control / does nothing instead of
+/// pasting (TASK-VTT114).
+#[cfg(target_os = "macos")]
+const PASTE_MODIFIER: Key = Key::Command;
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+const PASTE_MODIFIER: Key = Key::Control;
+
 #[cfg(not(target_os = "windows"))]
-fn simulate_ctrl_v(enigo: &mut Enigo) {
-    enigo.key(Key::Control, Direction::Press).ok();
+fn simulate_paste_shortcut(enigo: &mut Enigo) {
+    enigo.key(PASTE_MODIFIER, Direction::Press).ok();
     thread::sleep(Duration::from_millis(1));
     enigo.key(Key::Unicode('v'), Direction::Click).ok();
     thread::sleep(Duration::from_millis(1));
-    enigo.key(Key::Control, Direction::Release).ok();
+    enigo.key(PASTE_MODIFIER, Direction::Release).ok();
 }
 
 #[cfg(not(target_os = "windows"))]
