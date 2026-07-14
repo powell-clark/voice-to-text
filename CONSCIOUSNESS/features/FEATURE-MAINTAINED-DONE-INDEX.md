@@ -1,4 +1,4 @@
-id|kano|description|story_ids|task_ids|doc
+id|kano|status|description|story_ids|task_ids|doc|last_tested
 FEAT-VTT001|must-have|[maintained] Push-to-talk voice recording (16kHz mono cpal raw f32 to Whisper worker)|STORY-VTT001|TASK-VTT001,TASK-VTT016|FEAT-VTT001.md
 FEAT-VTT002|must-have|[removed v2.0.0 ADR-0003] Whisper transcription dual backends — superseded by FEAT-VTT022 and FEAT-VTT023|STORY-VTT001|TASK-VTT002,TASK-VTT031,TASK-VTT032|FEAT-VTT002.md
 FEAT-VTT003|must-have|[superseded] macOS menu-bar app — original Objective-C UI (v0.3.x) replaced by the cross-platform Rust tray in v2.0.0; native Mac UI is wanted and continues as FEAT-VTT029 under DIRECT-VTT003|STORY-VTT001|TASK-VTT003,TASK-VTT020,TASK-VTT032|FEAT-VTT003.md
@@ -21,4 +21,5 @@ FEAT-VTT023|must-have|[done] Pure Rust transcription — no Python runtime depen
 FEAT-VTT026|must-have|[maintained] Automatic GGML model download from HuggingFace with sha256 verify and tray progress notifications|STORY-VTT010|TASK-VTT029,TASK-VTT112|FEAT-VTT026.md
 FEAT-VTT027|must-have|[maintained] Debian package builds the Rust binary via cargo (not gcc against C sources)|STORY-VTT011|TASK-VTT035,TASK-VTT036,TASK-VTT038,TASK-VTT039,TASK-VTT111|FEAT-VTT027.md
 FEAT-VTT028|must-have|[maintained] Default model pre-downloaded via postinst so first-run works offline|STORY-VTT011|TASK-VTT037,TASK-VTT110|FEAT-VTT028.md
-FEAT-VTT035|must-have|[maintained] Automated regression testing — cargo unit tests GitHub Actions CI local pre-push hook 72 tests gate every change|STORY-VTT018|TASK-VTT055,TASK-VTT056,TASK-VTT057,TASK-VTT058,TASK-VTT059,TASK-VTT061,TASK-VTT060,TASK-VTT107,TASK-VTT090,TASK-VTT087,TASK-VTT085,TASK-VTT105,TASK-VTT111|FEAT-VTT035.md
+FEAT-VTT035|must-have|[maintained] Automated regression testing — cargo unit tests GitHub Actions CI local pre-push hook 72 tests gate every change|STORY-VTT018|TASK-VTT055,TASK-VTT056,TASK-VTT057,TASK-VTT058,TASK-VTT059,TASK-VTT061,TASK-VTT060,TASK-VTT107,TASK-VTT090,TASK-VTT087,TASK-VTT085,TASK-VTT105,TASK-VTT111,TASK-VTT127|FEAT-VTT035.md
+FEAT-VTT038|must-have|[maintained] Copy last transcription from the tray menu — recovery net when typed output is lost|STORY-VTT018|TASK-VTT123|FEAT-VTT038.md
