@@ -1,4 +1,4 @@
-id|title|story_ids|directive_id|feature_ids|doc
+id|title|story_ids|directive_id|feature_ids|doc|expected_duration|story_points
 TASK-VTT127|CI contract gate for regression and release workflow parity|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT127.md
 TASK-VTT106|cargo audit red — RUSTSEC-2026-0186 memmap2 unsound|||||TASK-VTT106.md
 TASK-VTT118|Correction dictionary for commonly mistranscribed words|STORY-VTT019|DIRECT-VTT002|FEAT-VTT037|TASK-VTT118.md
@@ -88,3 +88,4 @@ TASK-VTT123|Copy last transcription tray menu item|STORY-VTT018|DIRECT-VTT005|FE
 TASK-VTT062|Wire selected_device_index through to audio::Audio::new()||DIRECT-VTT002||TASK-VTT062.md
 TASK-VTT109|Windows autostart on by default — first-run enable + tray off-switch|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT109.md
 TASK-VTT023|Batch file transcription via --file flag|STORY-VTT009|DIRECT-VTT002|FEAT-VTT021|TASK-VTT023.md
+TASK-VTT131|Clipboard persists without a clipboard manager (FEAT-VTT038 X11 regression)|STORY-VTT018|DIRECT-VTT002|FEAT-VTT038|TASK-VTT131.md

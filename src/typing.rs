@@ -210,19 +210,93 @@ fn paste_text(enigo: &mut Enigo, text: &str) {
 /// keystroke — used by the tray "Copy last transcription" recovery action
 /// (FEAT-VTT038), where the user picks the destination window afterwards.
 pub fn set_clipboard_text(text: &str) {
-    match arboard::Clipboard::new() {
-        Ok(mut clipboard) => {
-            if let Err(e) = clipboard.set_text(text.to_string()) {
-                crate::vtt_log!("Failed to set clipboard: {}", e);
-                #[cfg(not(target_os = "windows"))]
-                paste_via_xclip(text);
+    // On Linux the X11/Wayland clipboard *selection* is owned by the live
+    // client, so arboard releases it the moment its `Clipboard` is dropped at
+    // return — the text then survives only while a clipboard manager (CopyQ,
+    // etc.) is holding it. Without one, the copy was a silent no-op
+    // (FEAT-VTT038 regression, TASK-VTT131). The xclip/xsel/wl-copy holder path
+    // forks a daemon that owns the selection until the next paste, so the copy
+    // persists on its own. macOS/Windows keep arboard — the OS clipboard
+    // persists there natively.
+    #[cfg(target_os = "linux")]
+    {
+        clipboard_hold_linux(text);
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        match arboard::Clipboard::new() {
+            Ok(mut clipboard) => {
+                if let Err(e) = clipboard.set_text(text.to_string()) {
+                    crate::vtt_log!("Failed to set clipboard: {}", e);
+                }
+            }
+            Err(e) => {
+                crate::vtt_log!("Failed to open clipboard: {}", e);
             }
         }
-        Err(e) => {
-            crate::vtt_log!("Failed to open clipboard: {}", e);
-            #[cfg(not(target_os = "windows"))]
-            paste_via_xclip(text);
+    }
+}
+
+/// Ordered clipboard-holder tools to try for a session type. Each forks a
+/// daemon that owns the selection until the next paste, so the clipboard
+/// persists without an external clipboard manager. Pure (session type in,
+/// order out) so the ordering is unit-testable without a display.
+#[cfg(target_os = "linux")]
+fn clipboard_tool_order(wayland: bool) -> &'static [&'static str] {
+    if wayland {
+        &["wl-copy", "xclip", "xsel"]
+    } else {
+        &["xclip", "xsel", "wl-copy"]
+    }
+}
+
+/// Place `text` on the clipboard via the first available holder tool, so it
+/// survives after this call returns without a clipboard manager running.
+#[cfg(target_os = "linux")]
+fn clipboard_hold_linux(text: &str) {
+    let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
+    for tool in clipboard_tool_order(wayland) {
+        if spawn_clipboard_holder(tool, text) {
+            return;
         }
+    }
+    crate::vtt_log!(
+        "No clipboard holder tool (wl-copy/xclip/xsel) available; \
+         clipboard may not persist"
+    );
+}
+
+/// Spawn one holder tool and feed `text` to its stdin. Returns true once the
+/// tool has been spawned and fed. xclip/xsel/wl-copy fork into the background
+/// to serve the selection, so the parent exits promptly and `wait` returns.
+#[cfg(target_os = "linux")]
+fn spawn_clipboard_holder(tool: &str, text: &str) -> bool {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let args: &[&str] = match tool {
+        "xclip" => &["-selection", "clipboard", "-i"],
+        "xsel" => &["--clipboard", "--input"],
+        _ => &[], // wl-copy: default selection, reads stdin
+    };
+    let child = Command::new(tool)
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+    match child {
+        Ok(mut child) => {
+            // Scope the stdin write so the pipe closes (EOF) before we wait —
+            // the tool needs EOF to know the input is complete before it
+            // daemonizes.
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin.write_all(text.as_bytes()).ok();
+            }
+            child.wait().ok();
+            true
+        }
+        Err(_) => false,
     }
 }
 
@@ -276,6 +350,34 @@ fn paste_via_xclip(text: &str) {
                 }
                 child.wait().ok();
             }
+        }
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod clipboard_tests {
+    use super::clipboard_tool_order;
+
+    #[test]
+    fn wayland_prefers_wl_copy_first() {
+        assert_eq!(clipboard_tool_order(true), &["wl-copy", "xclip", "xsel"]);
+    }
+
+    #[test]
+    fn x11_prefers_xclip_first() {
+        assert_eq!(clipboard_tool_order(false), &["xclip", "xsel", "wl-copy"]);
+    }
+
+    #[test]
+    fn every_session_type_offers_a_fallback_chain() {
+        // Both orderings must list all three holders so a missing primary tool
+        // always has a next candidate to try.
+        for &wayland in &[true, false] {
+            let order = clipboard_tool_order(wayland);
+            assert_eq!(order.len(), 3);
+            assert!(order.contains(&"wl-copy"));
+            assert!(order.contains(&"xclip"));
+            assert!(order.contains(&"xsel"));
         }
     }
 }
