@@ -1,12 +1,14 @@
 # PPA deploy-to-availability tracking (TASK-VTT134).
 # One row per (version, series). Timestamps are UTC ISO-8601.
-#   uploaded_utc        = Launchpad source date_created (dput upload processed)
-#   published_utc       = Launchpad source date_published (apt-installable)
-#   deploy_to_available = published_utc - uploaded_utc (the number that matters)
-#   build_id            = Launchpad amd64 build record id
-# Fill published_utc/deploy_to_available from the Launchpad API when a release goes Published:
-#   curl -s "https://api.launchpad.net/devel/~powellclark/+archive/ubuntu/voice-to-text?ws.op=getPublishedSources&source_name=voice-to-text&version=<v>"
-# Automating this fill is the remaining half of TASK-VTT134.
-version	series	uploaded_utc	published_utc	deploy_to_available	build_id	notes
-2.3.10	noble	2026-07-17T10:09:11Z	2026-07-17T13:14:40Z	3h05m	33408583	compiled in 7m52s; the rest was Launchpad publisher-queue latency (no paid fast-lane exists)
-2.3.10~jammy1	jammy	2026-07-17T10:10:25Z	2026-07-17T13:14:40Z	3h04m	33408588	compiled in 11m08s; published same instant as noble — publisher batches
+#   uploaded_utc          = Launchpad SOURCE date_created (dput upload processed)
+#   source_published_utc  = SOURCE date_published (getPublishedSources) — a milestone, NOT installable
+#   available_utc         = BINARY date_published (getPublishedBinaries) — this is when `apt install` works
+#   deploy_to_available   = available_utc - uploaded_utc (the number that matters)
+#   build_id              = Launchpad amd64 build record id
+# TRAP: source Published != apt-installable. apt installs BINARIES. Always measure availability
+# from getPublishedBinaries, never getPublishedSources:
+#   curl -s "https://api.launchpad.net/devel/~powellclark/+archive/ubuntu/voice-to-text?ws.op=getPublishedBinaries&binary_name=voice-to-text&version=<v>"
+# Automating this fill (and having release-ppa.sh surface the binary-publish wait) is TASK-VTT134.
+version	series	uploaded_utc	source_published_utc	available_utc	deploy_to_available	build_id	notes
+2.3.10	noble	2026-07-17T10:09:11Z	2026-07-17T13:14:40Z	pending	pending	33408583	source Published but BINARY not yet in apt index (getPublishedBinaries empty); apt still serves 2.3.9
+2.3.10~jammy1	jammy	2026-07-17T10:10:25Z	2026-07-17T13:14:40Z	pending	pending	33408588	source Published; binary publish still pending
