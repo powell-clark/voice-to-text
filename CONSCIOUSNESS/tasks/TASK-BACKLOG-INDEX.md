@@ -43,3 +43,4 @@ TASK-VTT135|p1|Self-hosted signed apt repo on GitHub Pages|STORY-VTT014|DIRECT-V
 TASK-VTT137|p2|Unify release flow — local install + PPA publish in one run|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT137.md|||||b2r||
 TASK-VTT138|p3|Spike hotkey dialog on portable tray|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT138.md|||||b2s||
 TASK-VTT139|p3|Portable tray parity — settings and About dialogs|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT139.md|||||b2t||
+TASK-VTT140|p2|Agent-run cost tracking and seat selection for PGPS execution||DIRECT-VTT002||TASK-VTT140.md|||||b2u||
