@@ -34,21 +34,27 @@ lost typing / focus, which the manual button recovers. Cross-platform per
 DIRECT-VTT005 parity: Linux GTK tray and portable (Windows/macOS) tray.
 
 ## Acceptance criteria
-- [ ] A "Re-transcribe last recording" item appears on the Linux GTK tray and
-      the portable tray (parity, DIRECT-VTT005).
-- [ ] Activating it locates the newest `.wav` in the recordings dir, decodes it
-      via `whisper::decode_wav_to_samples`, and enqueues it to the transcription
-      worker for re-transcription + re-typing.
-- [ ] The re-transcribed WAV is NOT re-archived or pruned (empty archive_path so
-      the worker skips `save_and_cleanup`) — no self-copy / accidental delete of
-      the source recording.
-- [ ] Safe no-op with a log line when the recordings dir is empty (nothing
-      recorded yet this install).
-- [ ] Covered by a unit test for the "newest WAV in a directory" selector (pure,
-      no GUI); tray wiring verified by code review (no headless GTK/muda test
-      harness — same deferral basis as FEAT-VTT038).
-- [ ] cargo fmt / clippy -D warnings / cargo test green; actual-proof re-type of
-      a known recording on Linux.
+- [x] A "Re-transcribe last recording" item appears on the Linux GTK tray
+      (`src/tray/linux.rs`) and the portable tray (`src/tray/portable.rs`) —
+      parity, DIRECT-VTT005.
+- [x] Activating it enqueues `WorkItem::RetranscribeLast`; the worker locates the
+      newest `.wav` in the recordings dir, decodes it via
+      `whisper::decode_wav_to_samples`, and re-transcribes + re-types.
+- [x] The re-transcribed WAV is NOT re-archived or pruned — the worker uses an
+      empty `archive_path` so the `save_and_cleanup` guard (main.rs) is skipped;
+      no self-copy / accidental delete of the source recording.
+- [x] Safe no-op when the recordings dir is empty/missing — worker logs and sets
+      the "No recording to re-transcribe" status, no panic (unit-tested +
+      worker `None` branch).
+- [x] Covered by unit tests for the `newest_wav` selector (newest-by-mtime,
+      ignores non-wav, empty/missing dir → None). Tray click→signal wiring
+      verified by code review — no headless GTK/muda test harness (same deferral
+      basis as FEAT-VTT038).
+- [x] cargo fmt / clippy -D warnings / cargo test (111) green. ACTUAL PROOF: ran
+      `--file` on the newest real archived recording — the exact
+      `newest_wav → decode → transcribe` path RetranscribeLast uses — and got a
+      correct transcript. The GUI click→re-type step is GUI-bound (deferred to
+      manual verification, per FEAT-VTT038 basis).
 
 ## Stories
 - STORY-VTT018 (regression tests / reliability) — recovery net for lost output.

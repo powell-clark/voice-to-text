@@ -89,3 +89,4 @@ TASK-VTT062|Wire selected_device_index through to audio::Audio::new()||DIRECT-VT
 TASK-VTT109|Windows autostart on by default — first-run enable + tray off-switch|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT109.md
 TASK-VTT023|Batch file transcription via --file flag|STORY-VTT009|DIRECT-VTT002|FEAT-VTT021|TASK-VTT023.md
 TASK-VTT131|Clipboard persists without a clipboard manager (FEAT-VTT038 X11 regression)|STORY-VTT018|DIRECT-VTT002|FEAT-VTT038|TASK-VTT131.md
+TASK-VTT132|Re-transcribe last recording tray item — decode newest WAV, re-type|STORY-VTT018|DIRECT-VTT002|FEAT-VTT039|TASK-VTT132.md

@@ -33,6 +33,7 @@ impl Tray {
         settings: Arc<RwLock<Settings>>,
         _config_dir: &Path,
         last_transcription: LastTranscription,
+        work_tx: Sender<crate::WorkItem>,
     ) -> anyhow::Result<(Self, super::UiSender)> {
         // Create AppIndicator
         let mut indicator = AppIndicator::new("voice-to-text-linux", "audio-input-microphone");
@@ -100,6 +101,10 @@ impl Tray {
         // --- Copy last transcription (recovery net, FEAT-VTT038) ---
         let copy_last_item = gtk::MenuItem::with_label("Copy last transcription");
         menu.append(&copy_last_item);
+
+        // --- Re-transcribe last recording (recovery net, FEAT-VTT039) ---
+        let retranscribe_item = gtk::MenuItem::with_label("Re-transcribe last recording");
+        menu.append(&retranscribe_item);
 
         menu.append(&gtk::SeparatorMenuItem::new());
 
@@ -253,6 +258,19 @@ impl Tray {
                     None => {
                         crate::vtt_log!("Copy last transcription: nothing transcribed yet this run")
                     }
+                }
+            });
+        }
+
+        // Re-transcribe last recording — asks the worker to re-run whisper on
+        // the newest archived WAV and re-type it (FEAT-VTT039). The worker
+        // locates/decodes the file and handles the empty-dir no-op, so this
+        // handler just fires the signal.
+        {
+            let work_tx = work_tx.clone();
+            retranscribe_item.connect_activate(move |_| {
+                if work_tx.send(crate::WorkItem::RetranscribeLast).is_err() {
+                    crate::vtt_log!("Re-transcribe: worker channel closed");
                 }
             });
         }

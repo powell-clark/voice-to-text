@@ -30,7 +30,7 @@ use std::time::{Duration, Instant};
 /// Work units sent to the transcription worker.
 /// v2.0 uses in-memory f32 samples; Truncated marks buffer-full recordings so
 /// the user sees `[Truncated]` prefix on the typed output.
-enum WorkItem {
+pub(crate) enum WorkItem {
     Audio {
         samples: Vec<f32>,
         archive_path: PathBuf,
@@ -39,6 +39,11 @@ enum WorkItem {
         samples: Vec<f32>,
         archive_path: PathBuf,
     },
+    /// Re-run transcription on the newest archived recording and re-type the
+    /// result — the tray recovery net for lost output (FEAT-VTT039). Carries no
+    /// audio: the worker locates and decodes the WAV itself, so the tray stays
+    /// decoupled from decode/whisper and no file I/O lands on the UI thread.
+    RetranscribeLast,
 }
 
 /// Re-attach the (windowed) process to its launching console so `--version` /
@@ -250,11 +255,19 @@ fn main() -> anyhow::Result<()> {
     // poll_menu() each tick so menu events are processed on the main thread
     // (muda uses Rc internally — menu items are !Send).
     #[cfg(target_os = "linux")]
-    let (_tray, ui_tx) =
-        tray::Tray::new(settings.clone(), &config_dir, last_transcription.clone())?;
+    let (_tray, ui_tx) = tray::Tray::new(
+        settings.clone(),
+        &config_dir,
+        last_transcription.clone(),
+        work_tx.clone(),
+    )?;
     #[cfg(not(target_os = "linux"))]
-    let (mut tray, ui_tx) =
-        tray::Tray::new(settings.clone(), &config_dir, last_transcription.clone())?;
+    let (mut tray, ui_tx) = tray::Tray::new(
+        settings.clone(),
+        &config_dir,
+        last_transcription.clone(),
+        work_tx.clone(),
+    )?;
 
     // Worker thread — transcribes audio and types result
     let worker_settings = settings.clone();
@@ -548,6 +561,36 @@ fn transcription_worker(
                 samples,
                 archive_path,
             } => (samples, archive_path, true),
+            // Re-transcribe the newest archived recording and re-type it. The
+            // empty archive_path makes the save/prune step below a no-op so the
+            // source WAV is not re-archived or self-copied (FEAT-VTT039).
+            WorkItem::RetranscribeLast => {
+                let recordings_dir = config_dir.join("recordings");
+                match newest_wav(&recordings_dir) {
+                    Some(path) => match whisper::decode_wav_to_samples(&path) {
+                        Ok(s) => {
+                            vtt_log!("Re-transcribing last recording: {}", path.display());
+                            (s, PathBuf::new(), false)
+                        }
+                        Err(e) => {
+                            vtt_log!("Re-transcribe: decode failed for {}: {}", path.display(), e);
+                            continue;
+                        }
+                    },
+                    None => {
+                        vtt_log!(
+                            "Re-transcribe: no recording found in {}",
+                            recordings_dir.display()
+                        );
+                        ui_tx
+                            .send(tray::UiMessage::SetStatus(
+                                "No recording to re-transcribe".into(),
+                            ))
+                            .ok();
+                        continue;
+                    }
+                }
+            }
         };
 
         // Detect tray-driven settings changes: if the selected model or language
@@ -807,6 +850,24 @@ fn prune_recordings(dir: &std::path::Path, max: usize) {
             vtt_log!("Pruned old recording: {}", path.display());
         }
     }
+}
+
+/// The newest `.wav` in `dir` by modification time, or None if the directory is
+/// missing/empty or holds no wav files. Backs the tray "Re-transcribe last
+/// recording" recovery net (FEAT-VTT039); pruning always keeps the newest
+/// recording, so this is a reliable last-recording source.
+fn newest_wav(dir: &std::path::Path) -> Option<PathBuf> {
+    std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().ends_with(".wav"))
+        .filter_map(|e| {
+            let mtime = e.metadata().ok()?.modified().ok()?;
+            Some((e.path(), mtime))
+        })
+        .max_by_key(|(_, mtime)| *mtime)
+        .map(|(path, _)| path)
 }
 
 // ─── Utilities ──────────────────────────────────────────────────
@@ -1273,6 +1334,52 @@ mod tests {
         let nonexistent = dir.path().join("not-a-dir");
         prune_recordings(&nonexistent, 10);
         // No assertion needed — we just want to confirm it doesn't panic.
+    }
+
+    #[test]
+    fn newest_wav_returns_most_recent_by_mtime() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        for i in 0..4 {
+            std::fs::write(root.join(format!("vtt_recording_{:03}.wav", i)), b"fake").unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let newest = newest_wav(root).expect("a wav should be found");
+        assert!(
+            newest
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .contains("003"),
+            "expected the last-written file, got {:?}",
+            newest
+        );
+    }
+
+    #[test]
+    fn newest_wav_ignores_non_wav_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("vtt_recording_only.wav"), b"fake").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        // Written last, but not a .wav — must be ignored.
+        std::fs::write(root.join("notes.txt"), b"newer non-wav").unwrap();
+        let newest = newest_wav(root).expect("the wav should be found");
+        assert!(newest
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .ends_with(".wav"));
+    }
+
+    #[test]
+    fn newest_wav_empty_or_missing_dir_is_none() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(newest_wav(dir.path()).is_none(), "empty dir → None");
+        assert!(
+            newest_wav(&dir.path().join("not-a-dir")).is_none(),
+            "missing dir → None"
+        );
     }
 
     #[test]

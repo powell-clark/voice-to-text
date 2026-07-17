@@ -16,6 +16,7 @@ pub struct Tray {
     ids: MenuIds,
     settings: Arc<RwLock<Settings>>,
     last_transcription: LastTranscription,
+    work_tx: mpsc::Sender<crate::WorkItem>,
 }
 
 struct MenuIds {
@@ -25,6 +26,7 @@ struct MenuIds {
     logging: MenuItem,
     autostart: Option<CheckMenuItem>,
     copy_last: MenuItem,
+    retranscribe: MenuItem,
     models: Vec<(CheckMenuItem, String)>,
     lang_en: CheckMenuItem,
     lang_multi: CheckMenuItem,
@@ -37,6 +39,7 @@ enum MenuCmd {
     LoggingToggle,
     AutostartToggle,
     CopyLastTranscription,
+    RetranscribeLast,
     LanguageSel(String),
     ModelSel(String),
 }
@@ -46,6 +49,7 @@ impl Tray {
         settings: Arc<RwLock<Settings>>,
         _config_dir: &Path,
         last_transcription: LastTranscription,
+        work_tx: mpsc::Sender<crate::WorkItem>,
     ) -> anyhow::Result<(Self, UiSender)> {
         let s = settings.read().unwrap();
         let current_model = s.selected_model.clone();
@@ -125,6 +129,10 @@ impl Tray {
         let copy_last = MenuItem::new("Copy last transcription", true, None);
         menu.append(&copy_last)?;
 
+        // Re-transcribe last recording — recovery net (FEAT-VTT039)
+        let retranscribe = MenuItem::new("Re-transcribe last recording", true, None);
+        menu.append(&retranscribe)?;
+
         // About
         let about = MenuItem::new("About Voice to Text", true, None);
         menu.append(&about)?;
@@ -149,6 +157,7 @@ impl Tray {
             logging,
             autostart,
             copy_last,
+            retranscribe,
             models,
             lang_en,
             lang_multi,
@@ -163,6 +172,7 @@ impl Tray {
         let logging_id = ids.logging.id().clone();
         let autostart_id = ids.autostart.as_ref().map(|i| i.id().clone());
         let copy_last_id = ids.copy_last.id().clone();
+        let retranscribe_id = ids.retranscribe.id().clone();
         let lang_en_id = ids.lang_en.id().clone();
         let lang_multi_id = ids.lang_multi.id().clone();
         let model_ids: Vec<(muda::MenuId, String)> = ids
@@ -189,6 +199,8 @@ impl Tray {
                         Some(MenuCmd::AutostartToggle)
                     } else if id == copy_last_id {
                         Some(MenuCmd::CopyLastTranscription)
+                    } else if id == retranscribe_id {
+                        Some(MenuCmd::RetranscribeLast)
                     } else if id == lang_en_id {
                         Some(MenuCmd::LanguageSel("en".into()))
                     } else if id == lang_multi_id {
@@ -221,6 +233,7 @@ impl Tray {
                 ids,
                 settings,
                 last_transcription,
+                work_tx,
             },
             ui_tx,
         ))
@@ -305,6 +318,18 @@ impl Tray {
                         None => crate::vtt_log!(
                             "Copy last transcription: nothing transcribed yet this run"
                         ),
+                    }
+                }
+                MenuCmd::RetranscribeLast => {
+                    // Ask the worker to re-run whisper on the newest archived
+                    // WAV and re-type it (FEAT-VTT039). The worker locates and
+                    // decodes the file and handles the empty-dir no-op.
+                    if self
+                        .work_tx
+                        .send(crate::WorkItem::RetranscribeLast)
+                        .is_err()
+                    {
+                        crate::vtt_log!("Re-transcribe: worker channel closed");
                     }
                 }
                 MenuCmd::LanguageSel(lang) => {
