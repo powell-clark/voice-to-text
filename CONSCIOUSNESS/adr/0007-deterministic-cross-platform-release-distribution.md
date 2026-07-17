@@ -54,17 +54,19 @@ availability (minutes after CI, under this project's control) rather than a
 third party's queue:
 
 - **Linux** — a self-hosted, CI-built, GPG-signed apt repository hosted on
-  Cloudflare R2 (S3-compatible; provisioned and synced via
-  `aws s3 sync --endpoint-url`, matching the operator's existing
-  config-as-code + R2 preference). apt availability becomes a function of CI
-  duration (minutes), not Launchpad queue depth (hours, unbounded). The
-  Launchpad PPA is demoted to an optional secondary/discovery channel, or
-  retired.
+  **GitHub Pages** (zero new accounts/credentials; a CI job pushes the repo
+  files to a `gh-pages` branch), with Cloudflare R2 (S3-compatible,
+  `aws s3 sync --endpoint-url`) as an optional later upgrade if
+  private/branded hosting is ever wanted. apt availability becomes a
+  function of CI duration (minutes), not Launchpad queue depth (hours,
+  unbounded). The Launchpad PPA is demoted to an optional
+  secondary/discovery channel, or retired.
 - **Windows** — CI-built and Authenticode-signed `.msi` attached to GitHub
   Releases, with an in-app/update-check pulling from Releases.
-- **macOS** — CI-built, Apple developer-signed and notarised `.dmg`/`.app`;
-  the Homebrew cask bumped to point at the Release artifact instead of a
-  local-dev path.
+- **macOS** — **PARKED** (see Priority & sequencing below): the end-state
+  is a CI-built, Apple developer-signed and notarised `.dmg`/`.app` with
+  the Homebrew cask pointing at the Release artifact, but signing requires
+  a paid Apple Developer licence the operator is deferring indefinitely.
 - **GitHub Releases is the canonical artifact store** — every per-platform
   channel (apt repo, Homebrew cask, Windows update-check) pulls from the
   same CI-produced artifacts rather than each platform building or sourcing
@@ -81,13 +83,13 @@ third party's queue:
 account, the PPA target, and `dput` wired up; users who already added the
 PPA keep working unchanged.
 
-**Cons / risks:** non-deterministic (observed 4+ hours and still pending on
-2026-07-10); opaque (the UI's "Successfully built" state actively misleads —
+**Cons / risks:** non-deterministic (observed 4h40m+ and still pending on
+2026-07-17); opaque (the UI's "Successfully built" state actively misleads —
 it is not the binary-published state `apt` needs); unfixable from this
 project's side since it depends on Canonical's shared free build farm queue
 depth, which this project has no lever over. Rejected as the sole channel.
 
-### (b) Self-hosted apt repo on Cloudflare R2 — recommended for Linux
+### (b) Self-hosted apt repo on Cloudflare R2 — optional later upgrade
 
 **Pros:** deterministic (minutes after CI, not queue-dependent); full
 control over publish timing and retention; aligns with the operator's
@@ -103,15 +105,17 @@ CI changes to build the apt repo metadata (`Packages`, `Release`, signing)
 on every tag; existing users must add a new apt source line and import a
 new keyring — a one-time but real user-facing migration step.
 
-### (c) Self-hosted apt repo on GitHub Pages
+### (c) Self-hosted apt repo on GitHub Pages — recommended for Linux
 
-**Pros:** simpler than R2 (no bucket/credentials to provision, uses the
-repo's existing GitHub hosting), zero additional cost.
+**Pros:** simplest possible (no bucket/credentials to provision, uses the
+repo's existing GitHub hosting), zero additional cost, zero new accounts —
+the whole channel is a CI job pushing files to a `gh-pages` branch.
 
 **Cons / risks:** public-only (no private/staged channel option) and less
-control over caching/invalidation than an R2 bucket. Viable fallback to (b)
-if R2 provisioning proves harder than expected, not the primary
-recommendation given the operator's stated R2/config-as-code preference.
+control over caching/invalidation than an R2 bucket. Neither matters for
+this project today — the repo and releases are already public. If
+private/branded hosting is ever wanted, migrating to (b) later is a
+same-files move (repoint the apt source URL), not a redesign.
 
 ### (d) Manual local builds per machine (`scripts/release-local.sh`)
 
@@ -151,7 +155,7 @@ regardless of this decision.
 ## Recommendation (pending operator sign-off)
 
 Adopt the CI-as-single-source-of-truth model described above. Sequence
-Linux first — the self-hosted apt-repo-on-R2 path is the current pain
+Linux first — the self-hosted apt-repo-on-Pages path is the current pain
 (TASK-VTT134's own tracking log exists because of it) and is fully
 buildable in headless CI today with no outstanding signing prerequisites.
 Windows and macOS follow as their respective signing prerequisites
@@ -192,3 +196,32 @@ realise — it does not itself implement any of them:
   file the ADR before the one-way-door dependency/infrastructure choice)
 - STORY-VTT012, STORY-VTT013, STORY-VTT014, STORY-VTT018
 - DIRECT-VTT002, DIRECT-VTT003, DIRECT-VTT004
+
+## Priority & sequencing (operator steer, 2026-07-17)
+
+Operator priority of care: **Linux > macOS > Windows.** Practical
+regression-test order (fastest to slowest to verify): Linux, then Windows
+(same machine), then macOS.
+
+Implementation sequence:
+
+1. **Linux — self-hosted signed apt repo (this ADR's core).** Next up;
+   unblocked; highest value (fixes the current Launchpad pain). Hosting:
+   **GitHub Pages is the recommended starting point** — free, no new accounts,
+   GitHub serves the repo files over HTTPS; the only tradeoff is the hosting
+   repo is public. Cloudflare R2 (a low-cost S3-compatible bucket uploaded via
+   the `aws` CLI) is the alternative if private/branded hosting is wanted later.
+   Both serve the same apt files — the choice is only *where they live*.
+2. **Windows — MSI on GitHub Releases (TASK-VTT047 for signing).** Second;
+   the operator has the machine to regression-test it. **Cost flag:** an
+   Authenticode certificate is *also* a paid item (traditional OV certs run
+   roughly £150–400/yr; Azure Trusted Signing is ~$10/mo) — the same budget
+   logic that parks macOS may apply. Interim path that costs nothing: ship
+   the unsigned `.msi` on GitHub Releases (users see a one-time SmartScreen
+   "unrecognised app" warning but install fine). Signing remains the
+   end-state; whether/when to pay for it is an operator decision.
+3. **macOS — PARKED.** Apple Developer ID signing + notarization needs a paid
+   Apple license the operator is deferring indefinitely for budget reasons. macOS
+   deterministic distribution is therefore parked; revisit when budget allows. An
+   unsigned/local or Homebrew-from-source path may be an interim option but is out
+   of scope until this un-parks.

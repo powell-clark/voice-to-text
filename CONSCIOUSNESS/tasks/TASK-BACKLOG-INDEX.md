@@ -2,18 +2,17 @@ id|priority|title|story_ids|directive_id|feature_ids|doc|blocked_by|blocks|assig
 TASK-VTT098|p2|Windows tray Logs submenu — parity with Linux FEAT-VTT004|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT098.md|||||g1
 TASK-VTT108|p2|Branded Windows app + installer icon and version info|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT108.md|||||g1b
 TASK-VTT101|p3|Windows installer pre-provisions the default model — parity FEAT-VTT028|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT101.md|||||g1a
-TASK-VTT097|p3|models::system_cache() returns a Linux path on Windows|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT097.md|||||g1b
-TASK-VTT104|p3|macOS universal binary (lipo Intel + Apple Silicon)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT104.md|||||g1c
+TASK-VTT104|p4|macOS universal binary (lipo Intel + Apple Silicon)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT104.md|||||g1c
 TASK-VTT102|p2|Rename binary — drop the misleading vtt-linux name|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT102.md|||||g2
 TASK-VTT103|p3|Evaluate unifying Linux GTK tray onto the portable tray (ADR)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT103.md|||||g2a
 TASK-VTT095|p2|Update mechanism — how Windows/macOS users get new versions|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT095.md|||||g3
 TASK-VTT056|p3|Monitor current release in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover (was scoped to v2.0.5, now superseded by v2.3.7)|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT056.md|||||b0
 TASK-VTT064|p1|Windows ARM64 Snapdragon CPU build|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT064.md|TASK-VTT082||||b2a
 TASK-VTT047|p1|Windows Authenticode code signing|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT047.md|TASK-VTT064||||b3
-TASK-VTT040|p1|cargo bundle macOS .app with metal feature, Info.plist with NSMicrophoneUsageDescription|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT040.md|||||b4
-TASK-VTT041|p2|Verify transcription on 2019 Intel i9 Mac with Radeon Pro 5500M via Metal|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT041.md|TASK-VTT040||||b5
-TASK-VTT042|p2|Apple Silicon build with coreml + metal features enabled|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT042.md|TASK-VTT040||||b6
-TASK-VTT043|p2|Apple developer signing + notarisation|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT043.md|TASK-VTT041,TASK-VTT042||||b7
+TASK-VTT040|p4|cargo bundle macOS .app with metal feature, Info.plist with NSMicrophoneUsageDescription|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT040.md|||||b4
+TASK-VTT041|p4|Verify transcription on 2019 Intel i9 Mac with Radeon Pro 5500M via Metal|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT041.md|TASK-VTT040||||b5
+TASK-VTT042|p4|Apple Silicon build with coreml + metal features enabled|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT042.md|TASK-VTT040||||b6
+TASK-VTT043|p4|Apple developer signing + notarisation|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT043.md|TASK-VTT041,TASK-VTT042||||b7
 TASK-VTT048|p2|GitHub Actions matrix workflow: ubuntu-latest + macos-latest + macos-14 (ARM) + windows-latest|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT048.md|TASK-VTT047,TASK-VTT041,TASK-VTT042||||b8
 TASK-VTT049|p2|Auto-release on tag push with binaries + .deb + .dmg + .msi attached|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT049.md|TASK-VTT048||||b9
 TASK-VTT050|p2|Integrate silero-rs VAD for auto-stop on silence and noise filtering|STORY-VTT015|DIRECT-VTT002|FEAT-VTT032|TASK-VTT050.md|||||bb
@@ -38,4 +37,5 @@ TASK-VTT125|p2|Re-register the macOS Intel self-hosted runner||DIRECT-VTT003||TA
 TASK-VTT128|p3|Unscoped validation stall — needs operator review||||TASK-VTT128.md|||||b2n||
 TASK-VTT129|p2|Tray Microphone submenu — device picker UX|STORY-VTT016|DIRECT-VTT005|FEAT-VTT033|TASK-VTT129.md|TASK-VTT062||||bo
 TASK-VTT130|p3|--file multi-format decode + long-file chunking|STORY-VTT009|DIRECT-VTT002|FEAT-VTT021|TASK-VTT130.md|TASK-VTT023||||bp
-TASK-VTT132|p1|Re-transcribe last recording tray item — decode newest WAV, re-type|STORY-VTT018|DIRECT-VTT002|FEAT-VTT039|TASK-VTT132.md|||||br
+TASK-VTT134|p2|Track PPA build durations — record upload→build-start wait and build time per release|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT134.md|||||b2o||
+TASK-VTT135|p1|Self-hosted signed apt repo on GitHub Pages|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT135.md|||||b2p||
