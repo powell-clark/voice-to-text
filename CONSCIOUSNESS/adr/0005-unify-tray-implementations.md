@@ -12,6 +12,21 @@ explicit in-session delegation of sign-off (2026-07-17 15:41 BST,
 recorded in REVIEW-INDEX). No GTK code is retired under this acceptance.
 Filed per TASK-VTT103 (STORY-VTT013, DIRECT-VTT002).
 
+## Operator note on risk (2026-07-17)
+
+The operator correctly observes that **local rollback is trivial**: install
+the unified-tray `.deb`, judge it in seconds, and if it regresses, reinstall
+the prior `.deb` — one command, as demonstrated installing 2.3.10 this
+session. So the regression risk this ADR weighs is **not** local
+experimentation (cheap and reversible) — it is confined to the
+**PPA-ship gate**, where a regression reaches other users who cannot roll
+back as easily. This *raises* the appetite for building the unified tray and
+test-installing it locally, and narrows the only real guardrail to: do not
+push the unified tray to the PPA until a local install has confirmed it. The
+build-before-testable cost (the five Linux-only features must exist on
+`tray-icon`/`muda` before the tray is judgeable) remains the real effort; the
+spike (TASK-VTT138) is the smallest slice that reaches "install and see."
+
 ## Context
 
 The repo ships two independent tray implementations:
