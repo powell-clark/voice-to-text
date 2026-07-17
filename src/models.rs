@@ -110,9 +110,16 @@ pub fn resolve_variant(menu_name: &str, language: &str) -> String {
     }
 }
 
-/// System-wide cache path populated by postinst.
-fn system_cache() -> PathBuf {
-    PathBuf::from("/usr/share/voice-to-text/models")
+/// System-wide cache path populated by postinst. Linux-only; other targets
+/// have no such postinst step.
+#[cfg(target_os = "linux")]
+fn system_cache() -> Option<PathBuf> {
+    Some(PathBuf::from("/usr/share/voice-to-text/models"))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn system_cache() -> Option<PathBuf> {
+    None
 }
 
 /// User cache under XDG_CACHE_HOME.
@@ -126,9 +133,10 @@ fn user_cache() -> PathBuf {
 /// holds the file already, otherwise returning the user cache location (creating
 /// the directory if needed).
 pub fn resolve_path(filename: &str) -> PathBuf {
-    let sys = system_cache().join(filename);
-    if sys.exists() {
-        return sys;
+    if let Some(sys) = system_cache().map(|p| p.join(filename)) {
+        if sys.exists() {
+            return sys;
+        }
     }
     let user = user_cache();
     fs::create_dir_all(&user).ok();
