@@ -1,0 +1,12 @@
+# PPA deploy-to-availability tracking (TASK-VTT134).
+# One row per (version, series). Timestamps are UTC ISO-8601.
+#   uploaded_utc        = Launchpad source date_created (dput upload processed)
+#   published_utc       = Launchpad source date_published (apt-installable)
+#   deploy_to_available = published_utc - uploaded_utc (the number that matters)
+#   build_id            = Launchpad amd64 build record id
+# Fill published_utc/deploy_to_available from the Launchpad API when a release goes Published:
+#   curl -s "https://api.launchpad.net/devel/~powellclark/+archive/ubuntu/voice-to-text?ws.op=getPublishedSources&source_name=voice-to-text&version=<v>"
+# Automating this fill is the remaining half of TASK-VTT134.
+version	series	uploaded_utc	published_utc	deploy_to_available	build_id	notes
+2.3.10	noble	2026-07-17T10:09:11Z	pending	pending	33408583	stuck in Launchpad Uploading/Pending ~2.5h+; not a build failure (compiled in 7m52s)
+2.3.10~jammy1	jammy	2026-07-17T10:10:26Z	pending	pending	33408588	stuck in Launchpad Uploading/Pending ~2.5h+; not a build failure (compiled in 11m08s)
