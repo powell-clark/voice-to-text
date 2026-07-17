@@ -14,4 +14,8 @@ transcripts:
 
 ## Acceptance criteria
 
-- [ ] _(to be filled in)_
+- [ ] Investigation confirms and documents whether the epic_id -> directive_id column rename belongs in the upstream consciousness-plugin schema or is local to this repo's PGPS data, with the decision and rationale recorded on this task
+- [ ] If upstream: the decision records which upstream release/task carries the schema-version bump + migration, and no local rename is performed ahead of that release
+- [ ] If local-only: STORY-*-INDEX.md and TASK-*-INDEX.md column headers are renamed from epic_id to directive_id (or directiveId), with a backward-compatible reader alias so pre-existing epic_id data still parses without error
+- [ ] fk-asymmetry validator warnings referencing the epic_id/directiveId mismatch no longer appear against this repo's data (after the local fix ships, or after the upstream plugin release carrying the fix is adopted here)
+- [ ] Any local schema/index-column change bumps CONSCIOUSNESS/stream/schema-version atomically per data--schema_version_discipline
