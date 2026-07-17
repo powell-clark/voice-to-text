@@ -40,3 +40,4 @@ TASK-VTT130|p3|--file multi-format decode + long-file chunking|STORY-VTT009|DIRE
 TASK-VTT134|p2|Track PPA build durations — record upload→build-start wait and build time per release|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT134.md|||||b2o||
 TASK-VTT136|p1|Fill 2.3.10 available_utc once Launchpad binary publishes|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT136.md|||||b2p||
 TASK-VTT135|p1|Self-hosted signed apt repo on GitHub Pages|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT135.md|||||b2q||
+TASK-VTT137|p2|Unify release flow — local install + PPA publish in one run|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT137.md|||||b2r||

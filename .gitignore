@@ -85,6 +85,7 @@ debian/.debhelper/
 debian/debhelper-build-stamp
 debian/voice-to-text/
 debian/voice-to-text.*.debhelper
+debian/voice-to-text.debhelper.log
 debian/voice-to-text.substvars
 
 # Universe snapshots (runtime, session-scoped)
@@ -97,3 +98,4 @@ debian/voice-to-text.substvars
 .claude/turn-start-ts.*.txt
 .claude/last-claim.md
 chats/
+.gstack/
