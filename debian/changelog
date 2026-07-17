@@ -1,3 +1,27 @@
+voice-to-text (2.3.10) noble; urgency=medium
+
+  * fix(clipboard): "Copy last transcription" now holds the X11/Wayland
+    clipboard selection itself (via xclip/xsel, or wl-copy on Wayland) so the
+    copied text survives after the copy without a running clipboard manager. It
+    had silently become a no-op for users not running CopyQ or similar, because
+    arboard released the selection the moment it was set (FEAT-VTT038
+    regression).
+  * feat(tray): new "Re-transcribe last recording" menu item re-runs
+    transcription on the newest recording and re-types the result — a recovery
+    net for when typed output is lost (wrong window focused, target app
+    discarded the input, or the typing path failed).
+  * feat(cli): --file/-f batch-transcribes a 16 kHz WAV to stdout and exits,
+    with clean pipes and exit codes (no tray, no hotkey).
+  * feat(audio): honour the selected input-device index when opening the
+    capture stream, with fallback to the default device.
+  * fix(security): model downloads now hard-fail on a SHA-256 mismatch instead
+    of using the corrupt file.
+  * fix(macos): the paste-fallback shortcut sends Cmd+V rather than Ctrl+V.
+  * fix(reliability): coredump capture plus an FFI/unsafe audit hardening pass.
+  * fix(deps): rustls-webpki bumped to 0.103.13 (closes RUSTSEC-2026-0104).
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Fri, 17 Jul 2026 10:56:34 +0100
+
 voice-to-text (2.3.9) noble; urgency=medium
 
   * fix(audio): self-healing capture stream. vtt held one audio capture
