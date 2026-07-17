@@ -8,5 +8,5 @@
 #   curl -s "https://api.launchpad.net/devel/~powellclark/+archive/ubuntu/voice-to-text?ws.op=getPublishedSources&source_name=voice-to-text&version=<v>"
 # Automating this fill is the remaining half of TASK-VTT134.
 version	series	uploaded_utc	published_utc	deploy_to_available	build_id	notes
-2.3.10	noble	2026-07-17T10:09:11Z	pending	pending	33408583	stuck in Launchpad Uploading/Pending ~2.5h+; not a build failure (compiled in 7m52s)
-2.3.10~jammy1	jammy	2026-07-17T10:10:26Z	pending	pending	33408588	stuck in Launchpad Uploading/Pending ~2.5h+; not a build failure (compiled in 11m08s)
+2.3.10	noble	2026-07-17T10:09:11Z	2026-07-17T13:14:40Z	3h05m	33408583	compiled in 7m52s; the rest was Launchpad publisher-queue latency (no paid fast-lane exists)
+2.3.10~jammy1	jammy	2026-07-17T10:10:25Z	2026-07-17T13:14:40Z	3h04m	33408588	compiled in 11m08s; published same instant as noble — publisher batches
