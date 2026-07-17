@@ -58,15 +58,22 @@ fi
 echo "[4/4] Built: $(realpath "$DEB") ($(du -h "$DEB" | cut -f1))"
 echo ""
 
+# Stage in /tmp (world-readable) before apt install: apt's sandboxed _apt
+# user can't read files under a home directory locked down to 700, which
+# otherwise prints a harmless but recurring "unsandboxed as root" warning.
+STAGED_DEB="/tmp/$(basename "$DEB")"
+cp "$DEB" "$STAGED_DEB"
+chmod 644 "$STAGED_DEB"
+
 if [ "$INSTALL" = true ]; then
     echo "=== Installing (you may be prompted for sudo) ==="
-    sudo apt install -y "$DEB"
+    sudo apt install -y "$STAGED_DEB"
     echo ""
     echo "Installed. Restart VTT with:"
     echo "  pkill -f vtt-linux; /usr/bin/vtt-linux &"
 else
     echo "Install with:"
-    echo "  sudo apt install \"$DEB\""
+    echo "  sudo apt install \"$STAGED_DEB\""
     echo ""
     echo "Or pass --install to install now."
 fi
