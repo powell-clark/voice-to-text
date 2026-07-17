@@ -38,3 +38,7 @@ quick add:
 ## Dependencies
 - TASK-VTT023 (WAV `--file` core) — done, provides the flag + plumbing.
 - New: an ADR for the decoder/resampler dependency stack.
+
+## ADR-0006 accepted (2026-07-17)
+
+Decision is now binding: option (a) — symphonia (features: mp3, isomp4, aac, flac only) + rubato for resample; WAV stays on hound. Two pre-merge checks are REQUIRED and their evidence recorded on this card: (1) cargo tree audit confirming no edition-2024 transitive requirement enters via either crate; (2) stripped-binary size delta measured before/after and noted. Chunking (criterion 3) may ship first/independently as pure control flow. Rollback path per ADR-0006 if checks fail: ffmpeg shell-out (Recommends-only) or defer multi-format.

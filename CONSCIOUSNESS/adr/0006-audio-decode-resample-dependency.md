@@ -1,6 +1,11 @@
 # ADR-0006: Audio decode + resample dependency for multi-format `--file`
 
-**Status:** Proposed
+**Status:** Accepted — 2026-07-17, option (a): `symphonia` + `rubato`,
+feature-gated to mp3/isomp4+aac/flac (WAV stays on `hound`). The two
+pre-implementation checks in the Recommendation (edition-2024 transitive
+audit; stripped-binary size delta measured and recorded) are binding on
+TASK-VTT130's builder. Approved under the operator's explicit in-session
+delegation of sign-off (2026-07-17 15:41 BST, recorded in REVIEW-INDEX).
 **Date:** 2026-07-17
 **Context:** voice-to-text
 

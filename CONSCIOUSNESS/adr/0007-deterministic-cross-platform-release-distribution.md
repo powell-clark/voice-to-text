@@ -1,6 +1,12 @@
 # ADR-0007: Deterministic cross-platform release distribution
 
-**Status:** Proposed
+**Status:** Accepted — 2026-07-17. Sequencing as per "Priority &
+sequencing": (1) Linux self-hosted GPG-signed apt repo on GitHub Pages
+(TASK-VTT135) first; (2) Windows second, shipping the unsigned `.msi` on
+GitHub Releases as the accepted interim (Authenticode signing deferred as
+a paid item, TASK-VTT047 remains open); (3) macOS PARKED (no Apple
+licence purchase). Approved under the operator's explicit in-session
+delegation of sign-off (2026-07-17 15:41 BST, recorded in REVIEW-INDEX).
 **Date:** 2026-07-17
 **Context:** voice-to-text
 

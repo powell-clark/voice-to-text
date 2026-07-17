@@ -4,10 +4,13 @@ Date: 2026-07-17
 
 ## Status
 
-Proposed — NOT accepted. This is a one-way-door UI-mechanism change
-(retiring the mature, working Linux GTK tray) and requires explicit
-operator sign-off before any code moves. Filed per TASK-VTT103
-(STORY-VTT013, DIRECT-VTT002).
+Accepted — 2026-07-17, alternative (b): keep the split and mirror parity
+now; alternative (a) unify deferred pending the hotkey-dialog spike
+(spike succeeds → revisit this ADR before any GTK retirement; spike fails
+→ (b) becomes the standing decision). Approved under the operator's
+explicit in-session delegation of sign-off (2026-07-17 15:41 BST,
+recorded in REVIEW-INDEX). No GTK code is retired under this acceptance.
+Filed per TASK-VTT103 (STORY-VTT013, DIRECT-VTT002).
 
 ## Context
 
@@ -112,12 +115,12 @@ tray without regression.
 
 ## Decision
 
-**Not yet decided.** This ADR records the alternatives considered and
-a recommendation, but stays in `Proposed` status pending explicit
-operator approval — retiring `linux.rs` in favour of the portable tray
-is effectively irreversible in practice (a full rewrite of the
-Linux-only surfaces above, tested manually across X11 and Wayland,
-would be required to reverse it later).
+**Alternative (b) — keep the split, mirror parity — accepted 2026-07-17.**
+Retiring `linux.rs` (alternative (a)) stays deferred because it is
+effectively irreversible in practice (a full rewrite of the Linux-only
+surfaces above, tested manually across X11 and Wayland, would be required
+to reverse it later); it is re-opened only by the time-boxed hotkey-dialog
+spike succeeding, per the Recommendation below.
 
 ## Considered Alternatives
 
