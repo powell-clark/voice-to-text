@@ -13,3 +13,19 @@ Today scripts/release-local.sh (build + optional local --install, no PPA) and sc
 - Story: STORY-VTT014
 - Directive: DIRECT-VTT002
 - Features: FEAT-VTT031
+
+
+## Reality-check note (2026-07-17)
+
+The world-facing release path is NOT release-ppa.sh alone — it is
+`.github/workflows/release.yml` (tag-triggered: build+publish all platforms)
+PLUS the local `scripts/release-ppa.sh` for the Launchpad PPA (GPG key, local
+only). So the unified flow the operator wants is: one action that (a) cuts the
+release for the world (bump → changelog → commit → tag → push tag, which fires
+release.yml) AND (b) installs locally immediately (release-local.sh --install)
+so the operator is on it without waiting on any queue. The natural home is the
+release-manager AGENT (.claude/agents/release-manager.md) orchestrating both,
+or a thin release.sh wrapper — NOT bolting local-install onto release-ppa.sh
+(which builds SOURCE packages for Launchpad, a different artifact than the
+binary .deb release-local.sh installs). The sudo steps (pbuilder gate, apt
+install) remain operator-gated by design.

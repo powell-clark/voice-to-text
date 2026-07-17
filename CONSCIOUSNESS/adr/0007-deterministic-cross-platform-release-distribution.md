@@ -33,18 +33,35 @@ farm queue and **cannot be fixed or paid around from this project's side** —
 `packaging/linux/vtt-linux.prebuilt` binary is installed verbatim), so the
 entire multi-hour wait is queue time, not build time.
 
-**Windows and macOS lack finished automated signed release pipelines.**
-Windows builds via `cargo wix` (locally or in CI) and has no code-signing
-(TASK-VTT047, backlog) or update mechanism (TASK-VTT095, backlog) yet.
-macOS has no `.app` bundle at all (TASK-VTT040 / FEAT-VTT029, backlog) and
-therefore no signing/notarisation (TASK-VTT043) and no current Homebrew tap
-that installs a working v2.x binary — `CLAUDE.md`'s Homebrew section records
-that the tap's Formula is pinned to `v0.2.0` and its Cask points at a
-`file://` path that only exists on Emmanuel's machine (FEAT-VTT036).
+**Windows and macOS have automated build+publish pipelines already — what
+they lack is *signing*.** A tag-triggered CI workflow already exists at
+`.github/workflows/release.yml` (`on: push tags: v*`): it builds the Linux
+binary (`ubuntu-24.04`), the Windows `.msi` (`cargo-wix` + Vulkan SDK,
+`windows-latest`), and the macOS arm64/Intel binaries (`macos-latest` /
+`macos-13`), creates the GitHub release as a draft, attaches each asset, and
+un-drafts once all platforms succeed. So the "tag-triggered matrix that
+publishes every platform" that this ADR's Decision proposes as the target is
+**already ~80% built and live**. The genuinely-missing pieces are narrower:
+Windows Authenticode code-signing (TASK-VTT047, backlog) and update mechanism
+(TASK-VTT095); a macOS `.app` bundle (TASK-VTT040 / FEAT-VTT029) plus
+signing/notarisation (TASK-VTT043, now PARKED — no Apple licence) and a
+current Homebrew tap (`CLAUDE.md` records the tap's Formula pinned to `v0.2.0`
+and its Cask pointing at a `file://` path only on Emmanuel's machine,
+FEAT-VTT036); the Linux `.deb`/apt-repo channel (this ADR's core, TASK-VTT135),
+which `release.yml` deliberately does NOT touch (the PPA `dput` needs
+Emmanuel's GPG key and runs locally via `scripts/release-ppa.sh`).
 
-Net effect: release availability today is non-deterministic on all three
-platforms, for three different reasons — Linux waits on someone else's build
-farm, Windows and macOS have no finished pipeline to wait on at all.
+**PGPS drift to reconcile (surfaced 2026-07-17):** TASK-VTT048 ("GitHub
+Actions matrix workflow…") and TASK-VTT049 ("Auto-release on tag push…") sit
+in backlog as if greenfield, but `release.yml` already satisfies the core of
+both. They should be re-scoped to the actual remaining delta (attach the
+`.deb`; add signing) or closed against the live workflow — not implemented
+from scratch. Noted on both cards.
+
+Net effect: release availability today is non-deterministic on Linux (waits on
+Launchpad's build farm) and *unsigned* on Windows/macOS (the CI pipeline runs,
+but ships binaries browsers/Gatekeeper flag as unverified) — three different
+gaps, not "no pipeline at all."
 
 ## Decision (proposed)
 
