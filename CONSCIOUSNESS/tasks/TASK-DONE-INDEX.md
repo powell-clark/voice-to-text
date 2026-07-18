@@ -90,3 +90,5 @@ TASK-VTT109|Windows autostart on by default — first-run enable + tray off-swit
 TASK-VTT023|Batch file transcription via --file flag|STORY-VTT009|DIRECT-VTT002|FEAT-VTT021|TASK-VTT023.md
 TASK-VTT131|Clipboard persists without a clipboard manager (FEAT-VTT038 X11 regression)|STORY-VTT018|DIRECT-VTT002|FEAT-VTT038|TASK-VTT131.md
 TASK-VTT132|Re-transcribe last recording tray item — decode newest WAV, re-type|STORY-VTT018|DIRECT-VTT002|FEAT-VTT039|TASK-VTT132.md
+TASK-VTT097|models::system_cache() returns a Linux path on Windows|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT097.md||
+TASK-VTT141|Repair corrupted directive/story INDEX column alignment||||TASK-VTT141.md||
