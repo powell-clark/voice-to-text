@@ -58,7 +58,7 @@ jobs:
           prompt: "/adversarial-review ${{ github.repository }}/pull/${{ env.PR_NUMBER }}"
           # Tier alias `opus` resolves to the latest Opus at run time — never goes
           # stale as new models ship. No dated model ID to bump.
-          claude_args: "--max-turns 120 --model opus"
+          claude_args: "--max-turns 120 --model opus --fallback-model sonnet"
 
       - name: Upload Claude transcript (adversarial)
         if: ${{ always() && steps.adversarial.outputs.execution_file != '' }}
