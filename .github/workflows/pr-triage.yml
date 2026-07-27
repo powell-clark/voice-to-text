@@ -43,7 +43,7 @@ jobs:
           prompt: "/find-issues ${{ github.repository }}/pull/${{ env.PR_NUMBER }}"
           # Tier alias `sonnet` resolves to the latest Sonnet at run time — never
           # goes stale as new models ship. No dated model ID to bump.
-          claude_args: "--max-turns 120 --model sonnet"
+          claude_args: "--max-turns 120 --model sonnet --fallback-model haiku"
 
       - name: Upload Claude transcript (find-issues)
         if: ${{ always() && steps.find-issues.outputs.execution_file != '' }}
@@ -68,7 +68,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: "dependabot[bot],github-actions[bot]"
           prompt: "/find-duplicate-prs ${{ github.repository }}/pull/${{ env.PR_NUMBER }}"
-          claude_args: "--max-turns 120 --model sonnet"
+          claude_args: "--max-turns 120 --model sonnet --fallback-model haiku"
 
       - name: Upload Claude transcript (find-dupes)
         if: ${{ always() && steps.find-dupes.outputs.execution_file != '' }}

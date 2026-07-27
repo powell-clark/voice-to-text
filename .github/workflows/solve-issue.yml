@@ -78,7 +78,7 @@ jobs:
           # Tier alias `opus` resolves to the latest Opus at run time — never goes
           # stale. cargo/git pre-approved so the fixer can build, test, and push a
           # branch non-interactively (scoped, not blanket Bash(*)).
-          claude_args: '--max-turns 120 --model opus --allowedTools "Bash(cargo:*),Bash(git:*),Bash(gh:*)"'
+          claude_args: '--max-turns 120 --model opus --fallback-model sonnet --allowedTools "Bash(cargo:*),Bash(git:*),Bash(gh:*)"'
 
       - name: Upload Claude transcript (solve)
         if: ${{ always() && steps.solve.outputs.execution_file != '' }}
