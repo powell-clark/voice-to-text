@@ -1,5 +1,13 @@
 # TASK-VTT115: PGPS feature MAINTAINED/DONE display double-lists — validator rejects the status column the display script requires (consciousness v0.42.9, TASK-VTT079)
 
+> **Likely duplicate (product-owner grooming pass, 2026-07-21):** this card's own body cites
+> TASK-VTT079 (Upstream — feature-index status column splits PGPS display but fails validator) as
+> the same root cause. TASK-VTT079 has the more complete problem statement — measured before/after
+> validation counts, a decision log, and acceptance criteria refined across two updates
+> (2026-06-23, 2026-06-27) that already describe exactly the fix this card's "Detail" paragraph
+> proposes. Re-tiered to p5 pending operator confirmation to merge/cancel this card in favour of
+> TASK-VTT079. Not cancelled here — cancellation/merge of a card is operator-gated per review-gates.
+
 > **Needs review:** the agent created this task during real-time validation and is uncertain about scope or priority. Operator should review and re-tier as appropriate.
 
 

@@ -1,6 +1,17 @@
 # TASK-VTT083: Story and task indexes still use 'epic_id' column header instead of 'directive_id' (naming-precision residue; drives fk-asymmetry validator warnings)
 
-> **Needs review:** the agent created this task during real-time validation and is uncertain about scope or priority. Operator should review and re-tier as appropriate.
+> **Verified likely resolved (product-owner grooming pass, 2026-07-21):** checked the header row of
+> every INDEX file this AC targets — STORY-ACTIVE-INDEX.md, STORY-BACKLOG-INDEX.md,
+> TASK-ACTIVE-INDEX.md, TASK-BACKLOG-INDEX.md — all already read `directive_id`, not `epic_id`. A full
+> `/consciousness:pgps` validation run this session (48/52, 257 errors, 321 warnings — see the
+> plugin-health finding in this session's grooming report) shows zero fk-asymmetry warnings
+> referencing epic_id/directiveId. AC3 (INDEX header rename) and AC4 (fk-asymmetry warnings gone)
+> both appear satisfied as of this repo's current state — whichever path (upstream fix or local
+> rename) resolved it isn't recorded on this card, so AC1/AC2/AC5 (which decision path, and whether
+> schema-version was bumped for it) are left unconfirmed. Separately noted: 4 detail-card frontmatter
+> blocks (TASK-VTT066.md, TASK-VTT077.md, TASK-VTT078.md, TASK-VTT079.md) still carry `epic_id:` in
+> their YAML — cosmetic, out of this card's INDEX-column scope, not touched here. Priority left
+> unchanged pending operator review; recommend closing once AC1/AC2/AC5 are confirmed or waived.
 
 
 ## Context

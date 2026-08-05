@@ -92,3 +92,11 @@ TASK-VTT131|Clipboard persists without a clipboard manager (FEAT-VTT038 X11 regr
 TASK-VTT132|Re-transcribe last recording tray item — decode newest WAV, re-type|STORY-VTT018|DIRECT-VTT002|FEAT-VTT039|TASK-VTT132.md
 TASK-VTT097|models::system_cache() returns a Linux path on Windows|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT097.md||
 TASK-VTT141|Repair corrupted directive/story INDEX column alignment||||TASK-VTT141.md||
+TASK-VTT021|Windows WASAPI/Win32/SendInput (superseded by TASK-VTT044 to TASK-VTT047)|STORY-VTT007|DIRECT-VTT004|FEAT-VTT019|TASK-VTT021.md||
+TASK-VTT022|Remove whisper.cpp backend (CANCELLED — ADR-0003 keeps whisper.cpp as sole backend)|STORY-VTT008|DIRECT-VTT002|FEAT-VTT020|TASK-VTT022.md||
+TASK-VTT072|Unknown command /consciousness:sequence — is it part of pgps or a separate command? (ANSWERED — see card)||||TASK-VTT072.md||
+TASK-VTT073|Can't connect to APGPS — ap.consciousness.london unreachable despite being authenticated (SUPERSEDED by TASK-VTT117 — see card)||||TASK-VTT073.md||
+TASK-VTT083|Story and task indexes still use 'epic_id' column header instead of 'directive_id' (naming-precision residue; drives fk-asymmetry validator warnings)||||TASK-VTT083.md||
+TASK-VTT115|PGPS feature MAINTAINED/DONE display double-lists — validator rejects the status column the display script requires (consciousness v0.42.9, TASK-VTT079) (LIKELY DUPLICATE of TASK-VTT079 — see card)||||TASK-VTT115.md||
+TASK-VTT116|APGPS connectivity test — does the issue API land reports on the dashboard now that voice-to-text is connected? (SUPERSEDED by TASK-VTT117 — see card)||||TASK-VTT116.md||
+TASK-VTT117|APGPS connectivity re-test after OAuth re-auth — does the issue API land on the dashboard now? (VERIFIED RESOLVED — see card)||||TASK-VTT117.md||
