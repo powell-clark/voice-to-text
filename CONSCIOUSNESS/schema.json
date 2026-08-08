@@ -37,9 +37,9 @@
       }
     },
     "tasks": {
-      "columns": ["id", "priority", "title", "story_ids", "directive_id", "feature_ids", "doc", "blocked_by", "blocks", "assignee", "parent_task_id", "sequence"],
-      "columns_active": ["id", "status", "priority", "title", "story_ids", "directive_id", "feature_ids", "doc", "blocked_by", "blocks", "assignee", "parent_task_id", "sequence"],
-      "columns_done": ["id", "title", "story_ids", "directive_id", "feature_ids", "doc"],
+      "columns": ["id", "priority", "title", "story_ids", "directive_id", "feature_ids", "doc", "blocked_by", "blocks", "assignee", "parent_task_id", "sequence", "expected_duration", "story_points"],
+      "columns_active": ["id", "status", "priority", "title", "story_ids", "directive_id", "feature_ids", "doc", "blocked_by", "blocks", "assignee", "parent_task_id", "sequence", "expected_duration", "story_points"],
+      "columns_done": ["id", "title", "story_ids", "directive_id", "feature_ids", "doc", "expected_duration", "story_points"],
       "required": ["id", "title"],
       "id_pattern": "^TASK-[A-Z0-9]{2,6}\\d{1,5}$",
       "priority_values": ["p0", "p1", "p2", "p3", "p4", "p5"],
@@ -54,14 +54,14 @@
       }
     },
     "features": {
-      "columns": ["id", "priority", "kano", "description", "story_ids", "task_ids", "doc"],
-      "columns_active": ["id", "status", "priority", "kano", "description", "story_ids", "task_ids", "doc"],
-      "columns_done": ["id", "kano", "description", "story_ids", "task_ids", "doc"],
+      "columns": ["id", "priority", "kano", "description", "story_ids", "task_ids", "doc", "last_tested"],
+      "columns_active": ["id", "status", "priority", "kano", "description", "story_ids", "task_ids", "doc", "last_tested"],
+      "columns_done": ["id", "kano", "status", "description", "story_ids", "task_ids", "doc", "last_tested"],
       "required": ["id", "kano", "description"],
       "id_pattern": "^FEAT-[A-Z0-9]{2,6}\\d{1,5}$",
       "priority_values": ["p0", "p1", "p2", "p3", "p4", "p5", "p6"],
       "kano_values": ["must-have", "performance", "delighter", "nice-to-have", "in-discussion"],
-      "status_values": ["upcoming", "in_progress", "in_review", "blocked", "dropped", ""],
+      "status_values": ["upcoming", "in_progress", "in_review", "done", "maintained", "deprecated", "removed", "blocked", "cancelled", "dropped", ""],
       "fk_patterns": {
         "story_ids": "^STORY-[A-Z0-9]{2,6}\\d{1,5}$",
         "task_ids": "^TASK-[A-Z0-9]{2,6}\\d{1,5}$"
