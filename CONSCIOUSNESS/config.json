@@ -24,7 +24,10 @@
   },
   "telemetry": {
     "enabled": true,
-    "upload": true
+    "upload": true,
+    "endpoint": "https://ap.consciousness.london/api/sync/evaluation-indicator",
+    "scenario_endpoint": "https://ap.consciousness.london/api/sync/evaluation-scenario",
+    "project_id": "VTT"
   },
   "vision": "Free, open-source, cross-platform voice-to-text that outperforms paid alternatives on Windows, Mac, and Linux.",
   "mission": "Provide world-class voice-to-text for all humanity on the majority of machines, not just for the elite."
