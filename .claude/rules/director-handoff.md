@@ -5,7 +5,22 @@
 
 # Director handoff
 
-Director sessions share state across repos through an append-only JSONL log at CONSCIOUSNESS/director-context.jsonl; the Stop hook writes on leave, the SessionStart hook reads on enter; only Director sessions write or read the handoff log.
+Director sessions share state across repos through an append-only JSONL log at CONSCIOUSNESS/stream/director-context.jsonl; the Stop hook writes on leave, the SessionStart hook reads on enter; only Director sessions write or read the handoff log.
+
+## Narrative
+
+The log lives at CONSCIOUSNESS/stream/director-context.jsonl, under stream/
+with the other append-only event logs. This rule named the top-level path
+CONSCIOUSNESS/director-context.jsonl until 2026-08-10, which was the layout
+migration 20260511000000000_relocate_loose_files retired — that migration
+moves director-context.jsonl off the root precisely so it stops living there.
+
+The stale path was load-bearing rather than cosmetic. A neurologist pass in a
+consumer repo read this rule, found a top-level director-context.jsonl that
+the allowlist rejects, and concluded the allowlist was wrong and the precept
+non-negotiable (GitHub #1453). Both halves were backwards: the implementation
+had always written to stream/, the allowlist covers stream/ already, and the
+top-level file was the residue the migration exists to clear.
 
 ## Requires
 
@@ -26,7 +41,7 @@ Director sessions share state across repos through an append-only JSONL log at C
 
 - precept:precept_specification
 - doc:CONSCIOUSNESS/directives/active-directive-item-details/DIRECT-CCC021
-- doc:CONSCIOUSNESS/director-context.jsonl
+- doc:CONSCIOUSNESS/stream/director-context.jsonl
 
 ## Verified by
 

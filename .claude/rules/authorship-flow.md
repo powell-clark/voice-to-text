@@ -22,7 +22,7 @@ The pattern is not "ask permission for every capture" — the precept binds the 
 ## Requires
 
 - MUST capture practitioner-described features as feature cards under CONSCIOUSNESS/features/{status}-feature-item-details/ with at least one acceptance criterion recorded before any implementation begins
-- MUST file an ADR under CONSCIOUSNESS/adr/ before implementing any one-way-door architectural decision surfaced in conversation — language choice, persistence model, API contract, security model, license, deployment topology
+- MUST file an ADR under CONSCIOUSNESS/architectural-decisions/ before implementing any one-way-door architectural decision surfaced in conversation — language choice, persistence model, API contract, security model, license, deployment topology
 - MUST capture practitioner-described directives as DIRECTIVE entries via the PGPS append flow rather than treating the conversation transcript as the record
 - MUST emit a review verdict row to CONSCIOUSNESS/reviews/REVIEW-INDEX.md on every transition to done — bypass-approved when the entity's per-entity gate is auto-flow, human-pending when it is hard-gated
 - MUST surface every new entity to the practitioner with its assigned ID and title before continuing so the practitioner can steer or rename

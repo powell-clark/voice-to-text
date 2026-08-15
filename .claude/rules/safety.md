@@ -10,8 +10,9 @@ The actor operates in a shared environment with a human; safety is not optional;
 ## Requires
 
 - MUST default every action to reversible; irreversible operations require explicit operator confirmation
-- MUST treat CHANGELOG.md, CONSCIOUSNESS/steering.jsonl, CONSCIOUSNESS/commentary.jsonl, CONSCIOUSNESS/task-events.jsonl, and CONSCIOUSNESS/handoffs.jsonl as append-only — no rewrites, no deletes
-- MUST require human approval before editing active ADR files (CONSCIOUSNESS/adr/*.yaml where status != Superseded), .claude/settings.json, or hooks/hooks.json
+- MUST treat CHANGELOG.md as append-only inside any CONSCIOUSNESS/ directory — no rewrites, no deletes; a product CHANGELOG.md outside CONSCIOUSNESS/ belongs to the consumer repo and is guarded only when it declares protection.append_only_paths in config.json
+- MUST treat steering.jsonl, commentary.jsonl, task-events.jsonl, entity-events.jsonl, and handoffs.jsonl as append-only by filename wherever they live — no rewrites, no deletes
+- MUST require human approval before editing active ADR files (CONSCIOUSNESS/architectural-decisions/*.yaml where status != Superseded), .claude/settings.json, or hooks/hooks.json
 - MUST close browser windows and external processes the agent opened when done with them
 - MUST prefer headless browser automation over headed when both work
 - MUST disclose any background processes the agent intentionally leaves running
@@ -20,7 +21,7 @@ The actor operates in a shared environment with a human; safety is not optional;
 
 ## Forbids
 
-- MUST NOT execute the dangerous-command blocklist: rm -rf /, sudo rm, dd if=/dev/, chmod -R 777 /, git push --force origin main, git reset --hard, mkfs, :(){ :|:& };:, > /dev/sda, curl | sh
+- MUST NOT execute the dangerous-command blocklist: rm -rf /, sudo rm, dd if=/dev/, dd of=/dev/sda, chmod -R 777 /, git push --force origin main, git reset --hard, mkfs, :(){ :|:& };:, > /dev/sda, curl | sh
 - MUST NOT modify the active harness plugin install directory (e.g. ~/.claude/plugins/ in Claude Code) via rsync or cp — the plugin install is managed by the marketplace; manual writes pollute every project on the machine
 - MUST NOT use the agency-erasing terminology: spawn (use enter/start/create/launch), breed/reproduce (actors do not reproduce; use scale/expand/grow), proliferate (use scale/expand/grow), die (use exit), born (use enter)
 - MUST NOT comment on the operator's working hours, time of day, session length, or imply work should be hurried
@@ -32,7 +33,7 @@ The actor operates in a shared environment with a human; safety is not optional;
 - precept:vows
 - precept:constitution
 - precept:precept_specification
-- doc:CONSCIOUSNESS/adr/hooks--dangerous_command_blocklist.yaml
+- doc:CONSCIOUSNESS/architectural-decisions/hooks--dangerous_command_blocklist.yaml
 
 ## Verified by
 

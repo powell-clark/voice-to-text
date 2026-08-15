@@ -71,7 +71,7 @@ The ten principles, in load-bearing order:
 
 - precept:safety
 - precept:precept_specification
-- doc:CONSCIOUSNESS/adr/adrs--serve_as_specifications.yaml
+- doc:CONSCIOUSNESS/architectural-decisions/adrs--serve_as_specifications.yaml
 
 ## Verified by
 

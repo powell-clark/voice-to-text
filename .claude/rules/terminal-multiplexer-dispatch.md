@@ -16,9 +16,10 @@ The fix encodes two hard rules: (1) idle ≠ finished — absence of a task clai
 ## Requires
 
 - MUST detect the active multiplexer at session start or at the first cross-pane request
-- MUST identify own pane ID at session start: WezTerm → $WEZTERM_PANE; tmux → $(tmux display-message -p '#{pane_id}'); kitty → $KITTY_WINDOW_ID — exclude own pane from all dispatch targets
+- MUST identify own pane ID at session start: WezTerm → $WEZTERM_PANE; tmux → $(tmux display-message -p '#{pane_id}'); kitty → $KITTY_WINDOW_ID; screen → $WINDOW — exclude own pane from all dispatch targets
 - MUST dispatch new project panes via the detected multiplexer's CLI when the operator asks to open another project
 - MUST use send-text (not copy-paste prompts) when forwarding instructions to another active session
+- MUST submit tmux prompts with two sequential operations: complete one literal-text send, then issue exactly one separate Enter; the submission path must not leave delayed or retry Enter keypresses pending
 - MUST list existing panes before dispatching to avoid duplicate sessions on the same target
 - MUST surface the no-multiplexer condition and use the host's native background-session manager when one exists, falling back to cd-and-claude only when none does, rather than silently degrading
 - MUST prefer the host's native background-session manager over plain cd-and-claude when no multiplexer is detected and the host provides one — Claude Code exposes `claude agents` from v2.1.141, which carries the session registry and worktree isolation that bare cd-and-claude discards
@@ -39,6 +40,7 @@ The fix encodes two hard rules: (1) idle ≠ finished — absence of a task clai
 - MUST NOT use multiplexer CLI on the remote side of an SSH session — the multiplexer is local; fall back to plain shell remotely
 - MUST NOT fall through to plain cd-and-claude when the host exposes a native background-session manager — that discards the host session registry and worktree isolation the manager provides
 - MUST NOT send-text to a pane without first verifying the target pane_id does not equal own pane ID — self-targeting pollutes the director's own input box
+- MUST NOT combine tmux literal text and Enter in one send-keys operation or schedule a second Enter that can arrive after the target task has started
 - MUST NOT assume wezterm pane numbers (0, 1, 2…) map to pts/N TTY numbers — they are independent namespaces; verify via wezterm cli list
 - MUST NOT treat an idle builder (current_task absent from active-sessions) as finished — absence of a task claim does not imply completion of uncommitted work; the builder may be paused, context-switched, or stalled
 - MUST NOT write code, implement features, or build artifacts when operating in Director role — doing builder work from a Director session corrupts the division of responsibility and risks duplicating work the original builder will overwrite

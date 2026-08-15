@@ -1,320 +1,6 @@
 {
   "sessions": [
     {
-      "id": "voice-to-text-main-b0fd9a7b",
-      "prev": null,
-      "started": "2025-12-25 05:40:34.499 gmt",
-      "ended": "2025-12-25 05:56:54.050 gmt",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0
-      }
-    },
-    {
-      "id": "voice-to-text-main-a5755be9",
-      "prev": "voice-to-text-main-b0fd9a7b",
-      "started": "2025-12-25 05:56:54.050 gmt",
-      "ended": "2026-02-03 02:56:44.315 gmt",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0
-      }
-    },
-    {
-      "id": "voice-to-text-main-b1595a9a",
-      "prev": "voice-to-text-main-a5755be9",
-      "started": "2026-02-03 02:56:44.315 gmt",
-      "ended": "2026-02-06 19:58:51.397 gmt",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0
-      }
-    },
-    {
-      "id": "voice-to-text-main-45586eb2",
-      "prev": "voice-to-text-main-b1595a9a",
-      "started": "2026-02-06 19:58:51.397 gmt",
-      "ended": "2026-02-06 20:11:09.963 gmt",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0
-      }
-    },
-    {
-      "id": "voice-to-text-main-7d3e3b31",
-      "prev": "voice-to-text-main-45586eb2",
-      "started": "2026-02-06 20:11:09.963 gmt",
-      "ended": "2026-03-25 11:12:56.207 gmt",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 0,
-        "human_prompts": 0,
-        "errors": 0,
-        "compactions": 0,
-        "hooks_latency_ms": {
-          "session-end": 555
-        }
-      }
-    },
-    {
-      "id": "vtt-main-200914a6",
-      "prev": "voice-to-text-main-7d3e3b31",
-      "started": "2026-03-25 11:12:56.207 gmt",
-      "ended": "2026-03-26 11:25:08.430 gmt",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 11,
-        "human_prompts": 16,
-        "errors": 0,
-        "compactions": 0,
-        "hooks_latency_ms": {
-          "session-init": 45,
-          "message-end": 20,
-          "session-end": 84
-        }
-      }
-    },
-    {
-      "id": "vtt-main-4fcbec16",
-      "prev": "vtt-main-200914a6",
-      "started": "2026-03-26 11:25:08.430 gmt",
-      "ended": "2026-04-06 13:02:23.524 gmt+1",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 9,
-        "human_prompts": 8,
-        "errors": 0,
-        "compactions": 0,
-        "hooks_latency_ms": {
-          "session-init": 42,
-          "message-end": 9
-        }
-      }
-    },
-    {
-      "id": "vtt-main-31df8595",
-      "prev": "vtt-main-4fcbec16",
-      "started": "2026-04-06 13:02:23.524 gmt+1",
-      "ended": "2026-04-14 20:10:30.059 gmt+1",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 29,
-        "turns": 133,
-        "human_prompts": 141,
-        "errors": 0,
-        "compactions": 1,
-        "hooks_latency_ms": {
-          "session-init": 49,
-          "message-end": 11,
-          "pre-compact": 3,
-          "post-compact": 1
-        }
-      }
-    },
-    {
-      "id": "vtt-main-0997d4d0",
-      "prev": "vtt-main-31df8595",
-      "started": "2026-04-14 20:10:30.059 gmt+1",
-      "ended": "2026-04-17 22:50:20.740 gmt+1",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 18,
-        "human_prompts": 19,
-        "errors": 0,
-        "compactions": 0,
-        "hooks_latency_ms": {
-          "session-init": 49,
-          "message-end": 10
-        }
-      }
-    },
-    {
-      "id": "vtt-main-aa2717d9",
-      "prev": "vtt-main-0997d4d0",
-      "started": "2026-04-17 22:50:20.740 gmt+1",
-      "ended": "2026-04-19 22:38:46.578 gmt+1",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 15,
-        "turns": 75,
-        "human_prompts": 86,
-        "errors": 0,
-        "compactions": 2,
-        "hooks_latency_ms": {
-          "session-init": 92,
-          "message-end": 11,
-          "task-completed": 1,
-          "pre-compact": 2,
-          "post-compact": 1
-        }
-      }
-    },
-    {
-      "id": "vtt-main-2ba05079",
-      "prev": "vtt-main-aa2717d9",
-      "started": "2026-04-19 22:38:46.578 gmt+1",
-      "ended": "2026-04-21 07:35:09.343 gmt+1",
-      "metrics": {
-        "autonomous_loops": 50,
-        "tasks_completed": [],
-        "commits": 81,
-        "turns": 80,
-        "human_prompts": 31,
-        "errors": 0,
-        "compactions": 0,
-        "hooks_latency_ms": {
-          "session-init": 52,
-          "message-end": 10
-        }
-      }
-    },
-    {
-      "id": "vtt-main-2b22b2b6",
-      "prev": "vtt-main-2ba05079",
-      "started": "2026-04-21 07:35:09.343 gmt+1",
-      "ended": "2026-05-05 10:10:31.201 gmt+1",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 0,
-        "human_prompts": 0,
-        "errors": 0,
-        "compactions": 0,
-        "hooks_latency_ms": {
-          "session-init": 52
-        }
-      }
-    },
-    {
-      "id": "vtt-main-d9083001",
-      "prev": "vtt-main-2b22b2b6",
-      "started": "2026-05-05 10:10:31.201 gmt+1",
-      "ended": "2026-05-06 20:32:59.674 gmt+1",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 6,
-        "turns": 29,
-        "human_prompts": 29,
-        "errors": 0,
-        "compactions": 0,
-        "hooks_latency_ms": {
-          "session-init": 53,
-          "message-end": 16
-        }
-      }
-    },
-    {
-      "id": "vtt-main-1dae662a",
-      "prev": "vtt-main-d9083001",
-      "started": "2026-05-06 20:32:59.674 gmt+1",
-      "ended": "2026-05-08 06:33:38.261 gmt+1",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 2,
-        "turns": 10,
-        "human_prompts": 10,
-        "errors": 0,
-        "compactions": 0,
-        "hooks_latency_ms": {
-          "session-init": 53,
-          "message-end": 19
-        }
-      }
-    },
-    {
-      "id": "vtt-main-ab11fa5c",
-      "prev": "vtt-main-1dae662a",
-      "started": "2026-05-08 06:33:38.261 gmt+1",
-      "ended": null,
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 0,
-        "human_prompts": 1,
-        "errors": 0,
-        "compactions": 0,
-        "hooks_latency_ms": {
-          "session-init": 82
-        },
-        "ralph_loops": null
-      }
-    },
-    {
-      "id": "vtt-main-019f5c42",
-      "prev": "vtt-main-019f5c3c",
-      "started": "2026-07-13 17:15:28.715 bst",
-      "ended": "2026-07-13 17:53:25.278 bst",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 4,
-        "turns": 3,
-        "human_prompts": 3,
-        "errors": 0,
-        "compactions": 0,
-        "framing_checks_count": 0,
-        "framing_compliance_count": 0,
-        "hooks_latency_ms": {
-          "codex-session-init": 69,
-          "user-prompt-submit": 11,
-          "message-end": 7
-        },
-        "usage": {
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "cache_read_input_tokens": 0,
-          "cache_creation_input_tokens": 0,
-          "cache_creation_1h_input_tokens": 0
-        }
-      }
-    },
-    {
-      "id": "vtt-main-019f5c65",
-      "prev": "vtt-main-019f5c42",
-      "started": "2026-07-13 17:53:25.278 bst",
-      "ended": "2026-07-13 18:10:44.344 bst",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 1,
-        "human_prompts": 1,
-        "errors": 0,
-        "compactions": 0,
-        "framing_checks_count": 0,
-        "framing_compliance_count": 0,
-        "hooks_latency_ms": {
-          "codex-session-init": 86,
-          "message-end": 5
-        },
-        "usage": {
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "cache_read_input_tokens": 0,
-          "cache_creation_input_tokens": 0,
-          "cache_creation_1h_input_tokens": 0
-        }
-      }
-    },
-    {
       "id": "vtt-main-feaba9b6",
       "prev": "vtt-main-019f5c65",
       "started": "2026-07-13 18:10:44.344 bst",
@@ -1676,6 +1362,38 @@
       "commit_shas": [],
       "commit_attributions": [],
       "end_reason": "queue_empty"
+    },
+    {
+      "id": "vtt-efba960e",
+      "prev": "vtt-efba960e",
+      "started": "2026-08-15 06:47:00.176 bst",
+      "ended": "2026-08-15 06:47:00.211 bst",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_creation_1h_input_tokens": 0
+        }
+      },
+      "commit_shas": [],
+      "commit_attributions": [],
+      "end_reason": "queue_empty"
+    },
+    {
+      "id": "vtt-d64cbd57",
+      "prev": "vtt-efba960e",
+      "started": "2026-08-15 06:52:11.838 bst",
+      "ended": null,
+      "metrics": {
+        "autonomous_loops": 2,
+        "tasks_completed": [],
+        "commits": 0
+      }
     }
   ]
 }

@@ -45,7 +45,7 @@ never an EPIC-XX### prefix.
 ## References
 
 - precept:precept_specification
-- doc:CONSCIOUSNESS/adr/adrs--one_decision_per_file.yaml
+- doc:CONSCIOUSNESS/architectural-decisions/adrs--one_decision_per_file.yaml
 
 ## Verified by
 
