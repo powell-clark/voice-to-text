@@ -2,3 +2,4 @@ id|status|priority|title|story_ids|directive_id|feature_ids|doc|blocked_by|block
 TASK-VTT060|in_progress|p1|Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT060.md|||||b2
 TASK-VTT133|in_progress|p1|Release 2.3.10 to the PPA — clipboard fix + re-transcribe + accumulated main|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT133.md|||||bs
 TASK-VTT144|upcoming|p00|Correction dictionary editable from the tray|STORY-VTT019|DIRECT-VTT002|FEAT-VTT037|TASK-VTT144.md|||||a04o4||
+TASK-VTT145|upcoming|p00|Suppress steady background noise before inference|STORY-VTT015|DIRECT-VTT002||TASK-VTT145.md|||||a1VL8||
