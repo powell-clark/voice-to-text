@@ -41,7 +41,7 @@ jobs:
           allowed_bots: "dependabot[bot],github-actions[bot]"
           prompt: "/dedupe ${{ github.repository }}/issues/${{ env.ISSUE_NUMBER }}"
           # Tier alias `sonnet` resolves to the latest Sonnet at run time.
-          claude_args: "--max-turns 120 --model sonnet"
+          claude_args: "--max-turns 120 --model sonnet --fallback-model haiku"
 
       - name: Upload Claude transcript (dedupe)
         if: ${{ always() && steps.dedupe.outputs.execution_file != '' }}
