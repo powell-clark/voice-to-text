@@ -116,7 +116,7 @@ jobs:
           # /iterate can run the suite non-interactively; scoped to cargo/git/gh,
           # not a blanket Bash(*). --append-system-prompt self-reports the model
           # so the operator sees which tier answered at a glance.
-          claude_args: '--model ${{ steps.model.outputs.model }} --max-turns 120 --allowedTools "Bash(cargo:*),Bash(git:*),Bash(gh:*)" --append-system-prompt "Start your reply with this exact line, nothing before it: 🤖 model=${{ steps.model.outputs.model }}"'
+          claude_args: '--model ${{ steps.model.outputs.model }} --fallback-model haiku --max-turns 120 --allowedTools "Bash(cargo:*),Bash(git:*),Bash(gh:*)" --append-system-prompt "Start your reply with this exact line, nothing before it: 🤖 model=${{ steps.model.outputs.model }}"'
 
       - name: Upload Claude transcript (claude)
         if: ${{ always() && steps.claude.outputs.execution_file != '' }}

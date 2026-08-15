@@ -55,7 +55,7 @@ jobs:
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
           # Tier alias `sonnet` resolves to the latest Sonnet at run time — never
           # goes stale. --max-turns is a runaway-loop ceiling.
-          claude_args: '--max-turns 120 --model sonnet'
+          claude_args: '--max-turns 120 --model sonnet --fallback-model haiku'
 
       - name: Upload Claude transcript (claude-review)
         if: ${{ always() && steps.claude-review.outputs.execution_file != '' }}
