@@ -17,3 +17,12 @@
 {"event":"subagent_spawned","parent_session_id":"vtt-main-8e922f21","child_session_id":null,"spawn_method":"Agent","intent":"Build TASK-VTT122 restart semantics","ts":"2026-07-10 04:38:20.837 bst"}
 {"event":"subagent_spawned","parent_session_id":"vtt-main-4c143bbc","child_session_id":null,"spawn_method":"Agent","intent":"Check autostart default-on implementation status","ts":"2026-07-13 12:45:14.907 bst"}
 {"event":"subagent_spawned","parent_session_id":"vtt-main-4c143bbc","child_session_id":null,"spawn_method":"Agent","intent":"Find task claiming CLI tooling","ts":"2026-07-13 12:47:30.583 bst"}
+{"event":"subagent_spawned","parent_session_id":"vtt-main-52ea28cf","child_session_id":null,"spawn_method":"Agent","intent":"Investigate Launchpad PPA build status","ts":"2026-07-17 11:50:47.639 bst"}
+{"event":"subagent_spawned","parent_session_id":"vtt-main-52ea28cf","child_session_id":null,"spawn_method":"Agent","intent":"cfg-gate system_cache for Windows","ts":"2026-07-17 11:53:18.420 bst"}
+{"event":"subagent_spawned","parent_session_id":"vtt-main-52ea28cf","child_session_id":null,"spawn_method":"Agent","intent":"Groom empty acceptance criteria","ts":"2026-07-17 11:59:19.939 bst"}
+{"event":"subagent_spawned","parent_session_id":"vtt-main-52ea28cf","child_session_id":null,"spawn_method":"Agent","intent":"Write tray-unification ADR","ts":"2026-07-17 12:01:29.823 bst"}
+{"event":"subagent_spawned","parent_session_id":"vtt-main-52ea28cf","child_session_id":null,"spawn_method":"Agent","intent":"Write --file decode dependency ADR","ts":"2026-07-17 12:02:30.911 bst"}
+{"event":"subagent_spawned","parent_session_id":"vtt-main-52ea28cf","child_session_id":null,"spawn_method":"Agent","intent":"Research advisor-flag GitHub issue + duplicates","ts":"2026-07-17 12:14:39.762 bst"}
+{"event":"subagent_spawned","parent_session_id":"vtt-main-52ea28cf","child_session_id":null,"spawn_method":"Agent","intent":"Write deterministic distribution ADR","ts":"2026-07-17 14:39:15.710 bst"}
+{"event":"subagent_spawned","parent_session_id":"vtt-main-38c4acaf","child_session_id":null,"spawn_method":"Agent","intent":"Run consciousness diagnostics and repair","ts":"2026-07-18 16:06:20.409 bst"}
+{"event":"subagent_spawned","parent_session_id":"vtt-main-5db2fc27","child_session_id":null,"spawn_method":"Agent","intent":"Groom voice-to-text PGPS roadmap","ts":"2026-07-21 10:15:22.913 bst"}

@@ -1,6 +1,16 @@
 # TASK-VTT080: Features and testing are not connected — add per-feature test-status tracking (last_tested field and/or verification reviews)
 
-> **Needs review:** the agent created this task during real-time validation and is uncertain about scope or priority. Operator should review and re-tier as appropriate.
+> **Groomed (product-owner grooming pass, 2026-07-21):** this card is no longer "needs review" — it
+> already carries a real 2026-06-26 operator decision, a full design, and six concrete acceptance
+> criteria (below). Linked story_ids=STORY-VTT018 per this card's own "Migration note" ("Story:
+> STORY-VTT018"), reciprocated on STORY-VTT018. Linked directive_id=DIRECT-VTT005 (Cross-platform
+> feature parity as a testable spec) rather than DIRECT-VTT002 — DIRECT-VTT005's title is a near-verbatim
+> match for this card's own goal, DIRECT-VTT005 was editable this session (DIRECT-VTT002 was not,
+> per this session's explicit scope), and DIRECT-VTT005 already carries sibling tasks (TASK-VTT121,
+> TASK-VTT123, TASK-VTT129) without a story link, so a directive-only or directive+story link both
+> fit the existing pattern here; reciprocated on DIRECT-VTT005. Re-tiered p3 → p2 per this card's own
+> "Migration note — re-tier from p3, this is now the active goal"; no target tier was specified in
+> the note, so p2 is a one-notch bump, not a guess at p1 or p0 — operator may want to bump further.
 
 
 ## Context

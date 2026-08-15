@@ -28,15 +28,15 @@ appears on both the Linux GTK tray (`src/tray/linux.rs`) and the portable
 
 ## Acceptance criteria
 
-- [x] After any successful transcription (normal or truncated), the tray item
+- [x] **AC-1** — After any successful transcription (normal or truncated), the tray item
       copies the exact final text (including corrections-dictionary output) to
       the clipboard — `LastTranscription` set post-`compose_final_text` in
       `main.rs`, read by both tray menu handlers
-- [x] Safe no-op before the first transcription of a run — `None` branch logs
+- [x] **AC-2** — Safe no-op before the first transcription of a run — `None` branch logs
       and returns without touching the clipboard
-- [x] Present and functional on Linux GTK tray and portable tray — menu item
+- [x] **AC-3** — Present and functional on Linux GTK tray and portable tray — menu item
       wired in both `src/tray/linux.rs` and `src/tray/portable.rs`
-- [ ] Covered by a unit test for the last-transcription state handling —
+- [ ] **AC-4** — Covered by a unit test for the last-transcription state handling —
       DEFERRED: no automated GTK/muda tray-interaction test harness exists;
       logic verified by code review only (REVIEW-VTT123). Revisit if a tray
       test harness is ever built.

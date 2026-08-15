@@ -7,3 +7,10 @@ Neurologist diagnostic (2026-07-18) found an uncommitted, incomplete hand-edit a
 ## Acceptance criteria
 
 - [ ] _(to be filled in)_
+
+## Closed without contract
+
+This task reached a terminal state while its acceptance criteria still read
+`_(to be filled in)_`. No criteria have been authored retrospectively: the contract
+that would have governed this work was never written, and this marker records that
+honestly rather than manufacturing one after the fact.

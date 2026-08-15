@@ -1,6 +1,8 @@
 # TASK-VTT134: Track PPA build durations — record upload→build-start wait and build time per release
 
-> **Needs review:** the agent created this task during real-time validation and is uncertain about scope or priority. Operator should review and re-tier as appropriate.
+> **Groomed (product-owner grooming pass, 2026-07-21):** acceptance criteria below are drawn
+> directly from this card's own "Candidate approach" — no new scope invented. Links (STORY-VTT018,
+> DIRECT-VTT002, FEAT-VTT035) already correctly set in TASK-BACKLOG-INDEX.md; no change needed there.
 
 
 ## Context
@@ -9,7 +11,11 @@ Operator reports Launchpad PPA builds take ~5h and it is unclear whether that is
 
 ## Acceptance criteria
 
-- [ ] _(to be filled in)_
+- [ ] release-ppa.sh (or a post-upload poll step) reads the Launchpad build record via its API after each PPA upload
+- [ ] Per-release row appended to a tracked log (e.g. packaging/linux/ppa-build-times.tsv): version, upload time, build-start time, build-finish time, pass/fail
+- [ ] Queue-wait (build-start − upload) and build-time (build-finish − build-start) are derivable from the logged timestamps, not wall-clock guesses
+- [ ] Timestamps are read from the actual Launchpad build record, not estimated
+- [ ] Operator confirms whether this warrants promotion to a feature card once the log has a few releases of real data
 
 ## Dependencies
 

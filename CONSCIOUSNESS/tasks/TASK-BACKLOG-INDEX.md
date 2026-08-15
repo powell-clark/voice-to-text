@@ -20,18 +20,10 @@ TASK-VTT051|p2|GTK settings dialog replacing settings.conf hand-editing|STORY-VT
 TASK-VTT052|p2|Design persistent Python daemon protocol (stdin/stdout line-delimited JSON) for optional CT2 backend|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT052.md|||||bd
 TASK-VTT053|p2|Implement transcribe_daemon.py with faster-whisper persistent model and IPC loop|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT053.md|TASK-VTT052||||be
 TASK-VTT054|p2|Settings toggle CT2 vs native backend; spawn daemon at startup when enabled; fall back to whisper-rs if daemon crashes|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT054.md|TASK-VTT053||||bf
-TASK-VTT021|p5|Windows WASAPI/Win32/SendInput (superseded by TASK-VTT044 to TASK-VTT047)|STORY-VTT007|DIRECT-VTT004|FEAT-VTT019|TASK-VTT021.md|||||bh
-TASK-VTT022|p3|Remove whisper.cpp backend (CANCELLED — ADR-0003 keeps whisper.cpp as sole backend)|STORY-VTT008|DIRECT-VTT002|FEAT-VTT020|TASK-VTT022.md|||||bi
-TASK-VTT072|p3|Unknown command /consciousness:sequence — is it part of pgps or a separate command?||||TASK-VTT072.md|||||a0
-TASK-VTT073|p3|Can't connect to APGPS — ap.consciousness.london unreachable despite being authenticated||||TASK-VTT073.md|||||a1
 TASK-VTT075|p3|PGPS validation error wall is overwhelming for new users — needs friendlier guidance and auto-fix path||||TASK-VTT075.md|||||a2||
 TASK-VTT076|p3|Telemetry opt-in should be default at install — 30-day retention agreed at walkthrough, no opt-out required||||TASK-VTT076.md|||||b2b||
 TASK-VTT079|p2|Upstream — feature-index status column splits PGPS display but fails validator (dist build inconsistency)||DIRECT-VTT002||TASK-VTT079.md|||||b3
-TASK-VTT080|p3|Features and testing are not connected — add per-feature test-status tracking (last_tested field and/or verification reviews)||||TASK-VTT080.md|||||b2c||
-TASK-VTT083|p3|Story and task indexes still use 'epic_id' column header instead of 'directive_id' (naming-precision residue; drives fk-asymmetry validator warnings)||||TASK-VTT083.md|||||b2e||
-TASK-VTT115|p3|PGPS feature MAINTAINED/DONE display double-lists — validator rejects the status column the display script requires (consciousness v0.42.9, TASK-VTT079)||||TASK-VTT115.md|||||b2f||
-TASK-VTT116|p3|APGPS connectivity test — does the issue API land reports on the dashboard now that voice-to-text is connected?||||TASK-VTT116.md|||||b2g||
-TASK-VTT117|p3|APGPS connectivity re-test after OAuth re-auth — does the issue API land on the dashboard now?||||TASK-VTT117.md|||||b2h||
+TASK-VTT080|p2|Features and testing are not connected — add per-feature test-status tracking (last_tested field and/or verification reviews)|STORY-VTT018|DIRECT-VTT005||TASK-VTT080.md|||||b2c||
 TASK-VTT120|p2|Review-gate kano override never resolves (getFeatureKano bug)||DIRECT-VTT002||TASK-VTT120.md|||||b2i||
 TASK-VTT125|p2|Re-register the macOS Intel self-hosted runner||DIRECT-VTT003||TASK-VTT125.md|||Emmanuel||b2m
 TASK-VTT128|p3|Unscoped validation stall — needs operator review||||TASK-VTT128.md|||||b2n||
@@ -44,3 +36,4 @@ TASK-VTT137|p2|Unify release flow — local install + PPA publish in one run|STO
 TASK-VTT138|p3|Spike hotkey dialog on portable tray|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT138.md|||||b2s||
 TASK-VTT139|p3|Portable tray parity — settings and About dialogs|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT139.md|||||b2t||
 TASK-VTT140|p2|Agent-run cost tracking and seat selection for PGPS execution||DIRECT-VTT002||TASK-VTT140.md|||||b2u||
+TASK-VTT143|p4|Rule 63 maintained-directive false positive||DIRECT-VTT002||TASK-VTT143.md|||||b2v||
