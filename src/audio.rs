@@ -3,6 +3,7 @@ use cpal::{SampleRate, StreamConfig};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 /// Whisper's required sample rate. Hardcoded because every supported
 /// Whisper model is trained at 16 kHz; resampling would cost accuracy.
@@ -35,10 +36,11 @@ pub enum RecordingResult {
     /// the hotkey. Samples are up to the cap; transcription is prefixed
     /// with "[Truncated]" so the user knows to rehearse shorter.
     MaxLength { samples: Vec<f32>, path: PathBuf },
-    /// The stream delivered zero samples for the whole hold — the device
-    /// re-enumerated, the audio session restarted, or the source was
-    /// suspended underneath us. Distinct from TooShort so the user learns
-    /// their mic is the problem, not their timing. The stream has already
+    /// The stream delivered zero samples across a hold long enough to have
+    /// captured some — the device re-enumerated, the audio session restarted,
+    /// or the source was suspended underneath us. Distinct from TooShort so
+    /// the user learns their mic is the problem, not their timing; a tap too
+    /// brief for the first callback to fire is TooShort, not this. The stream has already
     /// been re-opened against the current default device by the time the
     /// caller sees this, so the next press should capture normally.
     NoAudioCaptured,
@@ -49,7 +51,7 @@ pub enum RecordingResult {
 /// live audio device.
 #[derive(Debug, PartialEq, Eq)]
 enum CaptureClass {
-    /// 0 samples — the stream is dead, not the user too quick.
+    /// 0 samples despite a long enough hold — the stream is dead.
     Empty,
     /// Real samples but under MIN_DURATION_SECS.
     TooShort,
@@ -61,8 +63,21 @@ enum CaptureClass {
     MaxLength,
 }
 
-fn classify_capture(sample_count: usize, max_amp: i16, was_full: bool) -> CaptureClass {
+fn classify_capture(
+    sample_count: usize,
+    max_amp: i16,
+    was_full: bool,
+    held_secs: f32,
+) -> CaptureClass {
     if sample_count == 0 {
+        // Zero samples means a dead stream only when the key was held long
+        // enough that cpal should have delivered a buffer. A tap shorter than
+        // that can legitimately end before the first callback fires, and
+        // calling it a dead microphone puts a sticky error icon in the tray
+        // and re-opens the stream for nothing (TASK-VTT148).
+        if held_secs < MIN_DURATION_SECS {
+            return CaptureClass::TooShort;
+        }
         return CaptureClass::Empty;
     }
     let duration = sample_count as f32 / SAMPLE_RATE as f32;
@@ -97,6 +112,10 @@ pub struct Audio {
     /// track the system default. Held so `try_reopen` rebuilds against the
     /// same chosen device rather than silently reverting to default.
     device_index: Option<usize>,
+    /// When the current hold began. A zero-sample capture only means the
+    /// stream is dead if the key was held long enough for cpal to have
+    /// delivered a buffer — otherwise it just means the user was quick.
+    hold_start: Mutex<Option<Instant>>,
 }
 
 /// Resolve a saved input-device ordinal against the number of devices cpal
@@ -151,6 +170,7 @@ impl Audio {
         )?;
 
         Ok(Audio {
+            hold_start: Mutex::new(None),
             stream: Mutex::new(Some(stream)),
             buffer,
             recording,
@@ -421,6 +441,7 @@ impl Audio {
         let mut buf = self.buffer.lock().unwrap();
         buf.clear();
         self.buffer_full.store(false, Ordering::SeqCst);
+        *self.hold_start.lock().unwrap() = Some(Instant::now());
         self.recording.store(true, Ordering::SeqCst);
         crate::vtt_log!("Recording started");
     }
@@ -430,8 +451,9 @@ impl Audio {
     /// Returns `None` if no recording was in progress. Otherwise returns
     /// a `RecordingResult` variant:
     /// - `Audio` for a normal recording that passed the duration + amplitude thresholds
-    /// - `NoAudioCaptured` if the stream delivered 0 samples (dead device/
-    ///   session — the stream is re-opened before returning)
+    /// - `NoAudioCaptured` if the stream delivered 0 samples across a hold
+    ///   long enough to have captured some (dead device/session — the stream
+    ///   is re-opened before returning)
     /// - `TooShort` if < MIN_DURATION_SECS (discarded, tray resets)
     /// - `TooQuiet` if peak amplitude < MIN_AMPLITUDE (discarded)
     /// - `MaxLength` if the buffer hit MAX_RECORDING_SECONDS mid-recording
@@ -456,11 +478,23 @@ impl Audio {
             .max()
             .unwrap_or(0);
 
-        match classify_capture(sample_count, max_amp, was_full) {
+        // How long the key was actually down, which is not the same as how
+        // much audio arrived — that gap is the whole point of the check.
+        let held_secs = self
+            .hold_start
+            .lock()
+            .unwrap()
+            .take()
+            .map(|t| t.elapsed().as_secs_f32())
+            .unwrap_or(0.0);
+
+        match classify_capture(sample_count, max_amp, was_full, held_secs) {
             CaptureClass::Empty => {
-                // Zero samples is a dead stream, never a hasty user. Say so,
-                // and re-open now so the next press works without a manual
-                // restart (TASK-VTT121 zero-frame watchdog).
+                // Zero samples after a hold long enough to have filled a
+                // buffer is a dead stream. Say so, and re-open now so the next
+                // press works without a manual restart (TASK-VTT121 zero-frame
+                // watchdog). A hasty tap never reaches here — it classifies as
+                // TooShort above (TASK-VTT148).
                 crate::vtt_log!("No audio captured (0 samples) — re-opening capture stream");
                 drop(buf);
                 self.try_reopen();
@@ -700,31 +734,51 @@ mod tests {
     }
 
     #[test]
-    fn classify_zero_samples_is_empty_not_too_short() {
+    fn classify_zero_samples_splits_on_hold_length() {
         // The historic bug: 0 samples logged as "Recording too short (0.00s)",
         // hiding a dead stream behind a user-timing message (TASK-VTT121).
-        assert_eq!(classify_capture(0, 0, false), CaptureClass::Empty);
+        assert_eq!(classify_capture(0, 0, false, 3.0), CaptureClass::Empty);
+
+        // A tap can end before cpal's first callback fires, so zero samples
+        // over a hold shorter than MIN_DURATION_SECS is a quick user, not a
+        // dead microphone. Reporting it as a dead device put a sticky error
+        // icon in the tray and re-opened the stream for nothing — the symptom
+        // that surfaced once releases stopped being discarded (TASK-VTT148).
+        assert_eq!(
+            classify_capture(0, 0, false, 0.02),
+            CaptureClass::TooShort,
+            "a hasty tap must not be reported as a dead microphone"
+        );
+        // At and beyond the threshold a silent stream is still a real fault.
+        assert_eq!(
+            classify_capture(0, 0, false, MIN_DURATION_SECS),
+            CaptureClass::Empty
+        );
+        assert_eq!(classify_capture(0, 0, false, 10.0), CaptureClass::Empty);
     }
 
     #[test]
     fn classify_zero_samples_with_full_flag_is_still_empty() {
         // Shouldn't happen (full implies samples), but empty must win: a dead
         // stream must never masquerade as a max-length recording.
-        assert_eq!(classify_capture(0, 32767, true), CaptureClass::Empty);
+        assert_eq!(classify_capture(0, 32767, true, 3.0), CaptureClass::Empty);
     }
 
     #[test]
     fn classify_one_sample_is_too_short_not_empty() {
         // The boundary: any real samples below MIN_DURATION_SECS are the
         // user's timing, not a device failure.
-        assert_eq!(classify_capture(1, 32767, false), CaptureClass::TooShort);
+        assert_eq!(
+            classify_capture(1, 32767, false, 0.01),
+            CaptureClass::TooShort
+        );
     }
 
     #[test]
     fn classify_just_under_min_duration_is_too_short() {
         let just_under = (SAMPLE_RATE as f32 * MIN_DURATION_SECS) as usize - 1;
         assert_eq!(
-            classify_capture(just_under, 32767, false),
+            classify_capture(just_under, 32767, false, 0.49),
             CaptureClass::TooShort
         );
     }
@@ -733,7 +787,7 @@ mod tests {
     fn classify_long_enough_but_quiet_is_too_quiet() {
         let one_second = SAMPLE_RATE as usize;
         assert_eq!(
-            classify_capture(one_second, MIN_AMPLITUDE - 1, false),
+            classify_capture(one_second, MIN_AMPLITUDE - 1, false, 1.0),
             CaptureClass::TooQuiet
         );
     }
@@ -742,7 +796,7 @@ mod tests {
     fn classify_normal_recording() {
         let one_second = SAMPLE_RATE as usize;
         assert_eq!(
-            classify_capture(one_second, MIN_AMPLITUDE, false),
+            classify_capture(one_second, MIN_AMPLITUDE, false, 1.0),
             CaptureClass::Normal
         );
     }
@@ -751,7 +805,7 @@ mod tests {
     fn classify_full_buffer_is_max_length() {
         let five_minutes = SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
         assert_eq!(
-            classify_capture(five_minutes, 20_000, true),
+            classify_capture(five_minutes, 20_000, true, 300.0),
             CaptureClass::MaxLength
         );
     }
