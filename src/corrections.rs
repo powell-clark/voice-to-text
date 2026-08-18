@@ -24,6 +24,35 @@ pub fn apply(text: &str, corrections: &[(String, String)]) -> String {
     result
 }
 
+/// Renders the correction list as the one-pair-per-line text the settings
+/// dialog edits: `misheard => correct`. The inverse of [`parse_pairs`].
+pub fn format_pairs(corrections: &[(String, String)]) -> String {
+    corrections
+        .iter()
+        .map(|(from, to)| format!("{from} => {to}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Parses the settings dialog's textarea back into correction pairs, one
+/// `misheard => correct` per line. Blank lines are skipped; a line with no
+/// `=>` separator, an empty left-hand side, or an empty right-hand side is
+/// dropped rather than saved, so a half-typed row can never silently
+/// become a rule that eats a word. Order is preserved — corrections apply
+/// in list order and the user controls that order by line order.
+pub fn parse_pairs(text: &str) -> Vec<(String, String)> {
+    text.lines()
+        .filter_map(|line| {
+            let (from, to) = line.split_once("=>")?;
+            let (from, to) = (from.trim(), to.trim());
+            if from.is_empty() || to.is_empty() {
+                return None;
+            }
+            Some((from.to_string(), to.to_string()))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -90,6 +119,68 @@ mod tests {
         assert_eq!(
             apply("hello world", &[(" ".into(), "x".into())]),
             "hello world"
+        );
+    }
+
+    #[test]
+    fn formats_one_pair_per_line() {
+        assert_eq!(
+            format_pairs(&[
+                ("ard".into(), "odd".into()),
+                ("amala vajrayana".into(), "Amala Vijnana".into()),
+            ]),
+            "ard => odd\namala vajrayana => Amala Vijnana"
+        );
+    }
+
+    #[test]
+    fn empty_list_formats_to_empty_text() {
+        assert_eq!(format_pairs(&[]), "");
+    }
+
+    #[test]
+    fn parses_one_pair_per_line_trimming_whitespace() {
+        assert_eq!(
+            parse_pairs("  ard  =>  odd  \namala vajrayana=>Amala Vijnana"),
+            vec![
+                ("ard".to_string(), "odd".to_string()),
+                ("amala vajrayana".to_string(), "Amala Vijnana".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_skips_blank_lines_and_lines_without_a_separator() {
+        assert_eq!(
+            parse_pairs("ard => odd\n\nno separator here\n   \nfoo => bar"),
+            vec![
+                ("ard".to_string(), "odd".to_string()),
+                ("foo".to_string(), "bar".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_drops_a_half_typed_row_rather_than_saving_an_empty_side() {
+        assert!(parse_pairs("=> odd").is_empty());
+        assert!(parse_pairs("ard =>").is_empty());
+        assert!(parse_pairs("   =>   ").is_empty());
+    }
+
+    #[test]
+    fn format_then_parse_round_trips() {
+        let original = vec![
+            ("ard".to_string(), "odd".to_string()),
+            ("amala vajrayana".to_string(), "Amala Vijnana".to_string()),
+        ];
+        assert_eq!(parse_pairs(&format_pairs(&original)), original);
+    }
+
+    #[test]
+    fn parse_keeps_only_the_first_separator_so_the_replacement_may_contain_one() {
+        assert_eq!(
+            parse_pairs("arrow => a => b"),
+            vec![("arrow".to_string(), "a => b".to_string())]
         );
     }
 }

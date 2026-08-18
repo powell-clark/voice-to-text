@@ -1,4 +1,4 @@
-# TASK-VTT141: Correction dictionary editable from the tray
+# TASK-VTT144: Correction dictionary editable from the tray
 
 ## Context
 
