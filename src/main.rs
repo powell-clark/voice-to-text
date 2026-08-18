@@ -457,7 +457,11 @@ fn main() -> anyhow::Result<()> {
 /// Shared by the KeyRelease handler and the watchdog so that a force-stop takes
 /// exactly the same path as a normal release — the watchdog is worthless if it
 /// clears the flag but leaves the capture stream running (TASK-VTT146).
-fn finish_recording(audio: &audio::Audio, work_tx: &mpsc::Sender<WorkItem>, ui_tx: &tray::UiSender) {
+fn finish_recording(
+    audio: &audio::Audio,
+    work_tx: &mpsc::Sender<WorkItem>,
+    ui_tx: &tray::UiSender,
+) {
     match audio.stop_recording() {
         Some(RecordingResult::Audio { samples, path }) => {
             vtt_log!("Recording saved: {}", path.display());
@@ -534,16 +538,12 @@ fn finish_recording(audio: &audio::Audio, work_tx: &mpsc::Sender<WorkItem>, ui_t
             }
         }
         Some(RecordingResult::TooShort) | Some(RecordingResult::TooQuiet) => {
-            ui_tx
-                .send(tray::UiMessage::SetStatus("Ready".into()))
-                .ok();
+            ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
             ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
         }
         None => {
             vtt_log!("Recording returned None");
-            ui_tx
-                .send(tray::UiMessage::SetStatus("Ready".into()))
-                .ok();
+            ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
             ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
         }
     }
