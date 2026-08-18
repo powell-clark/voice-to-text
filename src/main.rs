@@ -200,7 +200,10 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Shared state
-    let recording = Arc::new(AtomicBool::new(false));
+    // Push-to-talk state plus the instant the current hold began; the
+    // watchdog thread reads both, so they outlive the hotkey closure.
+    let gate = Arc::new(Mutex::new(hotkey::PushToTalk::new()));
+    let recording_start = Arc::new(Mutex::new(Instant::now()));
     let typing_active = Arc::new(AtomicBool::new(false));
     let typing_has_output = Arc::new(AtomicBool::new(false));
     let last_transcription: tray::LastTranscription = Arc::new(Mutex::new(None));
@@ -295,146 +298,90 @@ fn main() -> anyhow::Result<()> {
 
     // Hotkey monitor
     let hk_keycode = settings.read().unwrap().hotkey_keycode;
-    let hk_recording = recording.clone();
+    let hk_gate = gate.clone();
     let hk_audio = audio.clone();
     let hk_typing_active = typing_active.clone();
     let hk_work_tx = work_tx.clone();
     let hk_ui_tx = ui_tx.clone();
-    let hk_recording_start = Arc::new(std::sync::Mutex::new(Instant::now()));
+    let hk_recording_start = recording_start.clone();
 
     let hotkey_tx = hotkey::start_monitor(hk_keycode, move |event| {
         match event {
             hotkey::KeyEvent::Down => {
-                if hk_recording.load(Ordering::SeqCst) {
+                if hk_gate.lock().unwrap().press() == hotkey::Action::Ignore {
                     return;
-                }
-
-                // Wait for typing to finish (max 30s)
-                let start = Instant::now();
-                while hk_typing_active.load(Ordering::Relaxed)
-                    && start.elapsed() < Duration::from_secs(30)
-                {
-                    thread::sleep(Duration::from_millis(1));
                 }
 
                 vtt_log!("Key pressed - starting recording");
                 *hk_recording_start.lock().unwrap() = Instant::now();
-                hk_recording.store(true, Ordering::SeqCst);
-                hk_audio.start_recording();
                 hk_ui_tx
                     .send(tray::UiMessage::SetStatus("Recording...".into()))
                     .ok();
                 hk_ui_tx
                     .send(tray::UiMessage::SetIcon("recording".into()))
                     .ok();
+
+                // Let the previous transcription finish typing before the mic
+                // opens, but do the waiting on a worker thread. This callback
+                // runs on the single X11 event thread that also delivers
+                // KeyRelease, so blocking here queued the user's real release
+                // and it arrived ~0ms later, where the old guard discarded it
+                // as auto-repeat and left the mic open (TASK-VTT146).
+                let starter_audio = hk_audio.clone();
+                let starter_typing = hk_typing_active.clone();
+                let starter_gate = hk_gate.clone();
+                thread::spawn(move || {
+                    let start = Instant::now();
+                    while starter_typing.load(Ordering::Relaxed)
+                        && start.elapsed() < Duration::from_secs(30)
+                    {
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                    // Hold the gate across the check so a release landing right
+                    // now waits for the stream to open rather than racing past
+                    // it and leaving nothing to stop.
+                    let gate = starter_gate.lock().unwrap();
+                    if gate.is_recording() {
+                        starter_audio.start_recording();
+                    }
+                });
             }
             hotkey::KeyEvent::Up => {
-                if !hk_recording.load(Ordering::SeqCst) {
+                let held_for = hk_recording_start.lock().unwrap().elapsed();
+                if hk_gate.lock().unwrap().release(held_for) == hotkey::Action::Ignore {
                     return;
                 }
 
-                // Guard against stale releases (< 150ms after start)
-                let elapsed = hk_recording_start.lock().unwrap().elapsed();
-                if elapsed < Duration::from_millis(150) {
-                    vtt_log!("Ignoring stale KeyRelease ({}ms)", elapsed.as_millis());
-                    return;
-                }
-
-                vtt_log!("Key released - stopping recording");
-                hk_recording.store(false, Ordering::SeqCst);
-
-                match hk_audio.stop_recording() {
-                    Some(RecordingResult::Audio { samples, path }) => {
-                        vtt_log!("Recording saved: {}", path.display());
-                        hk_ui_tx
-                            .send(tray::UiMessage::SetStatus("Transcribing...".into()))
-                            .ok();
-                        hk_ui_tx
-                            .send(tray::UiMessage::SetIcon("processing".into()))
-                            .ok();
-                        if let Err(e) = hk_work_tx.send(WorkItem::Audio {
-                            samples,
-                            archive_path: path,
-                        }) {
-                            vtt_log!(
-                                "Transcription worker channel closed — worker thread died: {}",
-                                e
-                            );
-                            hk_ui_tx
-                                .send(tray::UiMessage::SetStatus(
-                                    "Worker died — restart required".into(),
-                                ))
-                                .ok();
-                            hk_ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
-                        }
-                    }
-                    Some(RecordingResult::MaxLength { samples, path }) => {
-                        vtt_log!("Max recording length reached");
-                        hk_ui_tx
-                            .send(tray::UiMessage::SetStatus("Transcribing...".into()))
-                            .ok();
-                        hk_ui_tx
-                            .send(tray::UiMessage::SetIcon("processing".into()))
-                            .ok();
-                        if let Err(e) = hk_work_tx.send(WorkItem::Truncated {
-                            samples,
-                            archive_path: path,
-                        }) {
-                            vtt_log!(
-                                "Transcription worker channel closed — worker thread died: {}",
-                                e
-                            );
-                            hk_ui_tx
-                                .send(tray::UiMessage::SetStatus(
-                                    "Worker died — restart required".into(),
-                                ))
-                                .ok();
-                            hk_ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
-                        }
-                    }
-                    Some(RecordingResult::NoAudioCaptured) => {
-                        // Dead stream detected and re-opened inside audio.rs;
-                        // tell the user honestly instead of the old misleading
-                        // "Recording too short (0.00s)" (TASK-VTT121).
-                        vtt_log!("No audio captured — mic changed/suspended; stream re-opened");
-                        hk_ui_tx
-                            .send(tray::UiMessage::SetStatus(
-                                "No audio — check microphone".into(),
-                            ))
-                            .ok();
-                        hk_ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
-                        #[cfg(target_os = "linux")]
-                        {
-                            let result = std::process::Command::new("notify-send")
-                                .args([
-                                    "--icon=dialog-warning",
-                                    "--expire-time=5000",
-                                    "Voice to Text",
-                                    "No audio captured — check your microphone and try again",
-                                ])
-                                .status();
-                            if let Err(e) = result {
-                                vtt_log!("notify-send failed: {}", e);
-                            }
-                        }
-                    }
-                    Some(RecordingResult::TooShort) | Some(RecordingResult::TooQuiet) => {
-                        hk_ui_tx
-                            .send(tray::UiMessage::SetStatus("Ready".into()))
-                            .ok();
-                        hk_ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
-                    }
-                    None => {
-                        vtt_log!("Recording returned None");
-                        hk_ui_tx
-                            .send(tray::UiMessage::SetStatus("Ready".into()))
-                            .ok();
-                        hk_ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
-                    }
-                }
+                vtt_log!(
+                    "Key released - stopping recording ({}ms)",
+                    held_for.as_millis()
+                );
+                finish_recording(&hk_audio, &hk_work_tx, &hk_ui_tx);
             }
         }
     })?;
+
+    // Watchdog. A KeyRelease lost anywhere below this layer must not be able to
+    // strand the microphone, so an over-long hold is force-stopped rather than
+    // trusted (TASK-VTT146).
+    let wd_gate = gate.clone();
+    let wd_audio = audio.clone();
+    let wd_work_tx = work_tx.clone();
+    let wd_ui_tx = ui_tx.clone();
+    let wd_recording_start = recording_start.clone();
+    thread::Builder::new()
+        .name("recording-watchdog".into())
+        .spawn(move || loop {
+            thread::sleep(Duration::from_secs(1));
+            let held_for = wd_recording_start.lock().unwrap().elapsed();
+            if wd_gate.lock().unwrap().poll(held_for) == hotkey::Action::Stop {
+                vtt_log!(
+                    "Watchdog: hold exceeded {}s with no KeyRelease - forcing stop",
+                    hotkey::MAX_HOLD.as_secs()
+                );
+                finish_recording(&wd_audio, &wd_work_tx, &wd_ui_tx);
+            }
+        })?;
 
     // Apply loaded hotkey
     if hk_keycode >= 8 {
@@ -505,6 +452,103 @@ fn main() -> anyhow::Result<()> {
 /// param over clippy's default threshold is independent cross-thread handles,
 /// not a design smell to fix by bundling into a struct only this fn would use.
 #[allow(clippy::too_many_arguments)]
+/// Close the microphone and route the captured audio to the right place.
+///
+/// Shared by the KeyRelease handler and the watchdog so that a force-stop takes
+/// exactly the same path as a normal release — the watchdog is worthless if it
+/// clears the flag but leaves the capture stream running (TASK-VTT146).
+fn finish_recording(audio: &audio::Audio, work_tx: &mpsc::Sender<WorkItem>, ui_tx: &tray::UiSender) {
+    match audio.stop_recording() {
+        Some(RecordingResult::Audio { samples, path }) => {
+            vtt_log!("Recording saved: {}", path.display());
+            ui_tx
+                .send(tray::UiMessage::SetStatus("Transcribing...".into()))
+                .ok();
+            ui_tx
+                .send(tray::UiMessage::SetIcon("processing".into()))
+                .ok();
+            if let Err(e) = work_tx.send(WorkItem::Audio {
+                samples,
+                archive_path: path,
+            }) {
+                vtt_log!(
+                    "Transcription worker channel closed — worker thread died: {}",
+                    e
+                );
+                ui_tx
+                    .send(tray::UiMessage::SetStatus(
+                        "Worker died — restart required".into(),
+                    ))
+                    .ok();
+                ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
+            }
+        }
+        Some(RecordingResult::MaxLength { samples, path }) => {
+            vtt_log!("Max recording length reached");
+            ui_tx
+                .send(tray::UiMessage::SetStatus("Transcribing...".into()))
+                .ok();
+            ui_tx
+                .send(tray::UiMessage::SetIcon("processing".into()))
+                .ok();
+            if let Err(e) = work_tx.send(WorkItem::Truncated {
+                samples,
+                archive_path: path,
+            }) {
+                vtt_log!(
+                    "Transcription worker channel closed — worker thread died: {}",
+                    e
+                );
+                ui_tx
+                    .send(tray::UiMessage::SetStatus(
+                        "Worker died — restart required".into(),
+                    ))
+                    .ok();
+                ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
+            }
+        }
+        Some(RecordingResult::NoAudioCaptured) => {
+            // Dead stream detected and re-opened inside audio.rs;
+            // tell the user honestly instead of the old misleading
+            // "Recording too short (0.00s)" (TASK-VTT121).
+            vtt_log!("No audio captured — mic changed/suspended; stream re-opened");
+            ui_tx
+                .send(tray::UiMessage::SetStatus(
+                    "No audio — check microphone".into(),
+                ))
+                .ok();
+            ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
+            #[cfg(target_os = "linux")]
+            {
+                let result = std::process::Command::new("notify-send")
+                    .args([
+                        "--icon=dialog-warning",
+                        "--expire-time=5000",
+                        "Voice to Text",
+                        "No audio captured — check your microphone and try again",
+                    ])
+                    .status();
+                if let Err(e) = result {
+                    vtt_log!("notify-send failed: {}", e);
+                }
+            }
+        }
+        Some(RecordingResult::TooShort) | Some(RecordingResult::TooQuiet) => {
+            ui_tx
+                .send(tray::UiMessage::SetStatus("Ready".into()))
+                .ok();
+            ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
+        }
+        None => {
+            vtt_log!("Recording returned None");
+            ui_tx
+                .send(tray::UiMessage::SetStatus("Ready".into()))
+                .ok();
+            ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
+        }
+    }
+}
+
 fn transcription_worker(
     rx: mpsc::Receiver<WorkItem>,
     settings: Arc<RwLock<settings::Settings>>,
