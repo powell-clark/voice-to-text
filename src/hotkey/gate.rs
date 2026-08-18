@@ -119,7 +119,10 @@ mod tests {
         let mut gate = PushToTalk::new();
         gate.press();
         assert_eq!(gate.release(Duration::ZERO), Action::Stop);
-        assert!(!gate.is_recording(), "a lost release strands the microphone");
+        assert!(
+            !gate.is_recording(),
+            "a lost release strands the microphone"
+        );
     }
 
     #[test]
