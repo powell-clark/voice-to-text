@@ -9,6 +9,57 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.3.11] — 2026-08-18
+
+### Fixed
+- **The microphone can no longer be left recording after you let go.** The key
+  handler waited for the previous transcription to finish typing on the same
+  thread that delivers key-release events, so a real release queued behind
+  that wait, arrived a fraction of a millisecond after the recording started,
+  and was discarded as an auto-repeat artefact. The recording flag stayed set
+  and no further keypress could clear it, so the mic stayed open, the audio
+  clipped, and Whisper returned the same hallucinated phrase over and over —
+  each one typed out. The wait now runs off the event thread, a release always
+  stops the recording, and a watchdog force-stops any hold that outlives the
+  buffer cap.
+- **A quick tap is no longer reported as a dead microphone.** A tap can end
+  before the audio backend delivers its first buffer, and any zero-sample
+  capture was diagnosed as a dead stream however briefly the key was held —
+  leaving a red error icon in the tray, firing a notification, and re-opening
+  the capture stream for nothing. The hold is now timed from the press, so a
+  genuinely dead device is still detected while a hasty tap is just discarded.
+- **The Customize Hotkey dialog refuses keys you type with.** Push-to-talk
+  holds its key globally, so binding space or a letter removed that character
+  from every application and started a recording on every press. Space and
+  Return are also the keys that activate a focused button, which made them
+  easy to capture by accident. Printable keys and the editing keys are now
+  rejected with an explanation, and startup warns when an existing
+  `settings.conf` already carries one.
+
+## [2.3.10] — 2026-07-17
+
+### Fixed
+- **"Copy last transcription" survives the copy.** It now holds the
+  X11/Wayland clipboard selection itself (via xclip/xsel, or wl-copy on
+  Wayland), instead of silently becoming a no-op for anyone not running a
+  clipboard manager such as CopyQ.
+- Model downloads hard-fail on a SHA-256 mismatch instead of using the corrupt
+  file.
+- The macOS paste fallback sends Cmd+V rather than Ctrl+V.
+- Coredump capture plus an FFI/unsafe audit hardening pass.
+
+### Added
+- **"Re-transcribe last recording"** in the tray re-runs transcription on the
+  newest recording and re-types the result — a recovery net for when typed
+  output is lost to the wrong window being focused.
+- `--file`/`-f` batch-transcribes a 16 kHz WAV to stdout and exits, with clean
+  pipes and exit codes (no tray, no hotkey).
+- The selected input-device index is honoured when opening the capture stream,
+  falling back to the default device.
+
+### Security
+- `rustls-webpki` bumped to 0.103.13 (RUSTSEC-2026-0104).
+
 ## [2.3.9] — 2026-07-10
 
 ### Fixed
