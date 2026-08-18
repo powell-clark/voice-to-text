@@ -3,3 +3,4 @@ TASK-VTT060|in_progress|p1|Delete superseded Launchpad PPA versions via web UI â
 TASK-VTT133|in_progress|p1|Release 2.3.10 to the PPA â€” clipboard fix + re-transcribe + accumulated main|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT133.md|||||bs
 TASK-VTT144|upcoming|p00|Correction dictionary editable from the tray|STORY-VTT019|DIRECT-VTT002|FEAT-VTT037|TASK-VTT144.md|||||a04o4||
 TASK-VTT145|upcoming|p00|Suppress steady background noise before inference|STORY-VTT015|DIRECT-VTT002||TASK-VTT145.md|||||a1VL8||
+TASK-VTT146|in_progress|p0|Fix hotkey release lost during typing wait|STORY-VTT015|DIRECT-VTT002||TASK-VTT146.md|||||b2wEm2||

@@ -1,3 +1,6 @@
+mod gate;
+pub use gate::{Action, PushToTalk, MAX_HOLD};
+
 #[derive(Debug, Clone, Copy)]
 pub enum KeyEvent {
     Down,
