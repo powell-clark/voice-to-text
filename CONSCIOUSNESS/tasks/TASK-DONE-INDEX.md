@@ -1,4 +1,5 @@
 id|title|story_ids|directive_id|feature_ids|doc|expected_duration|story_points
+TASK-VTT146|Fix hotkey release lost during typing wait|STORY-VTT015|DIRECT-VTT002||TASK-VTT146.md
 TASK-VTT133|Release 2.3.10 to the PPA — clipboard fix + re-transcribe + accumulated main|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT133.md
 TASK-VTT136|Fill 2.3.10 available_utc once Launchpad binary publishes|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT136.md
 TASK-VTT127|CI contract gate for regression and release workflow parity|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT127.md
