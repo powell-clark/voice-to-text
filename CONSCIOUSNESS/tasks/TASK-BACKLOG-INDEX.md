@@ -30,7 +30,6 @@ TASK-VTT128|p3|Unscoped validation stall — needs operator review||||TASK-VTT12
 TASK-VTT129|p2|Tray Microphone submenu — device picker UX|STORY-VTT016|DIRECT-VTT005|FEAT-VTT033|TASK-VTT129.md|TASK-VTT062||||bo
 TASK-VTT130|p3|--file multi-format decode + long-file chunking|STORY-VTT009|DIRECT-VTT002|FEAT-VTT021|TASK-VTT130.md|TASK-VTT023||||bp
 TASK-VTT134|p2|Track PPA build durations — record upload→build-start wait and build time per release|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT134.md|||||b2o||
-TASK-VTT136|p1|Fill 2.3.10 available_utc once Launchpad binary publishes|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT136.md|||||b2p||
 TASK-VTT135|p1|Self-hosted signed apt repo on GitHub Pages|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT135.md|||||b2q||
 TASK-VTT137|p2|Unify release flow — local install + PPA publish in one run|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT137.md|||||b2r||
 TASK-VTT138|p3|Spike hotkey dialog on portable tray|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT138.md|||||b2s||

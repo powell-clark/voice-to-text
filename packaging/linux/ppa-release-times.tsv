@@ -10,5 +10,5 @@
 #   curl -s "https://api.launchpad.net/devel/~powellclark/+archive/ubuntu/voice-to-text?ws.op=getPublishedBinaries&binary_name=voice-to-text&version=<v>"
 # Automating this fill (and having release-ppa.sh surface the binary-publish wait) is TASK-VTT134.
 version	series	uploaded_utc	source_published_utc	available_utc	deploy_to_available	build_id	notes
-2.3.10	noble	2026-07-17T10:09:11Z	2026-07-17T13:14:40Z	pending	pending	33408583	source Published but BINARY not yet in apt index (getPublishedBinaries empty); apt still serves 2.3.9
-2.3.10~jammy1	jammy	2026-07-17T10:10:25Z	2026-07-17T13:14:40Z	pending	pending	33408588	source Published; binary publish still pending
+2.3.10	noble	2026-07-17T10:09:11Z	2026-07-17T13:14:40Z	2026-07-17T14:11:48Z	4h02m37s	33408583	binary Published; source-to-binary lag was 57m08s of the total
+2.3.10~jammy1	jammy	2026-07-17T10:10:25Z	2026-07-17T13:14:40Z	2026-07-17T14:11:48Z	4h01m23s	33408588	binary Published same instant as noble
