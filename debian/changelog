@@ -1,3 +1,28 @@
+voice-to-text (2.3.11) noble; urgency=medium
+
+  * fix(hotkey): a KeyRelease is never discarded, so the microphone can no
+    longer be left recording with the key already up. The press handler
+    waited for the previous transcription to finish typing on the same
+    thread that delivers KeyRelease, so a real release queued behind it,
+    arrived ~0ms after the recording start, and was thrown away as an
+    auto-repeat artefact. The wait now runs off the event thread, a release
+    always stops the recording, and a watchdog force-stops any hold that
+    outlives the buffer cap.
+  * fix(audio): a quick tap is no longer reported as a dead microphone. A tap
+    can end before the first audio callback fires, and any zero-sample
+    capture was diagnosed as a dead stream regardless of how long the key was
+    held — leaving a red error icon in the tray and re-opening the capture
+    stream for nothing. The hold is now timed from the press, so a genuinely
+    dead device is still detected while a hasty tap is simply discarded.
+  * fix(hotkey): the Customize Hotkey dialog refuses keys you type with.
+    Push-to-talk holds its key globally, so binding space or a letter removed
+    that character from every application and fired a recording on each
+    press. Printable keys and the editing keys are now rejected with an
+    explanation, and startup warns when an existing settings.conf already
+    carries one.
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Tue, 18 Aug 2026 10:13:44 +0100
+
 voice-to-text (2.3.10) noble; urgency=medium
 
   * fix(clipboard): "Copy last transcription" now holds the X11/Wayland
