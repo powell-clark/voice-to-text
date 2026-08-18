@@ -841,6 +841,27 @@ fn show_hotkey_dialog(state: &Rc<RefCell<TrayState>>) {
                 ));
                 return glib::Propagation::Stop;
             }
+            // Push-to-talk grabs its key globally, so the grab swallows every
+            // press before the focused window sees it. Binding a key the user
+            // types with removes that character from every application —
+            // binding space cost the operator every space they typed, and
+            // fired a recording on each one (TASK-VTT147). Refuse rather than
+            // warn: the damage is silent and the only way back is hand-editing
+            // settings.conf. Space and Return are also exactly the keys that
+            // activate a focused widget, so they are easy to capture here by
+            // accident.
+            if hotkey::keycode_is_typing(keycode as u8) {
+                let name = hotkey::get_key_name(keycode as u8);
+                label.set_text(&format!(
+                    "{} is a key you type with.\n\n\
+                     Push-to-talk holds its key globally, so binding this would \
+                     stop it working in every other application.\n\n\
+                     Try Scroll Lock, Pause, or a function key.",
+                    name
+                ));
+                return glib::Propagation::Stop;
+            }
+
             *captured.borrow_mut() = Some(keycode);
             *key_pressed.borrow_mut() = true;
 

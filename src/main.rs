@@ -391,6 +391,20 @@ fn main() -> anyhow::Result<()> {
             "Applied custom hotkey from settings: keycode {}",
             hk_keycode
         );
+        // The dialog now refuses to bind a typing key, but a settings.conf
+        // written before that check exists still holds one, and the symptom —
+        // a character that has stopped working everywhere — reads as a broken
+        // keyboard rather than a hotkey choice (TASK-VTT147).
+        #[cfg(target_os = "linux")]
+        if hotkey::keycode_is_typing(hk_keycode) {
+            vtt_log!(
+                "WARNING: hotkey keycode {} is '{}', a key you type with. \
+                 Holding it globally means that character no longer reaches \
+                 other applications. Change it from the tray's Hotkey item.",
+                hk_keycode,
+                hotkey::get_key_name(hk_keycode)
+            );
+        }
     }
 
     vtt_log!("All systems initialized");

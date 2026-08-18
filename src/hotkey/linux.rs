@@ -71,6 +71,24 @@ unsafe fn ungrab_key(display: *mut Display, root: Window, keycode: u32) {
     }
 }
 
+/// True when this hardware keycode maps to a key the user types with.
+///
+/// Resolves the keycode against the live keymap so the answer follows the
+/// operator's actual layout rather than a hardcoded table. A keycode we cannot
+/// resolve is reported as safe — refusing to bind on a failed X call would be
+/// worse than letting an unusual key through.
+pub fn keycode_is_typing(keycode: u8) -> bool {
+    unsafe {
+        let display = XOpenDisplay(std::ptr::null());
+        if display.is_null() {
+            return false;
+        }
+        let keysym = XKeycodeToKeysym(display, keycode, 0);
+        XCloseDisplay(display);
+        super::is_typing_key(keysym as u32)
+    }
+}
+
 /// Get a human-readable key name for display purposes.
 pub fn get_key_name(keycode: u8) -> String {
     if keycode == 0 {

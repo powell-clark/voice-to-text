@@ -1,4 +1,5 @@
 id|title|story_ids|directive_id|feature_ids|doc|expected_duration|story_points
+TASK-VTT147|Warn when the hotkey is an ordinary typing key|STORY-VTT015|DIRECT-VTT002||TASK-VTT147.md
 TASK-VTT148|Fast tap misreported as a dead microphone|STORY-VTT015|DIRECT-VTT002||TASK-VTT148.md
 TASK-VTT134|Track PPA build durations — record upload→build-start wait and build time per release|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT134.md
 TASK-VTT146|Fix hotkey release lost during typing wait|STORY-VTT015|DIRECT-VTT002||TASK-VTT146.md
