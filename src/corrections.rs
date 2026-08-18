@@ -24,8 +24,11 @@ pub fn apply(text: &str, corrections: &[(String, String)]) -> String {
     result
 }
 
+// Unused until the tray settings dialog lands (TASK-VTT144); the parse and
+// format halves land together so the round-trip stays covered by tests.
 /// Renders the correction list as the one-pair-per-line text the settings
 /// dialog edits: `misheard => correct`. The inverse of [`parse_pairs`].
+#[allow(dead_code)]
 pub fn format_pairs(corrections: &[(String, String)]) -> String {
     corrections
         .iter()
@@ -40,6 +43,7 @@ pub fn format_pairs(corrections: &[(String, String)]) -> String {
 /// dropped rather than saved, so a half-typed row can never silently
 /// become a rule that eats a word. Order is preserved — corrections apply
 /// in list order and the user controls that order by line order.
+#[allow(dead_code)]
 pub fn parse_pairs(text: &str) -> Vec<(String, String)> {
     text.lines()
         .filter_map(|line| {

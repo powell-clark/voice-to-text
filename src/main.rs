@@ -286,13 +286,15 @@ fn main() -> anyhow::Result<()> {
         .spawn(move || {
             transcription_worker(
                 work_rx,
-                worker_settings,
-                worker_typing_active,
-                worker_typing_has_output,
-                worker_running,
-                worker_ui_tx,
-                worker_config_dir,
-                worker_last_transcription,
+                WorkerCtx {
+                    settings: worker_settings,
+                    typing_active: worker_typing_active,
+                    typing_has_output: worker_typing_has_output,
+                    running: worker_running,
+                    ui_tx: worker_ui_tx,
+                    config_dir: worker_config_dir,
+                    last_transcription: worker_last_transcription,
+                },
             );
         })?;
 
@@ -549,8 +551,10 @@ fn finish_recording(
     }
 }
 
-fn transcription_worker(
-    rx: mpsc::Receiver<WorkItem>,
+/// Everything the transcription worker borrows from the main thread. Grouped
+/// into one value so the worker can gain a dependency without the signature
+/// growing another positional parameter.
+struct WorkerCtx {
     settings: Arc<RwLock<settings::Settings>>,
     typing_active: Arc<AtomicBool>,
     typing_has_output: Arc<AtomicBool>,
@@ -558,7 +562,19 @@ fn transcription_worker(
     ui_tx: tray::UiSender,
     config_dir: PathBuf,
     last_transcription: tray::LastTranscription,
-) {
+}
+
+fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
+    let WorkerCtx {
+        settings,
+        typing_active,
+        typing_has_output,
+        running,
+        ui_tx,
+        config_dir,
+        last_transcription,
+    } = ctx;
+
     vtt_log!("Transcription worker started");
     let typer = match typing::Typer::new() {
         Ok(t) => t,
