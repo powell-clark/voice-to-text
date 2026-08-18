@@ -297,7 +297,7 @@ fi
 # BUILD SOURCE PACKAGES + UPLOAD
 # ═══════════════════════════════════════════════════════════════
 
-TOTAL_STEPS=$(( 2 + ${#DISTROS[@]} * 2 + 2 ))
+TOTAL_STEPS=$(( 2 + ${#DISTROS[@]} * 2 + 3 ))
 STEP=1
 
 FIRST=true
@@ -376,6 +376,16 @@ for f in ../voice-to-text_${VERSION}* ../voice-to-text_${VERSION}~*; do
 done
 echo ""
 
+STEP=$((STEP+1))
+echo "[$STEP/$TOTAL_STEPS] Recording Launchpad build timings..."
+# Best-effort: the build record exists within seconds of the upload being
+# accepted, but the binary is not published for a long while yet, so this
+# first pass writes 'pending' availability. Re-run the script after the
+# binary lands to fill it in (TASK-VTT134).
+bash scripts/record-ppa-times.sh "$VERSION" || \
+    echo "  timings not recorded — re-run scripts/record-ppa-times.sh $VERSION later"
+echo ""
+
 echo "=== Done! v${VERSION} uploaded for ${DISTROS[*]} ==="
 echo ""
 echo "Monitor: https://launchpad.net/~powellclark/+archive/ubuntu/voice-to-text/+packages"
@@ -383,3 +393,6 @@ echo "Install: sudo apt update && sudo apt install voice-to-text"
 echo ""
 echo "After Launchpad builds (~15min), verify with:"
 echo "  apt-cache policy voice-to-text"
+echo ""
+echo "Then record when it actually became installable:"
+echo "  bash scripts/record-ppa-times.sh ${VERSION}"

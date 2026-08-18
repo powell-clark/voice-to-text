@@ -1,0 +1,12 @@
+# Launchpad timings per (version, series), from the build record (TASK-VTT134).
+# queue_wait = build_start - uploaded; build_time = build_finish - build_start;
+# publish_wait = binary_published - build_finish; upload_to_available = the total.
+# apt installs BINARIES: availability comes from getPublishedBinaries, never getPublishedSources.
+version	series	arch	uploaded_utc	build_start_utc	build_finish_utc	binary_published_utc	queue_wait	build_time	publish_wait	upload_to_available	state
+2.0.5~jammy1	jammy	amd64	2026-04-19T23:19:10.863990+00:00	2026-04-19T23:19:17.896401+00:00	2026-04-19T23:21:35.316610+00:00	2026-04-19T23:38:27.739291+00:00	7s	2m18s	16m52s	19m17s	Successfully built
+2.0.5	noble	amd64	2026-04-19T23:18:11.844905+00:00	2026-04-19T23:18:13.087766+00:00	2026-04-19T23:20:58.901238+00:00	2026-04-19T23:38:27.739291+00:00	2s	2m45s	17m29s	20m16s	Successfully built
+2.1.0	noble	amd64	2026-05-06T20:18:16.213483+00:00	2026-05-06T21:03:51.450691+00:00	2026-05-06T21:06:36.233200+00:00	2026-05-06T22:05:21.054326+00:00	45m35s	2m45s	58m45s	1h47m05s	Successfully built
+2.3.9~jammy1	jammy	amd64	2026-07-10T04:49:15.634763+00:00	2026-07-10T04:49:28.511338+00:00	2026-07-10T04:57:32.514911+00:00	2026-07-10T05:50:17.002175+00:00	13s	8m04s	52m45s	1h01m02s	Successfully built
+2.3.9	noble	amd64	2026-07-10T04:48:15.832453+00:00	2026-07-10T04:48:31.704165+00:00	2026-07-10T05:07:42.716977+00:00	2026-07-10T05:50:17.002175+00:00	16s	19m11s	42m35s	1h02m02s	Successfully built
+2.3.10~jammy1	jammy	amd64	2026-07-17T10:10:29.301609+00:00	2026-07-17T10:10:45.906816+00:00	2026-07-17T10:21:53.496474+00:00	2026-07-17T14:11:48.763315+00:00	16s	11m08s	3h49m55s	4h01m19s	Successfully built
+2.3.10	noble	amd64	2026-07-17T10:09:17.351392+00:00	2026-07-17T10:09:45.202601+00:00	2026-07-17T10:17:36.874939+00:00	2026-07-17T14:11:48.763315+00:00	28s	7m51s	3h54m12s	4h02m31s	Successfully built
