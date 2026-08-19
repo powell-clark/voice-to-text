@@ -50,9 +50,12 @@ if [ ! -f "$OUT" ]; then
     } > "$OUT"
 fi
 
-# Seconds between two ISO-8601 instants, or empty when either is missing.
+# Seconds between two ISO-8601 instants, or empty when either is not one.
+# Anything that is not a timestamp — "pending", a build state, an empty field —
+# yields empty rather than being handed to `date -d`.
 delta() {
-    [ -n "${1:-}" ] && [ -n "${2:-}" ] || { echo ""; return; }
+    case "${1:-}" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*) ;; *) echo ""; return ;; esac
+    case "${2:-}" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*) ;; *) echo ""; return ;; esac
     echo $(( $(date -d "$2" +%s) - $(date -d "$1" +%s) ))
 }
 
@@ -72,7 +75,7 @@ while IFS=$'\t' read -r ver series arch created started built state; do
     [ -n "$ver" ] || continue
 
     published=$(printf '%s' "$binaries" | jq -r --arg v "$ver" \
-        '[.entries[] | select(.binary_package_version == $v) | .date_published] | first // ""')
+        '[.entries[] | select(.binary_package_version == $v) | .date_published] | first // "pending"')
 
     qw=$(delta "$created" "$started")
     bt=$(delta "$started" "$built")
@@ -87,7 +90,7 @@ while IFS=$'\t' read -r ver series arch created started built state; do
 
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
         "$ver" "$series" "$arch" "$created" "$started" "$built" \
-        "${published:-pending}" "$(human "$qw")" "$(human "$bt")" \
+        "$published" "$(human "$qw")" "$(human "$bt")" \
         "$(human "$pw")" "$(human "$total")" "$state" >> "$OUT"
 
     echo "  ${ver} ${series}/${arch}: queued $(human "$qw"), built $(human "$bt"), published after $(human "$pw") — total $(human "$total")"
@@ -99,8 +102,8 @@ done < <(printf '%s' "$builds" | jq -r --arg v "$VERSION" '
         (.distro_series_link | split("/") | last),
         .arch_tag,
         .datecreated,
-        (.date_started // ""),
-        (.datebuilt // ""),
+        (.date_started // "pending"),
+        (.datebuilt // "pending"),
         .buildstate ]
     | @tsv')
 
