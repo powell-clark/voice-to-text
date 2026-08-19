@@ -297,7 +297,7 @@ fi
 # BUILD SOURCE PACKAGES + UPLOAD
 # ═══════════════════════════════════════════════════════════════
 
-TOTAL_STEPS=$(( 2 + ${#DISTROS[@]} * 2 + 3 ))
+TOTAL_STEPS=$(( 1 + ${#DISTROS[@]} * 3 + 3 ))
 STEP=1
 
 FIRST=true
