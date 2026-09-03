@@ -124,3 +124,37 @@ is not built.
 
 - Story: STORY-VTT018
 - Directive: DIRECT-VTT002
+
+
+## First real use: model comparison, 2026-09-03
+
+Emmanuel said he would probably do a model update. `small.en` was already on
+disk, so the comparison cost nothing but CPU and answers whether
+`large-v3-turbo` earns its 1.5 GB and 0.7 s.
+
+`large-v3-turbo` (current) against `small.en`, 8 recordings: 1 identical,
+7 changed, and turbo is better on six.
+
+- "clean up all DNS" against "clean up all day, nice"
+- "All approved." against "Claude Proust."
+- "ConsciousnessDev, CCCLondon" against "ConstanceDev, CCC London"
+- "Also we'll probably do a model update or a few" against "Also the property
+  due model update or a few"
+
+That last one is Emmanuel dictating the request that prompted this task, and
+`small.en` turns it into nonsense.
+
+`small.en` wins once: "the 56 digitals button" reads likelier than turbo's
+"56digitals".
+
+RECOMMENDATION: stay on `large-v3-turbo`. It is earning its size on this
+operator's vocabulary — project names, acronyms and product names are exactly
+where the small model collapses. Trading it for speed would cost real accuracy.
+
+`large-v3` (2.9 GB) and `large-v4` remain untested; both need a download and
+neither was fetched on a "probably".
+
+Note the contrast with the two rejected hypotheses above. The same harness said
+no to the prompt change and no to the denoise default, and yes here — which is
+the point of having one. Three uses, three different answers, none of them
+guessed.
