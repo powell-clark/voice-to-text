@@ -355,6 +355,27 @@ mod tests {
     }
 
     #[test]
+    fn a_pre_archive_settings_file_keeps_archiving_off() {
+        // The upgrade case: someone running v2.3.11 has a settings.conf with
+        // none of the three archive keys. Reading it must leave archiving off
+        // and the cap at its default, so the upgrade changes nothing on disk
+        // until they opt in.
+        let dir = tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.conf"),
+            "hotkey=70\nmodel=\"small.en\"\nlanguage=\"en\"\nlogging=1\n",
+        )
+        .unwrap();
+        let s = Settings::load(dir.path());
+        assert!(
+            !s.archive_recordings,
+            "an upgrade must not start recording someone's voice to disk"
+        );
+        assert_eq!(s.archive_dir, "");
+        assert_eq!(s.archive_max_files, 5000);
+    }
+
+    #[test]
     fn archive_dir_omitted_from_settings_conf_when_empty() {
         let dir = tempdir().unwrap();
         let s = Settings {

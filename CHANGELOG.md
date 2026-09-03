@@ -9,6 +9,25 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Your dictation can now be archived as high-quality audio with its
+  transcript.** Off by default. Turned on, every recording is saved at your
+  microphone's own sample rate beside a JSON file holding exactly what you
+  said, in one folder per day, capped so it cannot fill your disk. Nothing is
+  uploaded. See *Archiving your recordings* in the README for what is stored,
+  where, how to switch it off and how to delete it.
+
+### Changed
+- **Recording now captures at 48 kHz instead of 16 kHz.** Whisper still
+  receives 16 kHz — the audio is resampled once, on the finished recording,
+  immediately before transcription — so transcription accuracy is unchanged.
+  Capturing at the microphone's real rate is what makes an archived recording
+  worth keeping; 16 kHz threw away detail that upsampling cannot bring back.
+
+---
+
 ## [2.3.11] — 2026-08-18
 
 ### Fixed

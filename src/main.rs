@@ -5,6 +5,7 @@
 // Linux/macOS this attribute is a no-op.
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
+mod archive;
 mod audio;
 mod corrections;
 // autostart is only consumed by the portable tray (Windows + macOS); compiling
@@ -34,10 +35,16 @@ pub(crate) enum WorkItem {
     Audio {
         samples: Vec<f32>,
         archive_path: PathBuf,
+        /// The same recording at the device's own rate, carried only when the
+        /// `archive` setting is on. The worker needs it here rather than in the
+        /// audio layer because the sidecar records the transcript, and the
+        /// transcript does not exist until after this item is worked.
+        native: Option<audio::NativeCapture>,
     },
     Truncated {
         samples: Vec<f32>,
         archive_path: PathBuf,
+        native: Option<audio::NativeCapture>,
     },
     /// Re-run transcription on the newest archived recording and re-type the
     /// result — the tray recovery net for lost output (FEAT-VTT039). Carries no
@@ -213,6 +220,10 @@ fn main() -> anyhow::Result<()> {
     let selected_device_index =
         usize::try_from(settings.read().unwrap().selected_device_index).ok();
     let audio = Arc::new(audio::Audio::new(selected_device_index)?);
+    // Retention of the native-rate capture is gated here, once, from the
+    // setting — off by default, so nothing downstream ever sees a second copy
+    // of the audio unless the user has asked for the archive (TASK-VTT150).
+    audio.set_archive_enabled(settings.read().unwrap().archive_recordings);
 
     // Buffer full notification (shells to notify-send on Linux; libnotify-bin
     // is a runtime dependency. This avoids the notify-rust crate which pulls
@@ -479,7 +490,11 @@ fn finish_recording(
     ui_tx: &tray::UiSender,
 ) {
     match audio.stop_recording() {
-        Some(RecordingResult::Audio { samples, path }) => {
+        Some(RecordingResult::Audio {
+            samples,
+            path,
+            native,
+        }) => {
             vtt_log!("Recording saved: {}", path.display());
             ui_tx
                 .send(tray::UiMessage::SetStatus("Transcribing...".into()))
@@ -490,6 +505,7 @@ fn finish_recording(
             if let Err(e) = work_tx.send(WorkItem::Audio {
                 samples,
                 archive_path: path,
+                native,
             }) {
                 vtt_log!(
                     "Transcription worker channel closed — worker thread died: {}",
@@ -503,7 +519,11 @@ fn finish_recording(
                 ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
             }
         }
-        Some(RecordingResult::MaxLength { samples, path }) => {
+        Some(RecordingResult::MaxLength {
+            samples,
+            path,
+            native,
+        }) => {
             vtt_log!("Max recording length reached");
             ui_tx
                 .send(tray::UiMessage::SetStatus("Transcribing...".into()))
@@ -514,6 +534,7 @@ fn finish_recording(
             if let Err(e) = work_tx.send(WorkItem::Truncated {
                 samples,
                 archive_path: path,
+                native,
             }) {
                 vtt_log!(
                     "Transcription worker channel closed — worker thread died: {}",
@@ -626,15 +647,17 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
             Err(_) => break, // Channel closed
         };
 
-        let (samples, archive_path, is_truncated) = match item {
+        let (samples, archive_path, is_truncated, native) = match item {
             WorkItem::Audio {
                 samples,
                 archive_path,
-            } => (samples, archive_path, false),
+                native,
+            } => (samples, archive_path, false, native),
             WorkItem::Truncated {
                 samples,
                 archive_path,
-            } => (samples, archive_path, true),
+                native,
+            } => (samples, archive_path, true, native),
             // Re-transcribe the newest archived recording and re-type it. The
             // empty archive_path makes the save/prune step below a no-op so the
             // source WAV is not re-archived or self-copied (FEAT-VTT039).
@@ -644,7 +667,10 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
                     Some(path) => match whisper::decode_wav_to_samples(&path) {
                         Ok(s) => {
                             vtt_log!("Re-transcribing last recording: {}", path.display());
-                            (s, PathBuf::new(), false)
+                            // Never re-archives: the source is already an
+                            // archived 16 kHz wav, and a second copy would be
+                            // a duplicate corpus row with a re-run transcript.
+                            (s, PathBuf::new(), false, None)
                         }
                         Err(e) => {
                             vtt_log!("Re-transcribe: decode failed for {}: {}", path.display(), e);
@@ -723,6 +749,7 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
         let text = transcribe::transcribe_samples(engine_ref, &samples, &language, &prompt);
         let elapsed = t0.elapsed();
 
+        let mut archived_text: Option<String> = None;
         if let Some(text) = text {
             vtt_log!("Transcribed in {:.2}s", elapsed.as_secs_f64());
             let trimmed = text.trim();
@@ -735,6 +762,7 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
                 let corrected = corrections::apply(trimmed, &corrections);
                 let final_text = compose_final_text(is_truncated, &prefix, &corrected);
                 *last_transcription.lock().unwrap() = Some(final_text.clone());
+                archived_text = Some(corrected.clone());
 
                 typing_active.store(true, Ordering::SeqCst);
                 if append_newline && typing_has_output.load(Ordering::Relaxed) {
@@ -748,6 +776,54 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
             }
         } else {
             vtt_log!("Transcription failed after {:.2}s", elapsed.as_secs_f64());
+        }
+
+        // Archive the native-rate recording with its transcript (TASK-VTT150).
+        // Only reached when the `archive` setting put a native buffer on this
+        // work item, and only when there is a transcript to pair with it — a
+        // wav whose text is empty or filler is not a corpus row.
+        if let (Some(native), Some(text)) = (
+            native,
+            archived_text.filter(|t| {
+                let keep = archive::should_archive(t);
+                if !keep {
+                    vtt_log!("Not archiving: empty transcript");
+                }
+                keep
+            }),
+        ) {
+            let (dir_setting, max_files) = {
+                let s = settings.read().unwrap();
+                (s.archive_dir.clone(), s.archive_max_files)
+            };
+            let root = archive::resolve_archive_dir(&dir_setting, &config_dir);
+            let now = chrono::Local::now();
+            let meta = archive::Sidecar {
+                id: now.format("%Y%m%dT%H%M%S_%3f").to_string(),
+                recorded_at: now.to_rfc3339(),
+                duration_s: native.samples.len() as f64 / native.sample_rate as f64,
+                sample_rate: native.sample_rate,
+                text,
+                model: engine_ref.model_name().to_string(),
+                language: language.clone(),
+                app: None,
+            };
+            let date = now.format("%Y-%m-%d").to_string();
+            match archive::write_archive(&root, &date, &native.samples, &meta) {
+                Ok(path) => {
+                    vtt_log!(
+                        "Archived {:.2}s at {} Hz to {}",
+                        meta.duration_s,
+                        meta.sample_rate,
+                        path.display()
+                    );
+                    let removed = archive::prune_archive(&root, max_files);
+                    if removed > 0 {
+                        vtt_log!("Pruned {} archived recording(s) over the cap", removed);
+                    }
+                }
+                Err(e) => vtt_log!("Archive write failed (dictation unaffected): {}", e),
+            }
         }
 
         if !archive_path.as_os_str().is_empty() {
