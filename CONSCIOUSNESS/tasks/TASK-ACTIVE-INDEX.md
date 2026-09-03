@@ -4,3 +4,4 @@ TASK-VTT144|in_review|p00|Correction dictionary editable from the tray|STORY-VTT
 TASK-VTT135|upcoming|p1|Self-hosted signed apt repo on GitHub Pages — OPERATOR-DECISION-PENDING (GPG signing key + CI secret for a public repo)|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT135.md|||||b2q||
 TASK-VTT064|in_progress|p1|Windows ARM64 Snapdragon CPU build|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT064.md|TASK-VTT082||||b2a
 TASK-VTT157|upcoming|p1|Prepare 2.4.0 for release|STORY-VTT018|DIRECT-VTT002||TASK-VTT157.md|||||b2rJZW||
+TASK-VTT160|upcoming|p1|Prune only the recordings we wrote|STORY-VTT020|DIRECT-VTT002||TASK-VTT160.md|||||b2sjWz||
