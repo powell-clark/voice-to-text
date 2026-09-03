@@ -47,7 +47,7 @@ enum MenuCmd {
 impl Tray {
     pub fn new(
         settings: Arc<RwLock<Settings>>,
-        _config_dir: &Path,
+        _data_dir: &Path,
         last_transcription: LastTranscription,
         work_tx: mpsc::Sender<crate::WorkItem>,
     ) -> anyhow::Result<(Self, UiSender)> {

@@ -11,8 +11,13 @@ pub enum NewlineType {
     ShiftReturn = 1,
 }
 
-/// All user-tunable state, persisted to `settings.conf` in the config dir.
-/// Loaded once at startup via `Settings::load(&config_dir)`, then shared
+/// All user-tunable state, persisted to `settings.conf` in the DATA directory
+/// (`~/.local/share/voice-to-text` on Linux), not `~/.config`. The variable
+/// carrying that path was called `config_dir` until TASK-VTT155, and the name
+/// alone caused three separate wrong-path errors in one morning — including a
+/// README that documented `~/.config` three times, and a sibling project that
+/// read this code and confidently corrected a path to the wrong place.
+/// Loaded once at startup via `Settings::load(&data_dir)`, then shared
 /// across threads via `Arc<RwLock<Settings>>`. The tray mutates through the
 /// RwLock and calls `save()` to persist.
 #[derive(Debug, Clone)]
@@ -78,13 +83,13 @@ pub struct Settings {
     pub denoise: bool,
     pub archive_recordings: bool,
     /// Directory recordings are archived into when `archive_recordings` is
-    /// true. Empty string means the default, `<config_dir>/archive`.
+    /// true. Empty string means the default, `<data_dir>/archive`.
     pub archive_dir: String,
     /// Oldest-first cap on the number of archived recordings (wav+json pairs
     /// count as one), applied after every archive write. 0 means unbounded —
     /// the user has explicitly asked for no pruning.
     pub archive_max_files: usize,
-    config_dir: PathBuf,
+    data_dir: PathBuf,
 }
 
 impl Default for Settings {
@@ -105,19 +110,19 @@ impl Default for Settings {
             archive_recordings: false,
             archive_dir: String::new(),
             archive_max_files: 5000,
-            config_dir: PathBuf::new(),
+            data_dir: PathBuf::new(),
         }
     }
 }
 
 impl Settings {
-    pub fn load(config_dir: &Path) -> Self {
+    pub fn load(data_dir: &Path) -> Self {
         let mut settings = Settings {
-            config_dir: config_dir.to_path_buf(),
+            data_dir: data_dir.to_path_buf(),
             ..Settings::default()
         };
 
-        let path = config_dir.join("settings.conf");
+        let path = data_dir.join("settings.conf");
         let content = match fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => return settings,
@@ -176,8 +181,8 @@ impl Settings {
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
-        fs::create_dir_all(&self.config_dir)?;
-        let path = self.config_dir.join("settings.conf");
+        fs::create_dir_all(&self.data_dir)?;
+        let path = self.data_dir.join("settings.conf");
 
         let mut out = String::with_capacity(512);
         out.push_str("# Voice to Text Settings\n");
@@ -334,7 +339,7 @@ mod tests {
             archive_recordings: true,
             archive_dir: "/mnt/voice-archive".into(),
             archive_max_files: 12345,
-            config_dir: dir.path().to_path_buf(),
+            data_dir: dir.path().to_path_buf(),
         };
         original.save().expect("save should succeed");
 
@@ -381,7 +386,7 @@ mod tests {
         let s = Settings {
             archive_recordings: true,
             denoise: true,
-            config_dir: dir.path().to_path_buf(),
+            data_dir: dir.path().to_path_buf(),
             ..Settings::default()
         };
         s.save().unwrap();
@@ -394,7 +399,7 @@ mod tests {
         let off = Settings {
             archive_recordings: false,
             denoise: false,
-            config_dir: dir.path().to_path_buf(),
+            data_dir: dir.path().to_path_buf(),
             ..Settings::default()
         };
         off.save().unwrap();
@@ -431,7 +436,7 @@ mod tests {
     fn archive_dir_omitted_from_settings_conf_when_empty() {
         let dir = tempdir().unwrap();
         let s = Settings {
-            config_dir: dir.path().to_path_buf(),
+            data_dir: dir.path().to_path_buf(),
             ..Settings::default()
         };
         s.save().unwrap();
@@ -449,7 +454,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let s = Settings {
             archive_max_files: 0,
-            config_dir: dir.path().to_path_buf(),
+            data_dir: dir.path().to_path_buf(),
             ..Settings::default()
         };
         s.save().unwrap();
@@ -464,7 +469,7 @@ mod tests {
 
         let s = Settings {
             autostart_initialized: true,
-            config_dir: dir.path().to_path_buf(),
+            data_dir: dir.path().to_path_buf(),
             ..Settings::default()
         };
         s.save().unwrap();
@@ -532,7 +537,7 @@ mod tests {
     fn settings_conf_documents_the_correction_line_format() {
         let dir = tempdir().unwrap();
         let s = Settings {
-            config_dir: dir.path().to_path_buf(),
+            data_dir: dir.path().to_path_buf(),
             ..Settings::default()
         };
         s.save().unwrap();
@@ -581,7 +586,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let original = Settings {
             voice_prefix: "£ € — naïve".into(),
-            config_dir: dir.path().to_path_buf(),
+            data_dir: dir.path().to_path_buf(),
             ..Settings::default()
         };
         original.save().unwrap();
