@@ -125,7 +125,10 @@ behaves exactly as it did before this feature existed.
 ```
 
 The `.json` holds the transcript, the timestamp, the duration, the sample rate,
-the model and the language. At the 5,000-file default the folder settles at
+the model and the language. Note for anything reading these programmatically:
+the `id` field is bare (`20260903T085053_813`) while the filenames carry a
+`vtt_` prefix, so pair the two by stripping the prefix rather than assuming the
+id is the filename stem. At the 5,000-file default the folder settles at
 roughly 11 hours of audio, under a gigabyte.
 
 **Turning it off.** Set `archive=0` (or delete the line) and restart. Recordings
