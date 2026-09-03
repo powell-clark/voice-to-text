@@ -44,7 +44,7 @@ that writes users' voices to disk must be opt-in, documented and deletable.
   epc-voice, uploading audio anywhere
 
 ## Tasks
-- (filed on the next commit)
+- TASK-VTT150 — Archive dictation as training-grade audio
 
 ## Cross-repo
 Mirrors TASK-EV034 (Extend voice-to-text to archive training-grade audio) in `epc-voice`, which
