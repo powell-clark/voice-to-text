@@ -63,14 +63,14 @@ the samples bound for transcription.
 
 ## Acceptance criteria
 
-- [ ] A pure, unit-testable biquad high-pass in its own module, correct at both
+- [x] A pure, unit-testable biquad high-pass in its own module, correct at both
       the 16 kHz and 48 kHz paths — the coefficients derive from the sample rate
       rather than assuming one
-- [ ] Sub-100 Hz content is attenuated by at least 12 dB while 300-3400 Hz passes
+- [x] Sub-100 Hz content is attenuated by at least 12 dB while 300-3400 Hz passes
       within 1 dB, asserted on synthesised tones
-- [ ] The filter is applied to the samples bound for Whisper and NOT to the
+- [x] The filter is applied to the samples bound for Whisper and NOT to the
       archived audio
-- [ ] `denoise` in settings.conf toggles it, default on; absent means on, and
+- [x] `denoise` in settings.conf toggles it, default on; absent means on, and
       `denoise=0` reproduces today's behaviour exactly
 - [~] MEASURED, RESULT MIXED — see "What the measurement actually said". 7 of 12
       unchanged, including all three highest-SNR recordings; 5 changed, all of
