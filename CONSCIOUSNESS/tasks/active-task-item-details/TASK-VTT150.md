@@ -25,21 +25,91 @@ settings work is preserved at commit 18479b1.
 - Baseline: `cargo test --workspace` → 135 passed, 0 failed, 1 ignored.
 
 ## Acceptance Criteria
-1. `cargo test --workspace` passes with at least three new tests: Whisper input is
-   16 kHz from a 48 kHz capture; archiving off writes nothing new; archiving on
+1. [x] `cargo test --workspace` passes with at least three new tests: Whisper input
+   is 16 kHz from a 48 kHz capture; archiving off writes nothing new; archiving on
    writes wav plus sidecar
-2. Five existing recordings transcribe to identical text before and after (outputs
-   pasted on this card)
-3. `ffprobe` on a newly archived file shows `sample_rate=48000`, `channels=1`
-   (pasted on this card)
-4. The sidecar json carries id, recorded_at, duration_s, sample_rate, text, model,
-   language and app for that same recording
-5. With the three settings absent, behaviour is byte-identical to today:
-   `recordings/` still capped at 20, nothing written to an archive
-6. `README.md` states what is recorded, where it is stored, how to disable it and
-   how to delete it
-7. Emmanuel has read that section and enabled archiving himself; this card records
-   the date
+2. [x] Five existing recordings transcribe to identical text before and after
+   (outputs pasted below)
+3. [ ] DEFERRED — needs a real dictation with archiving on: `ffprobe` on a newly
+   archived file shows `sample_rate=48000`, `channels=1`
+4. [ ] DEFERRED — same recording as AC 3: the sidecar json carries every key
+5. [x] With the three settings absent, behaviour is byte-identical to today
+6. [x] `README.md` states what is recorded, where it is stored, how to disable it
+   and how to delete it
+7. [ ] DEFERRED — operator action: Emmanuel has read that section and enabled
+   archiving himself; this card records the date
+
+ACs 3, 4 and 7 are a single gate, not three: they all need Emmanuel to read the
+README section and switch archiving on in his own `settings.conf`. Shipping the
+code with the setting pre-enabled would be exactly the thing the privacy design
+refuses to do, so the task stays in_progress until he decides.
+
+## Evidence
+
+Shipped at commit `4d18734` on main.
+
+### AC 1 — test suite
+
+```
+baseline (739fd40): 135 passed; 0 failed; 1 ignored
+after   (4d18734): 152 passed; 0 failed; 1 ignored
+cargo clippy --workspace --all-targets -- -D warnings: clean
+```
+
+Seventeen new tests. The three the card names:
+`audio::tests::whisper_input_is_16k_from_a_48k_capture`,
+`settings::tests::a_pre_archive_settings_file_keeps_archiving_off` (with
+`archive_settings_default_off_and_survive_a_missing_file`), and
+`archive::tests::write_archive_lands_wav_and_sidecar_together`.
+
+### AC 2 — transcription unchanged, 5 of 5 identical
+
+`before` is `packaging/linux/vtt-linux.prebuilt` (v2.3.11, pre-change);
+`after` is `target/release/vtt-linux` at 4d18734. Same five wavs, `--file` batch
+mode, newest five in `~/.local/share/voice-to-text/recordings/`:
+
+```
+--- vtt_recording_n0UQ3L.wav ---
+before: By the way, we should probably re-get our company's house articles and stuff like that. I don't know if I've got all the proper ones or where they are.
+after : By the way, we should probably re-get our company's house articles and stuff like that. I don't know if I've got all the proper ones or where they are.
+MATCH
+--- vtt_recording_iAFoNH.wav ---
+before: Given my directors loan agreements, how much does my business owe me?
+after : Given my directors loan agreements, how much does my business owe me?
+MATCH
+--- vtt_recording_8kbU68.wav ---
+before: But you can move them to the other directory and make a note that they don't live there.
+after : But you can move them to the other directory and make a note that they don't live there.
+MATCH
+--- vtt_recording_YpFoxI.wav ---
+before: Wait a second pricing pages on on Constance London those exist on AP GPS So don't think you need those
+after : Wait a second pricing pages on on Constance London those exist on AP GPS So don't think you need those
+MATCH
+--- vtt_recording_FMsEEl.wav ---
+before: It just can't interrupt any of the existing stuff the core functionality of working on Nprobeck working on Codex working on law code and deploying that
+after : It just can't interrupt any of the existing stuff the core functionality of working on Nprobeck working on Codex working on law code and deploying that
+MATCH
+=== result: 5/5 identical, 0 differ ===
+```
+
+The pre-mortem named this as the change's most likely way to fail. It did not.
+
+### Deviation from TASK-EV034's step 2
+
+The card said resample "immediately before the Whisper call", meaning in the
+worker. It happens one step earlier, at the end of `stop_recording`, because the
+debug `recordings/` wavs are written from the same samples and
+`whisper::decode_wav_to_samples` rejects any wav that is not 16 kHz — writing
+those at 48 kHz would have broken the re-transcribe-last recovery net, which the
+same card requires be left untouched. Resampling once on the finished capture
+satisfies both, and the invariant the AC actually asserts (Whisper input is
+16 kHz from a 48 kHz capture) is unchanged.
+
+## Follow-up
+
+The sidecar's `app` field is always `null`. Capturing the focused window class
+needs an X11/Wayland round-trip on the typing path and the card allows `null`, so
+it is out of scope here — worth a task if the corpus turns out to want it.
 
 ## Technical Approach
 1. Move the resample: capture at 48 kHz, call `resample_to_16k(&samples, 48000)`

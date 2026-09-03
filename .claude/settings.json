@@ -1,5 +1,17 @@
 {
   "enabledPlugins": {
     "consciousness@powell-clark": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git rev-list *)",
+      "Bash(git merge-base *)",
+      "Bash(git ls-tree *)",
+      "Bash(git check-ignore *)",
+      "Bash(tmux capture-pane *)",
+      "Bash(tmux list-panes *)",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_wait_for"
+    ]
   }
 }
