@@ -169,12 +169,19 @@ it is a coin flip that sometimes recovers a quiet word at an edge. That is a
 plausible outcome for a high-pass — it removes energy Whisper was not using much
 anyway — but it is NOT the "unchanged or improved" this card set as the gate.
 
-### The judgement call, flagged for the operator
+### The judgement call, resolved by the operator
 
-Shipped default-on, because the card's own steering says default on and the
-evidence shows no harm to good audio. But the gate as written was not met, and
-this is the one decision in this task worth overruling if Emmanuel disagrees.
-`denoise=0` in settings.conf reverts to the exact pre-TASK-VTT145 path.
+Shipped default-OFF. It was briefly default-on, on the reasoning that the card
+specified it and clean audio was unharmed. Emmanuel then said he no longer has a
+fan — the noise source the card was written against in August is gone. With the
+premise removed and the before/after mixed rather than a win, default-on would
+change his daily dictation for no demonstrated gain. `denoise=1` in settings.conf
+enables it.
+
+The filter is still worth having: his recordings measured today still put 79.5%
+of their noise energy below 100 Hz, which is desk and structure-borne rumble a
+sensitive directional mic picks up whether or not a fan is running. It is now a
+tool for when it is needed rather than a default nobody asked for.
 
 The more useful next step is not spectral subtraction (TASK-VTT151, filed p3) but
 better input: the same recordings at 48 kHz from TASK-VTT150's capture change

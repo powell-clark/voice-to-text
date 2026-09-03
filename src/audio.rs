@@ -221,7 +221,7 @@ impl Audio {
             device_index,
             capture_rate,
             archive_enabled: Arc::new(AtomicBool::new(false)),
-            denoise_enabled: Arc::new(AtomicBool::new(true)),
+            denoise_enabled: Arc::new(AtomicBool::new(false)),
         })
     }
 
