@@ -1,0 +1,322 @@
+PGPS START: 2026-09-03 07:11:55.685, SESSION ID: vtt-5eab9f2f | VERSION: v0.45.46 | SCHEMA: 20260813091041256
+
+ROADMAP:
+
+DIRECTIVES.ACTIVE:
+  [DIRECT-VTT003] [in_progress] [p1] macOS voice-to-text — Intel and Apple Silicon [STORY-VTT012] (unknown)
+  [DIRECT-VTT004] [in_progress] [p0] Windows voice-to-text — build, sign, ship [STORY-VTT013] [STORY-VTT007] (unknown)
+  [DIRECT-VTT005] [in_progress] [p1] Cross-platform feature parity as a testable spec (unknown)
+
+DIRECTIVES.MAINTAINED:
+  [DIRECT-VTT002] [maintained] [p0] Linux voice-to-text and shared core [STORY-VTT010] [STORY-VTT011] [STORY-VTT018] [STORY-VTT014] [STORY-VTT015] [STORY-VTT016] [STORY-VTT017] [STORY-VTT019] [STORY-VTT009] [STORY-VTT008] [STORY-VTT004] [STORY-VTT005] [STORY-VTT006] [STORY-VTT020] (unknown)
+
+DIRECTIVES.DONE:
+  [DIRECT-VTT001] [done] [p0] Cross-platform voice transcription with Whisper achieving 95% accuracy on macOS and Linux [STORY-VTT001] [STORY-VTT002] [STORY-VTT003]
+
+DIRECTIVES.BACKLOG:
+  [Empty DIRECT-BACKLOG-INDEX.md - valid - ~/projects/auxiliary/voice-to-text/CONSCIOUSNESS/directives/DIRECT-BACKLOG-INDEX.md]
+
+STORIES.ACTIVE:
+  [STORY-VTT018] [in_progress] [p0] As Emmanuel I want automated regression tests and CI gates so that broken typing, broken tray menus, and broken releases stop reaching users [DIRECT-VTT002] [TASK-VTT055] [TASK-VTT056] [TASK-VTT057] [TASK-VTT058] [TASK-VTT059] [TASK-VTT060] [TASK-VTT061] [TASK-VTT107] [TASK-VTT090] [TASK-VTT087] [TASK-VTT085] [TASK-VTT105] [TASK-VTT113] [TASK-VTT123] [TASK-VTT127] [TASK-VTT080] [TASK-VTT133] [TASK-VTT134] [TASK-VTT136] [TASK-VTT131] [TASK-VTT132] [TASK-VTT149] [FEAT-VTT035] [FEAT-VTT038] [FEAT-VTT039] (unknown)
+  [STORY-VTT013] [in_progress] [p1] As Emmanuel I want Windows builds so that my Windows desktop has the same VTT as Linux and Mac [DIRECT-VTT004] [TASK-VTT063] [TASK-VTT064] [TASK-VTT044] [TASK-VTT045] [TASK-VTT046] [TASK-VTT047] [TASK-VTT098] [TASK-VTT108] [TASK-VTT101] [TASK-VTT097] [TASK-VTT104] [TASK-VTT102] [TASK-VTT103] [TASK-VTT095] [TASK-VTT094] [TASK-VTT093] [TASK-VTT099] [TASK-VTT100] [TASK-VTT091] [TASK-VTT092] [TASK-VTT086] [TASK-VTT089] [TASK-VTT082] [TASK-VTT084] [TASK-VTT109] [TASK-VTT138] [TASK-VTT139] [FEAT-VTT030] (unknown)
+  [STORY-VTT020] [in_progress] [p1] As Emmanuel I want my daily dictation archived at training quality so that my voice-clone corpus grows passively without extra recording sessions [DIRECT-VTT002] [TASK-VTT150] [FEAT-VTT040] (unknown)
+
+STORIES.FULFILLED:
+  [STORY-VTT010] [fulfilled] As Emmanuel I want the Whisper model loaded persistently in-process so that every press gets sub-second response instead of spawn-per-press [DIRECT-VTT002] [TASK-VTT024] [TASK-VTT025] [TASK-VTT026] [TASK-VTT027] [TASK-VTT028] [TASK-VTT029] [TASK-VTT030] [TASK-VTT031] [TASK-VTT032] [TASK-VTT033] [TASK-VTT034] [TASK-VTT088] [FEAT-VTT022] [FEAT-VTT023] [FEAT-VTT024] [FEAT-VTT025] [FEAT-VTT026]
+  [STORY-VTT011] [fulfilled] As Emmanuel I want the PPA to build and ship the Rust binary so that apt install actually installs the rewrite [DIRECT-VTT002] [TASK-VTT035] [TASK-VTT036] [TASK-VTT037] [TASK-VTT038] [TASK-VTT039] [FEAT-VTT027] [FEAT-VTT028]
+
+STORIES.REJECTED:
+  [STORY-VTT001] [rejected] As Emmanuel I want push-to-talk voice transcription with Whisper so that I can achieve 95% accuracy and <2s latency on both macOS and Linux [DIRECT-VTT001] [TASK-VTT001] [TASK-VTT002] [TASK-VTT003] [TASK-VTT004] [TASK-VTT005] [TASK-VTT006] [FEAT-VTT001] [FEAT-VTT002] [FEAT-VTT003] [FEAT-VTT004] [FEAT-VTT005] [FEAT-VTT006] [FEAT-VTT009] [FEAT-VTT010]
+  [STORY-VTT002] [rejected] As Emmanuel I want distribution packages via Homebrew and APT PPA so that users can easily install on macOS and Linux [DIRECT-VTT001] [TASK-VTT007] [TASK-VTT008] [FEAT-VTT007] [FEAT-VTT008]
+  [STORY-VTT003] [rejected] As Emmanuel I want my custom vocabulary prompt passed to the transcription engine so that Whisper recognises technical terms and proper nouns accurately [DIRECT-VTT001] [TASK-VTT009] [FEAT-VTT011]
+  [STORY-VTT004] [rejected] As Emmanuel I want new turbo/distil models and trimmed menu so that users get better accuracy with less VRAM [DIRECT-VTT002] [TASK-VTT010] [TASK-VTT011] [FEAT-VTT016] [FEAT-VTT017]
+  [STORY-VTT005] [rejected] As Emmanuel I want a Rust rewrite for cross-platform foundations so that Windows, Mac and Linux share one codebase (superseded by STORY-VTT010 which completes the in-process Whisper fix) [DIRECT-VTT002] [TASK-VTT014] [TASK-VTT015] [TASK-VTT016] [TASK-VTT017] [TASK-VTT018] [TASK-VTT019] [TASK-VTT020] [FEAT-VTT018]
+  [STORY-VTT006] [rejected] As Emmanuel I want the clipboard paste bug fixed and auto-repeat filtering so that VTT stops crashing browsers [DIRECT-VTT002] [TASK-VTT012] [TASK-VTT013] [FEAT-VTT012] [FEAT-VTT013] [FEAT-VTT014] [FEAT-VTT015]
+
+STORIES.BACKLOG:
+  [STORY-VTT012] [p1] As Emmanuel I want macOS builds for my 2019 Intel i9 and Apple Silicon so that I can dictate on all my machines [DIRECT-VTT003] [TASK-VTT040] [TASK-VTT041] [TASK-VTT042] [TASK-VTT043] [TASK-VTT114] [FEAT-VTT029] [FEAT-VTT036]
+  [STORY-VTT019] [p1] As Emmanuel I want a correction dictionary for commonly mistranscribed words so that recurring words and phrases transcribe correctly without retraining the model [DIRECT-VTT002] [TASK-VTT118] [TASK-VTT144] [FEAT-VTT037]
+  [STORY-VTT014] [p2] As Emmanuel I want GitHub Actions matrix builds so that every tag auto-releases binaries for Linux, macOS Intel, macOS ARM and Windows [DIRECT-VTT002] [TASK-VTT048] [TASK-VTT049] [TASK-VTT135] [TASK-VTT137] [FEAT-VTT031]
+  [STORY-VTT015] [p2] As Emmanuel I want Silero VAD integration so that recording auto-stops on silence and filters background noise [DIRECT-VTT002] [TASK-VTT050] [TASK-VTT145] [TASK-VTT147] [TASK-VTT148] [TASK-VTT146] [FEAT-VTT032]
+  [STORY-VTT016] [p2] As Emmanuel I want a settings GUI dialog so that I do not have to edit settings.conf by hand [DIRECT-VTT002] [TASK-VTT051] [TASK-VTT129] [FEAT-VTT033]
+  [STORY-VTT017] [p2] As Emmanuel I want an optional persistent CT2 Python daemon backend so that NVIDIA/x86 users can unlock maximum inference speed while keeping whisper-rs as the default [DIRECT-VTT002] [TASK-VTT052] [TASK-VTT053] [TASK-VTT054] [FEAT-VTT034]
+  [STORY-VTT009] [p3] As Emmanuel I want file transcription mode so that I can transcribe long audio recordings [DIRECT-VTT002] [TASK-VTT023] [TASK-VTT130] [FEAT-VTT021]
+  [STORY-VTT007] [p4] As Emmanuel I want Windows support (CANCELLED — superseded by STORY-VTT013) so that legacy backlog stays tidy [DIRECT-VTT004] [TASK-VTT021] [FEAT-VTT019]
+  [STORY-VTT008] [p4] As Emmanuel I want to drop the whisper.cpp backend (CANCELLED — ADR-0003 keeps whisper.cpp as sole backend) so that cancelled work history stays recorded [DIRECT-VTT002] [TASK-VTT022] [FEAT-VTT020]
+
+TASKS.ACTIVE:
+    [TASK-VTT150] [in_progress] [p1] Archive dictation as training-grade audio (1m elapsed)
+  HUMAN:
+    [TASK-VTT125] [p2] Re-register the macOS Intel self-hosted runner [Emmanuel]
+  NOW:
+    [TASK-VTT144] [p00] Correction dictionary editable from the tray
+    [TASK-VTT145] [p00] Suppress steady background noise before inference
+  NEXT:
+    [TASK-VTT060] [upcoming] [p1] Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty
+    [TASK-VTT064] [p1] Windows ARM64 Snapdragon CPU build (blocked by TASK-VTT082)
+    [TASK-VTT135] [p1] Self-hosted signed apt repo on GitHub Pages
+  LATER:
+    [TASK-VTT080] [p2] Features and testing are not connected — add per-feature test-status tracking (last_tested field and/or verification reviews)
+    [TASK-VTT120] [p2] Review-gate kano override never resolves (getFeatureKano bug)
+    [TASK-VTT137] [p2] Unify release flow — local install + PPA publish in one run
+    [TASK-VTT140] [p2] Agent-run cost tracking and seat selection for PGPS execution
+    [TASK-VTT079] [p2] Upstream — feature-index status column splits PGPS display but fails validator (dist build inconsistency)
+    [TASK-VTT050] [p2] Integrate silero-rs VAD for auto-stop on silence and noise filtering
+    [TASK-VTT051] [p2] GTK settings dialog replacing settings.conf hand-editing
+    [TASK-VTT052] [p2] Design persistent Python daemon protocol (stdin/stdout line-delimited JSON) for optional CT2 backend
+    [TASK-VTT129] [p2] Tray Microphone submenu — device picker UX (blocked by TASK-VTT062)
+    [TASK-VTT098] [p2] Windows tray Logs submenu — parity with Linux FEAT-VTT004
+    [TASK-VTT108] [p2] Branded Windows app + installer icon and version info
+    [TASK-VTT102] [p2] Rename binary — drop the misleading vtt-linux name
+    [TASK-VTT095] [p2] Update mechanism — how Windows/macOS users get new versions
+    [TASK-VTT075] [p3] PGPS validation error wall is overwhelming for new users — needs friendlier guidance and auto-fix path
+    [TASK-VTT056] [p3] Monitor current release in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover (was scoped to v2.0.5, now superseded by v2.3.7)
+    [TASK-VTT076] [p3] Telemetry opt-in should be default at install — 30-day retention agreed at walkthrough, no opt-out required
+    [TASK-VTT128] [p3] Unscoped validation stall — needs operator review
+    [TASK-VTT138] [p3] Spike hotkey dialog on portable tray
+    [TASK-VTT139] [p3] Portable tray parity — settings and About dialogs
+    [TASK-VTT130] [p3] --file multi-format decode + long-file chunking (blocked by TASK-VTT023)
+    [TASK-VTT101] [p3] Windows installer pre-provisions the default model — parity FEAT-VTT028
+    [TASK-VTT103] [p3] Evaluate unifying Linux GTK tray onto the portable tray (ADR)
+    [TASK-VTT143] [p4] Rule 63 maintained-directive false positive
+    [TASK-VTT040] [p4] cargo bundle macOS .app with metal feature, Info.plist with NSMicrophoneUsageDescription
+    [TASK-VTT104] [p4] macOS universal binary (lipo Intel + Apple Silicon)
+  LAYER 3:
+    [TASK-VTT047] [p1] Windows Authenticode code signing (blocked by TASK-VTT064)
+    [TASK-VTT053] [p2] Implement transcribe_daemon.py with faster-whisper persistent model and IPC loop (blocked by TASK-VTT052)
+    [TASK-VTT041] [p4] Verify transcription on 2019 Intel i9 Mac with Radeon Pro 5500M via Metal (blocked by TASK-VTT040)
+    [TASK-VTT042] [p4] Apple Silicon build with coreml + metal features enabled (blocked by TASK-VTT040)
+  LAYER 4:
+    [TASK-VTT048] [p2] GitHub Actions matrix workflow: ubuntu-latest + macos-latest + macos-14 (ARM) + windows-latest (blocked by TASK-VTT047, TASK-VTT041, TASK-VTT042)
+    [TASK-VTT054] [p2] Settings toggle CT2 vs native backend; spawn daemon at startup when enabled; fall back to whisper-rs if daemon crashes (blocked by TASK-VTT053)
+    [TASK-VTT043] [p4] Apple developer signing + notarisation (blocked by TASK-VTT041, TASK-VTT042)
+  LAYER 5:
+    [TASK-VTT049] [p2] Auto-release on tag push with binaries + .deb + .dmg + .msi attached (blocked by TASK-VTT048)
+
+TASKS.DONE:
+  [TASK-VTT149] Timing recorder drops fields on an in-flight build [STORY-VTT018] [DIRECT-VTT002]
+  [TASK-VTT147] Warn when the hotkey is an ordinary typing key [STORY-VTT015] [DIRECT-VTT002]
+  [TASK-VTT148] Fast tap misreported as a dead microphone [STORY-VTT015] [DIRECT-VTT002]
+  [TASK-VTT134] Track PPA build durations — record upload→build-start wait and build time per release [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT146] Fix hotkey release lost during typing wait [STORY-VTT015] [DIRECT-VTT002]
+  [TASK-VTT133] Release 2.3.10 to the PPA — clipboard fix + re-transcribe + accumulated main [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT136] Fill 2.3.10 available_utc once Launchpad binary publishes [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT127] CI contract gate for regression and release workflow parity [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT106] cargo audit red — RUSTSEC-2026-0186 memmap2 unsound
+  [TASK-VTT118] Correction dictionary for commonly mistranscribed words [STORY-VTT019] [DIRECT-VTT002] [FEAT-VTT037]
+  [TASK-VTT119] cargo audit red — RUSTSEC-2026-0190 anyhow unsound [DIRECT-VTT002]
+  [TASK-VTT107] Smooth release CI/CD — never hang or fail a publish [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT094] Start on login / autostart — Windows (HKCU Run) + tray toggle [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT093] Windows/macOS tray icon never changes state (recording/processing) [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT099] Windows — set clipboard as Ctrl+V fallback after typing [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT100] Windows — suppress hotkey auto-repeat (rdev) [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT091] Windows tray icon has no menu — pump the Win32 message loop [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT092] Windows typing drops characters and reorders text [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT086] Fix portable tray model submenu — legacy names don't match catalogue [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT089] Windows tray app pops a console window — build windowed [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT090] Release pipeline — CHANGELOG-driven notes, macOS binary, download links [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT088] Enable Vulkan GPU acceleration on the Windows build [STORY-VTT010] [DIRECT-VTT004] [FEAT-VTT024]
+  [TASK-VTT082] Build and smoke-test VTT on Windows x86-64 hardware [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT087] Windows automated test suite — E2E transcription + expanded unit tests [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT044] Windows singleton — replace flock with CreateMutexW named mutex [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT045] Windows signal handling — replace sigwait with SetConsoleCtrlHandler [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT046] cargo-wix .msi installer with Start Menu shortcut [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT069] macOS CI job, Rust release workflow, stale ObjC scripts removed [DIRECT-VTT002]
+  [TASK-VTT067] Root-level scripts tidy and RELEASE_SETUP rewrite [DIRECT-VTT002]
+  [TASK-VTT066] Repo structure tidy — remove empty stale CONSCIOUSNESS dirs and build artifacts [DIRECT-VTT002]
+  [TASK-VTT001] Implement PortAudio recording with quality filters [STORY-VTT001] [DIRECT-VTT001] [FEAT-VTT001]
+  [TASK-VTT002] Integrate faster-whisper with CUDA GPU acceleration [STORY-VTT001] [DIRECT-VTT001] [FEAT-VTT002] [FEAT-VTT009]
+  [TASK-VTT003] Create macOS menu bar app with Cocoa/Objective-C [STORY-VTT001] [DIRECT-VTT001] [FEAT-VTT003]
+  [TASK-VTT004] Create Linux system tray with GTK3 [STORY-VTT001] [DIRECT-VTT001] [FEAT-VTT004]
+  [TASK-VTT005] Implement text injection via XTest (Linux) and Accessibility API (macOS) [STORY-VTT001] [DIRECT-VTT001] [FEAT-VTT005]
+  [TASK-VTT006] Add multi-language support with auto-detection [STORY-VTT001] [DIRECT-VTT001] [FEAT-VTT006]
+  [TASK-VTT007] Create Homebrew cask formula for macOS distribution [STORY-VTT002] [DIRECT-VTT001] [FEAT-VTT007]
+  [TASK-VTT008] Create APT PPA for Linux distribution [STORY-VTT002] [DIRECT-VTT001] [FEAT-VTT008]
+  [TASK-VTT009] Wire initial_prompt setting through to both transcription backends with shell-escaping [STORY-VTT003] [DIRECT-VTT001] [FEAT-VTT011]
+  [TASK-VTT010] Add large-v3-turbo and distil-large-v3 models, trim obsolete models from menu [STORY-VTT004] [FEAT-VTT017]
+  [TASK-VTT011] Create hardened PPA release script with pre-flight checks and git tagging [STORY-VTT004] [FEAT-VTT016]
+  [TASK-VTT012] Fix clipboard paste via xclip subprocess replacing broken XSetSelectionOwner [STORY-VTT006] [FEAT-VTT012]
+  [TASK-VTT013] Add X11 key auto-repeat filtering and increase max recording to 5 minutes [STORY-VTT006] [FEAT-VTT013] [FEAT-VTT014]
+  [TASK-VTT014] Architecture decision (ADR-0003): whisper-rs in-process replaces CT2-Python subprocess [STORY-VTT005] [DIRECT-VTT002] [FEAT-VTT018]
+  [TASK-VTT015] Scaffold Rust project with cross-platform build (cargo, CI) [STORY-VTT005] [DIRECT-VTT002] [FEAT-VTT018]
+  [TASK-VTT016] Port audio capture to Rust (cpal crate) [STORY-VTT005] [DIRECT-VTT002] [FEAT-VTT018] [FEAT-VTT001]
+  [TASK-VTT017] Port transcription to Rust (initial port via Python subprocess; replaced by TASK-VTT026 in STORY-VTT010) [STORY-VTT005] [DIRECT-VTT002] [FEAT-VTT018]
+  [TASK-VTT018] Port keyboard simulation to Rust (enigo/rdev) [STORY-VTT005] [DIRECT-VTT002] [FEAT-VTT018] [FEAT-VTT005]
+  [TASK-VTT019] Port Linux GTK tray to Rust [STORY-VTT005] [DIRECT-VTT002] [FEAT-VTT018] [FEAT-VTT004]
+  [TASK-VTT020] Port macOS menu bar to Rust (skeleton) [STORY-VTT005] [DIRECT-VTT002] [FEAT-VTT018] [FEAT-VTT003]
+  [TASK-VTT024] ADR-0003 approved and committed [STORY-VTT010] [DIRECT-VTT002] [FEAT-VTT022]
+  [TASK-VTT025] Add whisper-rs 0.16 to Cargo.toml with vulkan (Linux+Windows) and metal (macOS) features; bump crate version to 2.0.0 [STORY-VTT010] [DIRECT-VTT002] [FEAT-VTT023] [FEAT-VTT024] [FEAT-VTT025]
+  [TASK-VTT026] Write src/whisper.rs — WhisperEngine owns WhisperContext and WhisperState with load_model, transcribe, switch_model [STORY-VTT010] [DIRECT-VTT002] [FEAT-VTT022]
+  [TASK-VTT027] Rewrite transcription worker in src/main.rs — owns WhisperEngine, receives samples via channel, produces text via channel [STORY-VTT010] [DIRECT-VTT002] [FEAT-VTT022]
+  [TASK-VTT028] Route raw f32 samples from audio.rs to worker without WAV round-trip; keep WAV write only for debug recordings archive [STORY-VTT010] [DIRECT-VTT002] [FEAT-VTT022]
+  [TASK-VTT029] Write src/models.rs — GGML download from huggingface.co with sha256 verify and progress notifications [STORY-VTT010] [DIRECT-VTT002] [FEAT-VTT026]
+  [TASK-VTT030] Simplify model menu — flat list small, medium, large-v3-turbo, large-v3; tray shows Loading model / Ready / Transcribing [STORY-VTT010] [DIRECT-VTT002] [FEAT-VTT022]
+  [TASK-VTT031] Delete Python backend — transcribe.py, python3 from debian/control, transcribe_ct2 and transcribe_whisper_cpp from Rust [STORY-VTT010] [DIRECT-VTT002] [FEAT-VTT023] [FEAT-VTT002] [FEAT-VTT009]
+  [TASK-VTT032] Delete dead C/ObjC — src/linux/*.c, src/common/*.c, src/macos/*.m (7638 lines); retire Makefile.linux [STORY-VTT010] [DIRECT-VTT002] [FEAT-VTT023] [FEAT-VTT002] [FEAT-VTT003]
+  [TASK-VTT033] Add #[cfg(unix)] guards to singleton_lock and ctrlc_handler so Windows build compiles [STORY-VTT010] [DIRECT-VTT002] [FEAT-VTT022]
+  [TASK-VTT035] Rewrite debian/rules — replace Makefile.linux invocation with cargo build --release [STORY-VTT011] [DIRECT-VTT002] [FEAT-VTT027]
+  [TASK-VTT036] Update debian/control — drop python3/pip/cmake/g++/make from Depends; add rustc/cargo/libclang-dev/libssl-dev to Build-Depends [STORY-VTT011] [DIRECT-VTT002] [FEAT-VTT027]
+  [TASK-VTT037] Write postinst script that downloads ggml-small.en.bin to /usr/share/voice-to-text/models on first install [STORY-VTT011] [DIRECT-VTT002] [FEAT-VTT028]
+  [TASK-VTT038] Bump debian/changelog to 2.0.0 with explicit note that the PPA now ships the Rust binary [STORY-VTT011] [DIRECT-VTT002] [FEAT-VTT027]
+  [TASK-VTT055] Release v2.0.5 — £/é typing fix + Logs submenu fix — via release-manager with pbuilder hard gate [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT057] Cargo unit tests for pure logic — 20 tests added across settings, main::compose_final_text, tray::format_log_label [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT058] GitHub Actions CI — fmt + clippy + test + build on every push and PR, ubuntu-24.04 [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT059] Local git pre-push hook matching CI — installed via scripts/git-hooks/install.sh [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT061] Local build-archives/ disk cleanup — reduced from 5.7 GB to 24 MB, kept only 2.0.4 + 2.0.5 artefacts [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT063] Windows x86-64 compile-green and CI build job [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT065] PGPS neurologist repair — EPIC→DIRECT rename, feature index migration, FK heals, schema.json fix, repo tidy [DIRECT-VTT002]
+  [TASK-VTT034] Build release binary, deploy to /usr/bin/vtt-linux, restart service, verify transcription quality — completed as part of v2.0.0 release [STORY-VTT010] [DIRECT-VTT002] [FEAT-VTT022]
+  [TASK-VTT039] dput 2.0.0 to the Launchpad PPA, apt install locally, verify end-to-end transcription — completed as part of v2.0.0 release [STORY-VTT011] [DIRECT-VTT002] [FEAT-VTT027] [FEAT-VTT008]
+  [TASK-VTT071] Repo organisation — packaging/ layout and CLAUDE.md rewrite [DIRECT-VTT002]
+  [TASK-VTT068] Claude Code tooling parity with Consciousness [DIRECT-VTT002]
+  [TASK-VTT074] Backlog grooming — sequence keys, dependency edges, detail cards [DIRECT-VTT002]
+  [TASK-VTT077] Feature card audit — maintained vs done split, full ACs, verification markers [DIRECT-VTT002]
+  [TASK-VTT078] Feature terminal index conformance — single folder, precise card statuses [DIRECT-VTT002]
+  [TASK-VTT081] Split directives by platform; ready Windows handoff [DIRECT-VTT002]
+  [TASK-VTT084] Pre-stage Windows handoff from Linux — verify CI green, add smoke-test script [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT085] Upgrade quinn-proto to >=0.11.15 — close RUSTSEC-2026-0185 [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT105] Claude PR-automation workflow parity [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT110] Harden Debian packaging — xclip dep, postinst sha256 verify, postrm purge cleanup [DIRECT-VTT002] [FEAT-VTT012] [FEAT-VTT028]
+  [TASK-VTT111] Correct stale feature-card acceptance criteria + add README CI badge [DIRECT-VTT002] [FEAT-VTT017] [FEAT-VTT027] [FEAT-VTT035]
+  [TASK-VTT113] Consciousness health repair and feature review backfill [STORY-VTT018] [DIRECT-VTT002]
+  [TASK-VTT121] Audio capture must recover when input device changes or suspends [DIRECT-VTT005]
+  [TASK-VTT122] Service restart semantics — Restart=always + tray Quit stops the unit [DIRECT-VTT002]
+  [TASK-VTT126] PPA source tarball must exclude .claude/ and chats/ [DIRECT-VTT002]
+  [TASK-VTT070] Vendor refresh — rustls-webpki security upgrade [DIRECT-VTT002]
+  [TASK-VTT124] Guard the SIGSEGV at the whisper/FFI boundary — coredumps + JSOC audit [DIRECT-VTT002]
+  [TASK-VTT114] macOS clipboard auto-paste sends Ctrl+V — must be Cmd+V [STORY-VTT012] [DIRECT-VTT003] [FEAT-VTT012]
+  [TASK-VTT112] Add stored per-model SHA-256 verification to src/models.rs [DIRECT-VTT002] [FEAT-VTT026]
+  [TASK-VTT123] Copy last transcription tray menu item [STORY-VTT018] [DIRECT-VTT005] [FEAT-VTT038]
+  [TASK-VTT062] Wire selected_device_index through to audio::Audio::new() [DIRECT-VTT002]
+  [TASK-VTT109] Windows autostart on by default — first-run enable + tray off-switch [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT023] Batch file transcription via --file flag [STORY-VTT009] [DIRECT-VTT002] [FEAT-VTT021]
+  [TASK-VTT131] Clipboard persists without a clipboard manager (FEAT-VTT038 X11 regression) [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT038]
+  [TASK-VTT132] Re-transcribe last recording tray item — decode newest WAV, re-type [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT039]
+  [TASK-VTT097] models::system_cache() returns a Linux path on Windows [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT141] Repair corrupted directive/story INDEX column alignment
+  [TASK-VTT021] Windows WASAPI/Win32/SendInput (superseded by TASK-VTT044 to TASK-VTT047) [STORY-VTT007] [DIRECT-VTT004] [FEAT-VTT019]
+  [TASK-VTT022] Remove whisper.cpp backend (CANCELLED — ADR-0003 keeps whisper.cpp as sole backend) [STORY-VTT008] [DIRECT-VTT002] [FEAT-VTT020]
+  [TASK-VTT072] Unknown command /consciousness:sequence — is it part of pgps or a separate command? (ANSWERED — see card)
+  [TASK-VTT073] Can't connect to APGPS — ap.consciousness.london unreachable despite being authenticated (SUPERSEDED by TASK-VTT117 — see card)
+  [TASK-VTT083] Story and task indexes still use 'epic_id' column header instead of 'directive_id' (naming-precision residue; drives fk-asymmetry validator warnings)
+  [TASK-VTT115] PGPS feature MAINTAINED/DONE display double-lists — validator rejects the status column the display script requires (consciousness v0.42.9, TASK-VTT079) (LIKELY DUPLICATE of TASK-VTT079 — see card)
+  [TASK-VTT116] APGPS connectivity test — does the issue API land reports on the dashboard now that voice-to-text is connected? (SUPERSEDED by TASK-VTT117 — see card)
+  [TASK-VTT117] APGPS connectivity re-test after OAuth re-auth — does the issue API land on the dashboard now? (VERIFIED RESOLVED — see card)
+  [TASK-VTT142] Repair FEATURE-MAINTAINED-DONE-INDEX column alignment
+
+TASKS.BACKLOG:
+  [TASK-VTT144] [p00] Correction dictionary editable from the tray [STORY-VTT019] [DIRECT-VTT002] [FEAT-VTT037]
+  [TASK-VTT145] [p00] Suppress steady background noise before inference [STORY-VTT015] [DIRECT-VTT002]
+  [TASK-VTT064] [p1] Windows ARM64 Snapdragon CPU build [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT047] [p1] Windows Authenticode code signing [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT135] [p1] Self-hosted signed apt repo on GitHub Pages [STORY-VTT014] [DIRECT-VTT002] [FEAT-VTT031]
+  [TASK-VTT098] [p2] Windows tray Logs submenu — parity with Linux FEAT-VTT004 [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT108] [p2] Branded Windows app + installer icon and version info [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT102] [p2] Rename binary — drop the misleading vtt-linux name [STORY-VTT013] [DIRECT-VTT002] [FEAT-VTT030]
+  [TASK-VTT095] [p2] Update mechanism — how Windows/macOS users get new versions [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT048] [p2] GitHub Actions matrix workflow: ubuntu-latest + macos-latest + macos-14 (ARM) + windows-latest [STORY-VTT014] [DIRECT-VTT002] [FEAT-VTT031]
+  [TASK-VTT049] [p2] Auto-release on tag push with binaries + .deb + .dmg + .msi attached [STORY-VTT014] [DIRECT-VTT002] [FEAT-VTT031]
+  [TASK-VTT050] [p2] Integrate silero-rs VAD for auto-stop on silence and noise filtering [STORY-VTT015] [DIRECT-VTT002] [FEAT-VTT032]
+  [TASK-VTT051] [p2] GTK settings dialog replacing settings.conf hand-editing [STORY-VTT016] [DIRECT-VTT002] [FEAT-VTT033]
+  [TASK-VTT052] [p2] Design persistent Python daemon protocol (stdin/stdout line-delimited JSON) for optional CT2 backend [STORY-VTT017] [DIRECT-VTT002] [FEAT-VTT034]
+  [TASK-VTT053] [p2] Implement transcribe_daemon.py with faster-whisper persistent model and IPC loop [STORY-VTT017] [DIRECT-VTT002] [FEAT-VTT034]
+  [TASK-VTT054] [p2] Settings toggle CT2 vs native backend; spawn daemon at startup when enabled; fall back to whisper-rs if daemon crashes [STORY-VTT017] [DIRECT-VTT002] [FEAT-VTT034]
+  [TASK-VTT079] [p2] Upstream — feature-index status column splits PGPS display but fails validator (dist build inconsistency) [DIRECT-VTT002]
+  [TASK-VTT080] [p2] Features and testing are not connected — add per-feature test-status tracking (last_tested field and/or verification reviews) [STORY-VTT018] [DIRECT-VTT005]
+  [TASK-VTT120] [p2] Review-gate kano override never resolves (getFeatureKano bug) [DIRECT-VTT002]
+  [TASK-VTT125] [p2] Re-register the macOS Intel self-hosted runner [DIRECT-VTT003]
+  [TASK-VTT129] [p2] Tray Microphone submenu — device picker UX [STORY-VTT016] [DIRECT-VTT005] [FEAT-VTT033]
+  [TASK-VTT137] [p2] Unify release flow — local install + PPA publish in one run [STORY-VTT014] [DIRECT-VTT002] [FEAT-VTT031]
+  [TASK-VTT140] [p2] Agent-run cost tracking and seat selection for PGPS execution [DIRECT-VTT002]
+  [TASK-VTT101] [p3] Windows installer pre-provisions the default model — parity FEAT-VTT028 [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT103] [p3] Evaluate unifying Linux GTK tray onto the portable tray (ADR) [STORY-VTT013] [DIRECT-VTT002] [FEAT-VTT030]
+  [TASK-VTT056] [p3] Monitor current release in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover (was scoped to v2.0.5, now superseded by v2.3.7) [STORY-VTT018] [DIRECT-VTT002] [FEAT-VTT035]
+  [TASK-VTT075] [p3] PGPS validation error wall is overwhelming for new users — needs friendlier guidance and auto-fix path
+  [TASK-VTT076] [p3] Telemetry opt-in should be default at install — 30-day retention agreed at walkthrough, no opt-out required
+  [TASK-VTT128] [p3] Unscoped validation stall — needs operator review
+  [TASK-VTT130] [p3] --file multi-format decode + long-file chunking [STORY-VTT009] [DIRECT-VTT002] [FEAT-VTT021]
+  [TASK-VTT138] [p3] Spike hotkey dialog on portable tray [STORY-VTT013] [DIRECT-VTT002] [FEAT-VTT030]
+  [TASK-VTT139] [p3] Portable tray parity — settings and About dialogs [STORY-VTT013] [DIRECT-VTT004] [FEAT-VTT030]
+  [TASK-VTT104] [p4] macOS universal binary (lipo Intel + Apple Silicon) [STORY-VTT013] [DIRECT-VTT002] [FEAT-VTT030]
+  [TASK-VTT040] [p4] cargo bundle macOS .app with metal feature, Info.plist with NSMicrophoneUsageDescription [STORY-VTT012] [DIRECT-VTT003] [FEAT-VTT029]
+  [TASK-VTT041] [p4] Verify transcription on 2019 Intel i9 Mac with Radeon Pro 5500M via Metal [STORY-VTT012] [DIRECT-VTT003] [FEAT-VTT029]
+  [TASK-VTT042] [p4] Apple Silicon build with coreml + metal features enabled [STORY-VTT012] [DIRECT-VTT003] [FEAT-VTT029]
+  [TASK-VTT043] [p4] Apple developer signing + notarisation [STORY-VTT012] [DIRECT-VTT003] [FEAT-VTT029]
+  [TASK-VTT143] [p4] Rule 63 maintained-directive false positive [DIRECT-VTT002]
+
+TODO:
+  [No todos - TODO.md missing - create at ~/projects/auxiliary/voice-to-text/TODO.md]
+
+FEATURES.ACTIVE:
+  [FEAT-VTT039] [in_review] [p1] [must-have] Re-transcribe last recording from the tray — recovery net, re-types the newest archived WAV [review-eligible] [untested] [STORY-VTT018] [TASK-VTT132]
+
+FEATURES.MAINTAINED:
+  [FEAT-VTT001] [maintained] Push-to-talk voice recording (16kHz mono cpal raw f32 to Whisper worker) [STORY-VTT001] [TASK-VTT001] [TASK-VTT016] (open-ended)
+  [FEAT-VTT004] [maintained] Linux system tray with GTK3 and AppIndicator [STORY-VTT001] [TASK-VTT004] [TASK-VTT019] (open-ended)
+  [FEAT-VTT005] [maintained] Text injection into focused application via XTest on Linux (macOS skeleton exists not distributed) [STORY-VTT001] [TASK-VTT005] [TASK-VTT018] (open-ended)
+  [FEAT-VTT006] [maintained] Multi-language support with 99-language auto-detection [STORY-VTT001] [TASK-VTT006] (open-ended)
+  [FEAT-VTT008] [maintained] APT PPA distribution for Ubuntu (Noble + Jammy) [STORY-VTT002] [TASK-VTT008] [TASK-VTT039] (open-ended)
+  [FEAT-VTT012] [maintained] Clipboard paste via xclip subprocess instead of broken XSetSelectionOwner [STORY-VTT006] [TASK-VTT012] [TASK-VTT110] [TASK-VTT114] (open-ended)
+  [FEAT-VTT013] [maintained] X11 key auto-repeat filtering to prevent spurious recordings [STORY-VTT006] [TASK-VTT013] (open-ended)
+  [FEAT-VTT016] [maintained] One-command PPA release script with pre-flight checks and git tagging [STORY-VTT004] [TASK-VTT011] (open-ended)
+  [FEAT-VTT017] [maintained] large-v3-turbo model support (distil names auto-migrate) replacing obsolete large-v1/v2 [STORY-VTT004] [TASK-VTT010] [TASK-VTT111] (open-ended)
+  [FEAT-VTT022] [maintained] Whisper model loaded once in-process worker thread — sub-second transcription regardless of model size [STORY-VTT010] [TASK-VTT024] [TASK-VTT026] [TASK-VTT027] [TASK-VTT028] [TASK-VTT030] [TASK-VTT033] [TASK-VTT034] (open-ended)
+  [FEAT-VTT026] [maintained] Automatic GGML model download from HuggingFace with sha256 verify and tray progress notifications [STORY-VTT010] [TASK-VTT029] [TASK-VTT112] (open-ended)
+  [FEAT-VTT027] [maintained] Debian package builds the Rust binary via cargo (not gcc against C sources) [STORY-VTT011] [TASK-VTT035] [TASK-VTT036] [TASK-VTT038] [TASK-VTT039] [TASK-VTT111] (open-ended)
+  [FEAT-VTT028] [maintained] Default model pre-downloaded via postinst so first-run works offline [STORY-VTT011] [TASK-VTT037] [TASK-VTT110] (open-ended)
+  [FEAT-VTT035] [maintained] Automated regression testing — cargo unit tests GitHub Actions CI local pre-push hook 72 tests gate every change [STORY-VTT018] [TASK-VTT055] [TASK-VTT056] [TASK-VTT057] [TASK-VTT058] [TASK-VTT059] [TASK-VTT061] [TASK-VTT060] [TASK-VTT107] [TASK-VTT090] [TASK-VTT087] [TASK-VTT085] [TASK-VTT105] [TASK-VTT111] [TASK-VTT127] [TASK-VTT133] [TASK-VTT134] [TASK-VTT136] (open-ended)
+  [FEAT-VTT038] [maintained] Copy last transcription from the tray menu — recovery net when typed output is lost [STORY-VTT018] [TASK-VTT123] [TASK-VTT131] (open-ended)
+
+FEATURES.DONE:
+  [FEAT-VTT002] [removed] (v2.0.0 ADR-0003) Whisper transcription dual backends — superseded by FEAT-VTT022 and FEAT-VTT023 [STORY-VTT001] [TASK-VTT002] [TASK-VTT031] [TASK-VTT032]
+  [FEAT-VTT003] [deprecated] macOS menu-bar app — original Objective-C UI (v0.3.x) replaced by the cross-platform Rust tray in v2.0.0; native Mac UI is wanted and continues as FEAT-VTT029 under DIRECT-VTT003 [STORY-VTT001] [TASK-VTT003] [TASK-VTT020] [TASK-VTT032]
+  [FEAT-VTT007] [deprecated] Homebrew cask (Python v0.3.x era, delivered) — Homebrew install for macOS is wanted and stays; Rust-era cask tracked as FEAT-VTT036 under DIRECT-VTT003 [STORY-VTT002] [TASK-VTT007]
+  [FEAT-VTT009] [removed] (v2.0.0) CUDA GPU acceleration — superseded by Vulkan via whisper-rs FEAT-VTT024 [STORY-VTT001] [TASK-VTT002] [TASK-VTT031]
+  [FEAT-VTT010] [done] Configurable hotkey voice prefix and initial prompt via settings.conf [STORY-VTT001]
+  [FEAT-VTT011] [done] User-configurable initial_prompt passthrough to whisper-rs (single backend as of v2.0.0) [STORY-VTT003] [TASK-VTT009]
+  [FEAT-VTT014] [done] 5-minute max recording duration (was 2 minutes) [STORY-VTT006] [TASK-VTT013]
+  [FEAT-VTT015] [done] SystemD service inherits DISPLAY from user session (Wayland-ready) [STORY-VTT006]
+  [FEAT-VTT023] [done] Pure Rust transcription — no Python runtime dependency no pip install no faster-whisper no ctranslate2 [STORY-VTT010] [TASK-VTT025] [TASK-VTT031] [TASK-VTT032]
+
+FEATURES.BACKLOG:
+  [FEAT-VTT029] [p1] [must-have] macOS .app bundle with accessibility permissions flow for Intel Radeon and Apple Silicon [STORY-VTT012] [TASK-VTT040] [TASK-VTT041] [TASK-VTT042] [TASK-VTT043]
+  [FEAT-VTT036] [p1] [must-have] Homebrew tap (powell-clark/voice-to-text-homebrew) has not tracked the v2.x line — Cask is local-dev-only (file:// path), Formula pinned v0.2.0, so Mac users cannot brew install the current version. Blocked on FEAT-VTT029 (.app bundle); once a v2.x .app ships, update Formula+Cask each release [STORY-VTT012]
+  [FEAT-VTT030] [p1] [must-have] Windows .msi installer with Start Menu integration [STORY-VTT013] [TASK-VTT044] [TASK-VTT045] [TASK-VTT046] [TASK-VTT047] [TASK-VTT063] [TASK-VTT064] [TASK-VTT098] [TASK-VTT108] [TASK-VTT101] [TASK-VTT097] [TASK-VTT104] [TASK-VTT102] [TASK-VTT103] [TASK-VTT095] [TASK-VTT094] [TASK-VTT093] [TASK-VTT099] [TASK-VTT100] [TASK-VTT091] [TASK-VTT092] [TASK-VTT086] [TASK-VTT089] [TASK-VTT082] [TASK-VTT084] [TASK-VTT109] [TASK-VTT138] [TASK-VTT139]
+  [FEAT-VTT031] [p2] [must-have] GitHub Actions matrix builds producing signed artefacts for all three platforms on every tag [STORY-VTT014] [TASK-VTT048] [TASK-VTT049] [TASK-VTT135] [TASK-VTT137]
+  [FEAT-VTT018] [p3] [must-have] Single Rust codebase for Linux macOS and Windows — partial delivery moved to STORY-VTT010 [STORY-VTT005] [TASK-VTT014] [TASK-VTT015] [TASK-VTT016] [TASK-VTT017] [TASK-VTT018] [TASK-VTT019] [TASK-VTT020]
+  [FEAT-VTT019] [p3] [must-have] Windows push-to-talk transcription (superseded by FEAT-VTT030) [STORY-VTT007] [TASK-VTT021]
+  [FEAT-VTT024] [p1] [performance] Vulkan GPU acceleration on Linux and Windows — universal NVIDIA plus AMD plus Intel without requiring CUDA Toolkit (Linux done, Windows blocked on port) [STORY-VTT010] [TASK-VTT025] [TASK-VTT088]
+  [FEAT-VTT025] [p1] [performance] Metal GPU acceleration on macOS — Intel Radeon and Apple Silicon both supported (blocked on macOS port) [STORY-VTT010] [TASK-VTT025]
+  [FEAT-VTT037] [p1] [performance] Correction dictionary — implemented and unit-tested this session (settings.rs, corrections.rs, main.rs); held at backlog pending human approval (review-gate bug, see card) and real-use verification [STORY-VTT019] [TASK-VTT118] [TASK-VTT144]
+  [FEAT-VTT034] [p2] [performance] Optional CT2 persistent daemon backend for maximum NVIDIA and x86 CPU speed — user-toggleable, whisper-rs remains default [STORY-VTT017] [TASK-VTT052] [TASK-VTT053] [TASK-VTT054]
+  [FEAT-VTT020] [p3] [performance] Superseded feature record — kept for archaeological reference [STORY-VTT008] [TASK-VTT022]
+  [FEAT-VTT040] [p1] [delighter] Dictation archived as training-grade audio — opt-in 48 kHz wav plus transcript sidecar, capped, off by default [STORY-VTT020] [TASK-VTT150]
+  [FEAT-VTT032] [p2] [delighter] Silero VAD integration — auto-stop on silence and background-noise suppression [STORY-VTT015] [TASK-VTT050]
+  [FEAT-VTT033] [p2] [delighter] GTK settings dialog replacing settings.conf hand-editing [STORY-VTT016] [TASK-VTT051] [TASK-VTT129]
+  [FEAT-VTT021] [p3] [delighter] Batch file transcription mode via --file flag [STORY-VTT009] [TASK-VTT023] [TASK-VTT130]
+
+GIT:
+  branch:main changes:5 authored (+9 plugin) ahead:0 behind:0 @c161f09
+
+UNIVERSE:
+  vtt-cc-4ce2a46e [idle]
+  vtt-cc-5eab9f2f-%22 [idle]
+
+FRESHNESS:
+  never verified:
+  [FEAT-VTT039] [untested]
+
+REVIEWS:
+  [REVIEW-VTT155] TASK-VTT149 — Timing recorder drops fields on an in-flight build: bypass-approved (vtt-4598f616)
+  [REVIEW-VTT154] TASK-VTT147 — Warn when the hotkey is an ordinary typing key: bypass-approved (vtt-4598f616)
+  [REVIEW-VTT153] TASK-VTT148 — Fast tap misreported as a dead microphone: bypass-approved (vtt-4598f616)
+  [REVIEW-VTT152] TASK-VTT134 — Track PPA build durations — record upload→build-start wait and build time per release: bypass-approved (vtt-4598f616)
+  [REVIEW-VTT151] TASK-VTT146 — Fix hotkey release lost during typing wait: bypass-approved (vtt-4598f616)
+  [REVIEW-VTT150] TASK-VTT136 — Fill 2.3.10 available_utc once Launchpad binary publishes: bypass-approved (vtt-4598f616)
+  [REVIEW-VTT149] TASK-VTT133 — Release 2.3.10 to the PPA — clipboard fix + re-transcribe + accumulated main: bypass-approved (vtt-4598f616)
+  [REVIEW-VTT148] TASK-VTT142 — Repair FEATURE-MAINTAINED-DONE-INDEX column alignment: bypass-approved (vtt-efba960e)
+  … 132 earlier verdict(s) in reviews/REVIEW-INDEX.md
+CURRENT:
+  [TASK-VTT150] in_progress
+
+ PGPS SCRIPT OUTPUT END: 2026-09-03 07:11:55.781, SESSION ID: vtt-5eab9f2f, Duration: 96ms
