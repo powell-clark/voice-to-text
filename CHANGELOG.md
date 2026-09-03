@@ -24,6 +24,11 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   dictation, four fifths of the background energy sits in the band it removes.
   Off by default — set `denoise=1` in `settings.conf` to enable it. Archived
   audio is never filtered.
+- **`vtt-linux --doctor` tells you whether the app running is the app you
+  installed.** Reports the version, which settings file is actually read, where
+  archiving writes, and whether a running process is holding a replaced binary —
+  naming the process and the command to fix it, and exiting non-zero so a script
+  can gate on it.
 - **The correction dictionary is editable from the tray.** Open *Customize
   Transcription Settings* and there is now a box for your `misheard => correct`
   pairs, one per line, instead of hand-editing `settings.conf`. Emptying the box
