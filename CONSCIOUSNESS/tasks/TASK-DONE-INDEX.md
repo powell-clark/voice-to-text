@@ -119,3 +119,4 @@ TASK-VTT156|Log the resolved archiving state at startup|STORY-VTT020|DIRECT-VTT0
 TASK-VTT158|Track transcription accuracy across models and settings|STORY-VTT018|DIRECT-VTT002||TASK-VTT158.md||
 TASK-VTT159|Guard the high-pass against degenerate sample rates|STORY-VTT015|DIRECT-VTT002||TASK-VTT159.md||
 TASK-VTT160|Prune only the recordings we wrote|STORY-VTT020|DIRECT-VTT002||TASK-VTT160.md||
+TASK-VTT161|Resolve archive_dir predictably or refuse it|STORY-VTT020|DIRECT-VTT002||TASK-VTT161.md||
