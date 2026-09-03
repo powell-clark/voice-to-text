@@ -29,14 +29,13 @@
       "conscious_mode": false,
       "context": {
         "adapter": "claude-code",
-        "multiplexer": "tmux",
         "pane": "%22",
         "project": "vtt"
       },
       "current_activity": null,
-      "current_task": "TASK-VTT064",
+      "current_task": null,
       "identity": null,
-      "last_activity": "2026-09-03T08:04:41.860Z",
+      "last_activity": "2026-09-03T08:06:21.903Z",
       "model": null,
       "pane_id": "%22",
       "role": null,

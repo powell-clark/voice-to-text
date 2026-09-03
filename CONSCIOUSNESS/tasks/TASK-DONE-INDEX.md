@@ -111,3 +111,4 @@ TASK-VTT142|Repair FEATURE-MAINTAINED-DONE-INDEX column alignment||||TASK-VTT142
 TASK-VTT145|Suppress steady background noise before inference|STORY-VTT015|DIRECT-VTT002||TASK-VTT145.md||
 TASK-VTT152|Fail the build when the packaged binary is stale|STORY-VTT018|DIRECT-VTT002||TASK-VTT152.md||
 TASK-VTT150|Archive dictation as training-grade audio|STORY-VTT020|DIRECT-VTT002|FEAT-VTT040|TASK-VTT150.md||
+TASK-VTT153|Verify the running binary matches the installed one|STORY-VTT018|DIRECT-VTT002||TASK-VTT153.md||
