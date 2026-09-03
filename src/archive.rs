@@ -111,6 +111,35 @@ pub fn resolve_archive_dir(setting: &str, data_dir: &Path) -> PathBuf {
     PathBuf::from(trimmed)
 }
 
+/// True when a filename is one this code wrote: `vtt_<id>.wav`.
+///
+/// Pruning is destructive and `archive_dir` is operator-settable, so the cap
+/// must never delete a file it did not create. Point `archive_dir` at a folder
+/// that already holds audio — a typo, or a fair reading of a setting called
+/// `archive_dir` — and an unfiltered prune silently removes the oldest of the
+/// operator's own recordings after the next dictation (TASK-VTT160).
+pub fn is_our_recording(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    name.starts_with("vtt_") && name.ends_with(".wav") && name.len() > "vtt_.wav".len()
+}
+
+/// True when a directory name is a dated directory this code creates.
+/// Checked before descending, so an unrelated subfolder is never scanned.
+fn is_dated_dir(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    let b = name.as_bytes();
+    b.len() == 10
+        && b[4] == b'-'
+        && b[7] == b'-'
+        && b.iter()
+            .enumerate()
+            .all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit())
+}
+
 /// The wav and json paths for one recording: `<root>/<date>/vtt_<id>.{wav,json}`.
 pub fn archive_targets(root: &Path, date: &str, id: &str) -> (PathBuf, PathBuf) {
     let dir = root.join(date);
@@ -194,7 +223,9 @@ pub fn collect_archived(root: &Path) -> Vec<(PathBuf, std::time::SystemTime)> {
         Err(_) => return out,
     };
     for day in days.flatten() {
-        if !day.path().is_dir() {
+        // Only descend into dated directories we created. An unrelated
+        // subfolder under a mis-set archive_dir is never even scanned.
+        if !day.path().is_dir() || !is_dated_dir(&day.path()) {
             continue;
         }
         let files = match std::fs::read_dir(day.path()) {
@@ -203,7 +234,8 @@ pub fn collect_archived(root: &Path) -> Vec<(PathBuf, std::time::SystemTime)> {
         };
         for f in files.flatten() {
             let path = f.path();
-            if path.extension().and_then(|e| e.to_str()) != Some("wav") {
+            // And only files matching the name this code writes.
+            if !is_our_recording(&path) {
                 continue;
             }
             if let Ok(mtime) = f.metadata().and_then(|m| m.modified()) {
@@ -231,6 +263,9 @@ pub fn prune_archive(root: &Path, max: usize) -> usize {
         if let Ok(days) = std::fs::read_dir(root) {
             for day in days.flatten() {
                 let p = day.path();
+                if !is_dated_dir(&p) {
+                    continue;
+                }
                 let empty = std::fs::read_dir(&p)
                     .map(|mut d| d.next().is_none())
                     .unwrap_or(false);
@@ -421,6 +456,60 @@ mod tests {
                 "24-bit quantisation should be far finer than this: {a} vs {b}"
             );
         }
+    }
+
+    #[test]
+    fn is_our_recording_accepts_only_what_we_write() {
+        assert!(is_our_recording(Path::new(
+            "/a/2026-09-03/vtt_20260903T085053_813.wav"
+        )));
+        assert!(!is_our_recording(Path::new(
+            "/a/2026-09-03/holiday-song.wav"
+        )));
+        assert!(!is_our_recording(Path::new("/a/2026-09-03/vtt_.wav")));
+        assert!(!is_our_recording(Path::new("/a/2026-09-03/vtt_x.flac")));
+        assert!(!is_our_recording(Path::new("/a/2026-09-03/vtt_x.json")));
+    }
+
+    #[test]
+    fn is_dated_dir_accepts_only_our_layout() {
+        assert!(is_dated_dir(Path::new("/a/2026-09-03")));
+        assert!(!is_dated_dir(Path::new("/a/Albums")));
+        assert!(!is_dated_dir(Path::new("/a/2026-9-3")));
+        assert!(!is_dated_dir(Path::new("/a/20260903")));
+    }
+
+    #[test]
+    fn prune_never_touches_files_it_did_not_write() {
+        // The data-loss case: archive_dir pointed at a folder that already
+        // holds audio, by typo or by a fair reading of the setting's name.
+        // An unfiltered prune deletes the operator's own recordings.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+
+        let music = root.join("Albums");
+        std::fs::create_dir_all(&music).unwrap();
+        let precious = music.join("wedding-speech.wav");
+        std::fs::write(&precious, b"not ours").unwrap();
+
+        // Ours, in the layout we create, and over the cap.
+        let samples = vec![0.0f32; 16];
+        for (date, id) in [("2026-09-01", "a"), ("2026-09-02", "b")] {
+            let mut m = meta(id, "x");
+            m.id = id.to_string();
+            write_archive(root, date, &samples, &m).expect("archive write");
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+
+        // A stray wav sitting inside one of OUR dated directories too.
+        let stray = root.join("2026-09-01").join("someone-elses.wav");
+        std::fs::write(&stray, b"not ours either").unwrap();
+
+        let removed = prune_archive(root, 1);
+        assert_eq!(removed, 1, "only our surplus recording should go");
+        assert!(precious.exists(), "a wav outside our layout must survive");
+        assert!(stray.exists(), "a wav we did not name must survive");
+        assert!(music.exists(), "an unrelated directory must not be removed");
     }
 
     #[test]
