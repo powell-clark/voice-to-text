@@ -117,7 +117,7 @@ behaves exactly as it did before this feature existed.
 **What you get**, one folder per day:
 
 ```text
-~/voice-archive/2026-09-03/vtt_20260903T034812_123.wav    your voice, 48 kHz mono
+~/voice-archive/2026-09-03/vtt_20260903T034812_123.wav    your voice, 48 kHz 24-bit mono
 ~/voice-archive/2026-09-03/vtt_20260903T034812_123.json   what you said, plus when
 ```
 

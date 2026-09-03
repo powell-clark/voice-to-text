@@ -14,8 +14,8 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 ### Added
 - **Your dictation can now be archived as high-quality audio with its
   transcript.** Off by default. Turned on, every recording is saved at your
-  microphone's own sample rate beside a JSON file holding exactly what you
-  said, in one folder per day, capped so it cannot fill your disk. Nothing is
+  microphone's own sample rate at 24-bit, beside a JSON file holding exactly what
+  you said, in one folder per day, capped so it cannot fill your disk. Nothing is
   uploaded. See *Archiving your recordings* in the README for what is stored,
   where, how to switch it off and how to delete it.
 
