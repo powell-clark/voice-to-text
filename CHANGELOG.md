@@ -29,6 +29,10 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   archiving writes, and whether a running process is holding a replaced binary —
   naming the process and the command to fix it, and exiting non-zero so a script
   can gate on it.
+- **The archive cap only deletes recordings this app wrote.** Pointing
+  `archive_dir` at a folder that already held audio could previously have let
+  the oldest-first cap remove unrelated files; it now matches only its own
+  `vtt_<id>.wav` names inside its own dated folders.
 - **Archiving and rumble filtering are switchable from the tray.** Both were
   settings-file-only; the archiving checkbox states plainly that it saves your
   voice and your words to disk, and shows where they go.

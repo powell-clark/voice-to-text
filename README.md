@@ -131,6 +131,9 @@ the `id` field is bare (`20260903T085053_813`) while the filenames carry a
 id is the filename stem. At the 5,000-file default the folder settles at
 roughly 11 hours of audio, under a gigabyte.
 
+The cap only ever deletes recordings this app wrote — files named `vtt_<id>.wav`
+inside its own dated folders. Anything else in `archive_dir` is left alone.
+
 **Turning it off.** Set `archive=0` (or delete the line) and restart. Recordings
 already archived stay where they are — turning the feature off does not delete
 anything.
