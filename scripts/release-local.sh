@@ -37,6 +37,31 @@ if grep -q '^version = 4$' Cargo.lock; then
 fi
 echo ""
 
+# Staleness gate. debian/rules deliberately does not compile — it installs the
+# committed packaging/linux/vtt-linux.prebuilt, because Launchpad builds on
+# Noble whose cargo 1.75 cannot parse this crate's edition-2024 manifest. The
+# cost of that is a .deb which can silently ship a binary older than the source:
+# on 2026-09-03 this script ran four green stages and installed a two-week-old
+# build, after a sudo prompt, with no warning (TASK-VTT152). The pre-flight
+# below proves the SOURCE compiles and proves nothing about what gets PACKAGED.
+PREBUILT="packaging/linux/vtt-linux.prebuilt"
+if [ -f "$PREBUILT" ]; then
+    PREBUILT_EPOCH=$(stat -c %Y "$PREBUILT")
+    SRC_EPOCH=$(git log -1 --format=%ct -- src/ Cargo.toml Cargo.lock 2>/dev/null || echo 0)
+    if [ "$SRC_EPOCH" -gt "$PREBUILT_EPOCH" ]; then
+        echo "ERROR: $PREBUILT is older than the source it is supposed to build from."
+        echo "  prebuilt:     $(date -d "@$PREBUILT_EPOCH" '+%Y-%m-%d %H:%M:%S')"
+        echo "  newest src/:  $(date -d "@$SRC_EPOCH" '+%Y-%m-%d %H:%M:%S')  ($(git log -1 --format=%h -- src/ Cargo.toml Cargo.lock))"
+        echo ""
+        echo "The .deb installs this file verbatim, so building now would ship stale code."
+        echo "Refresh it:"
+        echo "  cargo build --release && cp target/release/vtt-linux $PREBUILT"
+        exit 1
+    fi
+    echo "[0/4] Prebuilt is current (built $(date -d "@$PREBUILT_EPOCH" '+%Y-%m-%d %H:%M')); it is what the .deb ships."
+    echo ""
+fi
+
 echo "[2/4] Pre-flight: cargo build --offline --locked (mirrors Launchpad)..."
 if ! cargo build --release --offline --locked 2>&1 | tail -5 | grep -q "Finished\|up to date"; then
     echo "  WARN — offline locked build may have issues. Continuing with debuild anyway."
