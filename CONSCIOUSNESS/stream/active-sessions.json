@@ -29,19 +29,20 @@
       "conscious_mode": false,
       "context": {
         "adapter": "claude-code",
+        "multiplexer": "tmux",
         "pane": "%22",
         "project": "vtt"
       },
       "current_activity": null,
       "current_task": null,
       "identity": null,
-      "last_activity": "2026-09-03T08:25:42.762Z",
+      "last_activity": "2026-09-03T08:27:06.228Z",
       "model": null,
       "pane_id": "%22",
       "role": null,
       "session_type": "cli",
       "specialty": null,
-      "started": "2026-09-03T08:09:26.330Z",
+      "started": "2026-09-03T08:26:27.012Z",
       "worktree": "/home/powell-clark/projects/auxiliary/voice-to-text"
     }
   }

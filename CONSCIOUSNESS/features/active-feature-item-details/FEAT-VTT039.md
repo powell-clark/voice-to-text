@@ -1,6 +1,6 @@
 ---
 id: FEAT-VTT039
-status: in_progress
+status: in_review
 kano: must-have
 ---
 
@@ -61,3 +61,34 @@ DIRECT-VTT005 parity: Linux GTK tray and portable (Windows/macOS) tray.
 
 ## Tasks
 - TASK-VTT132 (Re-transcribe last recording tray item)
+
+
+## Verification, 2026-09-03
+
+Marked never-verified until now. The capture-rate change in TASK-VTT150
+(Archive dictation as training-grade audio) is the first thing that could have
+broken this feature silently, so the chain it depends on was checked
+end-to-end rather than assumed.
+
+This feature reads the newest wav from the debug ring and re-runs Whisper on
+it. That only works while three things hold:
+
+1. The ring still fills. 20 wavs present, at the cap, newest
+   `vtt_recording_oyb7wB.wav`.
+2. Those wavs are still 16 kHz mono. `ffprobe` says `sample_rate=16000`,
+   `channels=1` — despite capture having moved to 48 kHz, because
+   `stop_recording` resamples before writing the debug wav specifically so this
+   recovery net keeps working.
+3. The decoder still accepts them. `whisper::decode_wav_to_samples` rejects
+   anything other than `WHISPER_INPUT_RATE` (16 kHz), which the ring satisfies.
+
+Had TASK-VTT150 written 48 kHz to `recordings/` — the obvious implementation —
+this feature would have broken with a decode error on every use, and nothing
+would have caught it until someone actually needed to recover lost dictation.
+That was the design risk of the archive work and the reason the archive is a
+separate path rather than a widened one.
+
+What is still NOT verified is the tray click itself: that the menu item fires,
+the worker picks up `WorkItem::RetranscribeLast`, and the text re-types into
+the focused window. That needs a human at the tray, and it is the remaining gap
+before this must-have feature can be approved.
