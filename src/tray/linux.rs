@@ -593,12 +593,18 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
     let settings = s.settings.read().unwrap().clone();
     drop(s);
 
+    // Resolve the archive destination for display: an empty archive_dir means
+    // "the default", which is exactly the value a user cannot interpret.
+    let data_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+        .join("voice-to-text");
+
     let dialog = gtk::Window::new(gtk::WindowType::Toplevel);
     dialog.set_title("Customize Transcription Settings");
     // Six sections now. The old fixed 500x340 fitted five and clipped the
     // button row when the corrections editor landed (TASK-VTT144), so the
     // window grows and is allowed to resize rather than hiding Save.
-    dialog.set_default_size(520, 560);
+    dialog.set_default_size(520, 680);
     dialog.set_resizable(true);
     dialog.set_position(gtk::WindowPosition::Center);
     dialog.set_border_width(20);
@@ -715,6 +721,35 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
         plain_radio.set_active(true);
     }
 
+    vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
+
+    // Recording and audio handling. Both are settings-file only until now, and
+    // the file most people would edit by hand is the wrong one — the app reads
+    // the data directory, not ~/.config (TASK-VTT154).
+    let archive_toggle = gtk::CheckButton::with_label(
+        "Archive my recordings — saves my voice AND what I said, to disk",
+    );
+    archive_toggle.set_active(settings.archive_recordings);
+    vbox.pack_start(&archive_toggle, false, false, 0);
+
+    let archive_where = gtk::Label::new(Some(&format!(
+        "    Saved to {}. Nothing is uploaded. See the README before enabling.",
+        crate::archive::resolve_archive_dir(&settings.archive_dir, &data_dir).display()
+    )));
+    archive_where.set_halign(gtk::Align::Start);
+    vbox.pack_start(&archive_where, false, false, 0);
+
+    let denoise_toggle =
+        gtk::CheckButton::with_label("Filter low-frequency rumble before transcribing");
+    denoise_toggle.set_active(settings.denoise);
+    vbox.pack_start(&denoise_toggle, false, false, 0);
+
+    let restart_note = gtk::Label::new(Some(
+        "    These two apply on restart: systemctl --user restart vtt.service",
+    ));
+    restart_note.set_halign(gtk::Align::Start);
+    vbox.pack_start(&restart_note, false, false, 0);
+
     // Button row
     let btn_box = gtk::Box::new(gtk::Orientation::Horizontal, 10);
     vbox.pack_start(&btn_box, false, false, 0);
@@ -740,12 +775,17 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
         let cb = corrections_buffer.clone();
         let nt = newline_toggle.clone();
         let sr = shift_radio.clone();
+        let at = archive_toggle.clone();
+        let dt = denoise_toggle.clone();
         reset_btn.connect_clicked(move |_| {
             pe.set_text("[Voice] ");
             buf.set_text("");
             cb.set_text("");
             nt.set_active(true);
             sr.set_active(true);
+            // Both ship off; Reset must not quietly leave archiving on.
+            at.set_active(false);
+            dt.set_active(false);
         });
     }
 
@@ -766,6 +806,8 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
         let cb = corrections_buffer;
         let nt = newline_toggle;
         let sr = shift_radio;
+        let at = archive_toggle;
+        let dt = denoise_toggle;
         save_btn.connect_clicked(move |_| {
             let s = st.borrow();
             let mut settings = s.settings.write().unwrap();
@@ -777,6 +819,9 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
             // An emptied box means "remove them all", so this assigns
             // unconditionally rather than skipping on empty (TASK-VTT144).
             settings.corrections = corrections::parse_pairs(&buffer_text(&cb));
+
+            settings.archive_recordings = at.is_active();
+            settings.denoise = dt.is_active();
 
             settings.append_newline = nt.is_active();
             settings.newline_type = if sr.is_active() {
@@ -790,10 +835,12 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
             }
 
             crate::vtt_log!(
-                "Settings updated: prefix='{}', prompt='{}', corrections={}",
+                "Settings updated: prefix='{}', prompt='{}', corrections={}, archive={}, denoise={}",
                 settings.voice_prefix,
                 settings.initial_prompt,
-                settings.corrections.len()
+                settings.corrections.len(),
+                settings.archive_recordings,
+                settings.denoise
             );
 
             drop(settings);

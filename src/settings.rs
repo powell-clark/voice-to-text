@@ -374,6 +374,39 @@ mod tests {
     }
 
     #[test]
+    fn both_dialog_toggles_survive_a_round_trip() {
+        // The settings dialog (TASK-VTT154) writes these two. A value that does
+        // not survive save/load is precisely the silent no-op this task removes.
+        let dir = tempdir().unwrap();
+        let s = Settings {
+            archive_recordings: true,
+            denoise: true,
+            config_dir: dir.path().to_path_buf(),
+            ..Settings::default()
+        };
+        s.save().unwrap();
+        let loaded = Settings::load(dir.path());
+        assert!(loaded.archive_recordings, "archive toggle must persist");
+        assert!(loaded.denoise, "denoise toggle must persist");
+
+        // And the off direction, since both default off and "unchanged" would
+        // pass a one-way test.
+        let off = Settings {
+            archive_recordings: false,
+            denoise: false,
+            config_dir: dir.path().to_path_buf(),
+            ..Settings::default()
+        };
+        off.save().unwrap();
+        let reloaded = Settings::load(dir.path());
+        assert!(
+            !reloaded.archive_recordings,
+            "turning archiving off must persist"
+        );
+        assert!(!reloaded.denoise, "turning denoise off must persist");
+    }
+
+    #[test]
     fn a_pre_archive_settings_file_keeps_archiving_off() {
         // The upgrade case: someone running v2.3.11 has a settings.conf with
         // none of the three archive keys. Reading it must leave archiving off
