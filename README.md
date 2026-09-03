@@ -101,11 +101,14 @@ you choose and that is all it does. But it does mean a growing folder of your
 own voice and a searchable record of everything you have dictated, so turn it on
 deliberately, and think about who else can read that disk.
 
-**Turning it on.** Add to `~/.config/voice-to-text/settings.conf`:
+**Turning it on.** Add to `~/.local/share/voice-to-text/settings.conf`. Note the
+directory: settings live in the *data* directory, not `~/.config/`. A stale
+`~/.config/voice-to-text/settings.conf` from a pre-2.0 version may still exist on
+your machine, and editing it does nothing at all.
 
 ```ini
 archive=1
-# Optional. Default: ~/.config/voice-to-text/archive
+# Optional. Default: ~/.local/share/voice-to-text/archive
 archive_dir="~/voice-archive"
 # Optional. Oldest recordings are deleted past this. 0 = keep everything.
 archive_max_files=5000
@@ -133,7 +136,7 @@ anything.
 you would any other, or from a terminal:
 
 ```bash
-rm -rf ~/.config/voice-to-text/archive      # or your own archive_dir
+rm -rf ~/.local/share/voice-to-text/archive      # or your own archive_dir
 ```
 
 ---
