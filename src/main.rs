@@ -980,7 +980,18 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
     eprintln!();
 
     let engine = whisper::WhisperEngine::new(&model_path, info.name)?;
-    let text = engine.transcribe(&samples, &settings.selected_language, None)?;
+    // Pass the initial prompt and apply corrections, exactly as the live path
+    // does. Batch mode exists to reproduce what the hotkey produces; dropping
+    // the prompt made it silently disagree with the app it is meant to debug,
+    // and made an A/B over settings return "no difference" for every prompt
+    // change because neither side ever saw one (TASK-VTT158).
+    let prompt = if settings.initial_prompt.trim().is_empty() {
+        None
+    } else {
+        Some(settings.initial_prompt.as_str())
+    };
+    let text = engine.transcribe(&samples, &settings.selected_language, prompt)?;
+    let text = corrections::apply(text.trim(), &settings.corrections);
     println!("{text}");
     Ok(())
 }

@@ -3,64 +3,6 @@
     {
       "id": "vtt-main-38c4acaf",
       "prev": "vtt-main-38c4acaf",
-      "started": "2026-07-18 15:55:07.965 bst",
-      "ended": "2026-07-18 15:55:09.563 bst",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 0,
-        "human_prompts": 0,
-        "errors": 0,
-        "compactions": 0,
-        "framing_checks_count": 0,
-        "framing_compliance_count": 0,
-        "hooks_latency_ms": {
-          "session-init": 74
-        },
-        "usage": {
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "cache_read_input_tokens": 0,
-          "cache_creation_input_tokens": 0,
-          "cache_creation_1h_input_tokens": 0
-        }
-      },
-      "commit_shas": [],
-      "end_reason": "queue_empty"
-    },
-    {
-      "id": "vtt-main-38c4acaf",
-      "prev": "vtt-main-38c4acaf",
-      "started": "2026-07-18 16:06:28.339 bst",
-      "ended": "2026-07-18 16:06:29.925 bst",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 0,
-        "human_prompts": 0,
-        "errors": 0,
-        "compactions": 0,
-        "framing_checks_count": 0,
-        "framing_compliance_count": 0,
-        "hooks_latency_ms": {
-          "session-init": 72
-        },
-        "usage": {
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "cache_read_input_tokens": 0,
-          "cache_creation_input_tokens": 0,
-          "cache_creation_1h_input_tokens": 0
-        }
-      },
-      "commit_shas": [],
-      "end_reason": "queue_empty"
-    },
-    {
-      "id": "vtt-main-38c4acaf",
-      "prev": "vtt-main-38c4acaf",
       "started": "2026-07-18 16:48:13.314 bst",
       "ended": "2026-07-18 16:48:15.204 bst",
       "metrics": {
@@ -1108,7 +1050,7 @@
       "started": "2026-09-03 03:43:21.399 bst",
       "ended": "2026-09-03 04:08:54.679 bst",
       "metrics": {
-        "autonomous_loops": 14,
+        "autonomous_loops": 15,
         "tasks_completed": [],
         "commits": 1
       }
@@ -1265,6 +1207,48 @@
       "prev": "vtt-5eab9f2f",
       "started": "2026-09-03 09:26:06.555 bst",
       "ended": "2026-09-03 09:26:06.650 bst",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_creation_1h_input_tokens": 0
+        }
+      },
+      "commit_shas": [],
+      "commit_attributions": [],
+      "end_reason": "queue_empty"
+    },
+    {
+      "id": "vtt-5eab9f2f",
+      "prev": "vtt-5eab9f2f",
+      "started": "2026-09-03 10:34:19.336 bst",
+      "ended": "2026-09-03 10:34:19.413 bst",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_creation_1h_input_tokens": 0
+        }
+      },
+      "commit_shas": [],
+      "commit_attributions": [],
+      "end_reason": "queue_empty"
+    },
+    {
+      "id": "vtt-5eab9f2f",
+      "prev": "vtt-5eab9f2f",
+      "started": "2026-09-03 12:35:04.760 bst",
+      "ended": "2026-09-03 12:35:04.818 bst",
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],

@@ -1,1 +1,0 @@
-{"target_type":"task","target_id":"TASK-VTT156","target_title":"Log the resolved archiving state at startup","reviewer_type":"agent","reviewer_id":"vtt-5eab9f2f","verdict":"bypass-approved","reviewed_at":"2026-09-03 09:32:31.598 gmt","note":"Log-only change, no behaviour effect; makes a silent failure visible at the moment the operator already looks."}
