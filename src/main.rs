@@ -243,9 +243,15 @@ fn main() -> anyhow::Result<()> {
         // for eighty minutes while transcription worked perfectly and no
         // archive appeared, and nothing in the log said why (TASK-VTT156).
         if s.archive_recordings {
+            let resolved = archive::resolve_archive_dir_checked(&s.archive_dir, &data_dir);
+            if let archive::ArchiveDir::Rejected { why, .. } = &resolved {
+                // Loud, because the alternative is writing somewhere the
+                // operator did not ask for and will not find (TASK-VTT161).
+                vtt_log!("Archiving: archive_dir IGNORED — {}", why);
+            }
             vtt_log!(
                 "Archiving ON -> {} (cap {})",
-                archive::resolve_archive_dir(&s.archive_dir, &data_dir).display(),
+                resolved.path().display(),
                 if s.archive_max_files == 0 {
                     "unbounded".to_string()
                 } else {
@@ -1046,17 +1052,27 @@ fn run_doctor() -> anyhow::Result<()> {
     }
 
     let s = settings::Settings::load(&data_dir);
-    findings.push(Finding::ok(
-        "archiving",
-        if s.archive_recordings {
-            format!(
-                "on -> {}",
-                archive::resolve_archive_dir(&s.archive_dir, &data_dir).display()
-            )
-        } else {
-            "off (archive=1 in settings.conf enables it)".to_string()
-        },
-    ));
+    if s.archive_recordings {
+        let resolved = archive::resolve_archive_dir_checked(&s.archive_dir, &data_dir);
+        match &resolved {
+            archive::ArchiveDir::Rejected { used, why } => findings.push(Finding::problem(
+                "archiving",
+                format!(
+                    "on, but archive_dir was IGNORED ({why}) — writing to {}",
+                    used.display()
+                ),
+            )),
+            _ => findings.push(Finding::ok(
+                "archiving",
+                format!("on -> {}", resolved.path().display()),
+            )),
+        }
+    } else {
+        findings.push(Finding::ok(
+            "archiving",
+            "off (archive=1 in settings.conf enables it)",
+        ));
+    }
 
     // Which binary is actually answering the hotkey.
     #[cfg(target_os = "linux")]
