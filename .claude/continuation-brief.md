@@ -1,10 +1,9 @@
 === CONSCIOUSNESS CONTINUATION BRIEF ===
-Written: 2026-09-03T07:47:49.669Z | session: vtt-5eab9f2f
+Written: 2026-09-03T07:53:34.617Z | session: vtt-5eab9f2f
 The previous session ended or reset its context window. This is its runtime
 state at that moment — the durable PGPS record is the source of truth, so
 re-read the task card before acting on anything below.
 
-Active task: TASK-VTT150|in_progress|p1|Archive dictation as training-grade audio|STORY-VTT020|DIRECT-VTT002|FEAT-VTT040|TASK-VTT150.md|||||a2atg||
 
 Active steering:
 - [preference] /consciousness:issue --gh very awful dangerous...
@@ -28,7 +27,6 @@ Active steering:
 
 PGPS summary:
 - TASK-VTT060 (upcoming, p1) Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty
-- TASK-VTT150 (in_progress, p1) Archive dictation as training-grade audio
 - TASK-VTT144 (in_review, p00) Correction dictionary editable from the tray
 
 === END CONTINUATION BRIEF ===

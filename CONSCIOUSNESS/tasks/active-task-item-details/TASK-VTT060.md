@@ -1,4 +1,4 @@
-# TASK-VTT060: Delete superseded Launchpad PPA versions
+# TASK-VTT060: Delete superseded Launchpad PPA versions — OPERATOR-DECISION-PENDING (Launchpad web UI needs Emmanuel's logged-in session)
 
 ## Context
 Emmanuel observed the PPA is at ~5 GB of 8 GB quota and suspected the .deb bundles the 488 MB Whisper model. It does not — `dpkg-deb -I build-archives/voice-to-text_2.0.0_amd64.deb` shows the .deb is 5.9 MB, and `debian/postinst` downloads the model on install. The real quota consumer is accumulated historical versions.
@@ -24,3 +24,17 @@ Before/after screenshots of the PPA quota bar. Post-cleanup, run `sudo apt updat
 
 ## Files
 - No file changes — operational task on Launchpad only
+
+
+## Why this is operator-only
+
+There is no bulk-delete CLI for Launchpad PPA packages; the card's own Technical
+Approach says so. Deletion happens in the web UI under Emmanuel's Launchpad
+account, which no agent session can reach. The task sat in_progress for 452
+hours because the autonomous loop kept re-offering it and no session could
+advance it.
+
+Marked OPERATOR-DECISION-PENDING so task discovery skips it rather than
+selecting it every cycle. It is not blocked by a dependency and not stale — it
+is simply human work, and the marker says so honestly instead of leaving it to
+look like neglected agent work.
