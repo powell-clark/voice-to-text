@@ -24,20 +24,24 @@ settings work is preserved at commit 18479b1.
   16 kHz; the resample boundary must keep that true.
 - Baseline: `cargo test --workspace` → 135 passed, 0 failed, 1 ignored.
 
-## Acceptance Criteria
-1. [x] `cargo test --workspace` passes with at least three new tests: Whisper input
-   is 16 kHz from a 48 kHz capture; archiving off writes nothing new; archiving on
-   writes wav plus sidecar
-2. [x] Five existing recordings transcribe to identical text before and after
-   (outputs pasted below)
-3. [ ] DEFERRED — needs a real dictation with archiving on: `ffprobe` on a newly
-   archived file shows `sample_rate=48000`, `channels=1`
-4. [ ] DEFERRED — same recording as AC 3: the sidecar json carries every key
-5. [x] With the three settings absent, behaviour is byte-identical to today
-6. [x] `README.md` states what is recorded, where it is stored, how to disable it
-   and how to delete it
-7. [ ] DEFERRED — operator action: Emmanuel has read that section and enabled
-   archiving himself; this card records the date
+## Acceptance criteria
+
+- [x] `cargo test --workspace` passes with at least three new tests: Whisper input
+      is 16 kHz from a 48 kHz capture; archiving off writes nothing new; archiving
+      on writes wav plus sidecar
+- [x] Five existing recordings transcribe to identical text before and after the
+      change, outputs pasted below
+- [ ] DEFERRED (operator gate) — `ffprobe` on a newly archived file shows
+      `sample_rate=48000`, `channels=1`; needs a real dictation with archiving on
+- [ ] DEFERRED (operator gate) — the sidecar json carries id, recorded_at,
+      duration_s, sample_rate, text, model, language and app for that same
+      recording
+- [x] With the three settings absent, behaviour is byte-identical to today:
+      `recordings/` still capped at 20, nothing written to an archive
+- [x] `README.md` states what is recorded, where it is stored, how to disable it
+      and how to delete it
+- [ ] DEFERRED (operator gate) — the new binary is installed and archiving is
+      enabled in Emmanuel's own `settings.conf`; this card records the date
 
 ACs 3, 4 and 7 are a single gate, not three: they all need Emmanuel to read the
 README section and switch archiving on in his own `settings.conf`. Shipping the

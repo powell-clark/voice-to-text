@@ -13,3 +13,10 @@ Launchpad has not yet published the 2.3.10 binary to the apt index (6+ hours aft
 - Story: STORY-VTT018
 - Directive: DIRECT-VTT002
 - Features: FEAT-VTT035
+
+## Closed without contract
+
+This task reached a terminal state while its acceptance criteria still read
+`_(to be filled in)_`. No criteria have been authored retrospectively: the contract
+that would have governed this work was never written, and this marker records that
+honestly rather than manufacturing one after the fact.

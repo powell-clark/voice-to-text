@@ -11,7 +11,9 @@
       "Bash(tmux capture-pane *)",
       "Bash(tmux list-panes *)",
       "mcp__playwright__browser_take_screenshot",
-      "mcp__playwright__browser_wait_for"
+      "mcp__playwright__browser_wait_for",
+      "Bash(ffprobe *)",
+      "Bash(pactl list *)"
     ]
   }
 }
