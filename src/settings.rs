@@ -69,6 +69,11 @@ pub struct Settings {
     /// gates the only place native-rate samples are ever read or written to
     /// disk. See README "Archiving your recordings" before enabling it: it
     /// saves your voice and what you said to disk indefinitely.
+    /// On by default, unlike archiving: this one only ever removes rumble
+    /// from the audio handed to Whisper, writes nothing to disk, and cannot
+    /// surprise anyone. `denoise=0` reproduces the pre-TASK-VTT145 path
+    /// exactly. See `denoise.rs` for the measurement that chose the corner.
+    pub denoise: bool,
     pub archive_recordings: bool,
     /// Directory recordings are archived into when `archive_recordings` is
     /// true. Empty string means the default, `<config_dir>/archive`.
@@ -94,6 +99,7 @@ impl Default for Settings {
             newline_type: NewlineType::ShiftReturn,
             logging_enabled: true,
             autostart_initialized: false,
+            denoise: true,
             archive_recordings: false,
             archive_dir: String::new(),
             archive_max_files: 5000,
@@ -154,6 +160,7 @@ impl Settings {
                         };
                     }
                     "autostart_init" => settings.autostart_initialized = value == "1",
+                    "denoise" => settings.denoise = value == "1",
                     "archive" => settings.archive_recordings = value == "1",
                     "archive_dir" => settings.archive_dir = value,
                     "archive_max_files" => {
@@ -198,6 +205,11 @@ impl Settings {
             "autostart_init={}\n",
             if self.autostart_initialized { 1 } else { 0 }
         ));
+        out.push_str(
+            "# denoise=1 (default) high-passes rumble out of the audio sent for\n\
+             # transcription. Archived audio is never filtered.\n",
+        );
+        out.push_str(&format!("denoise={}\n", if self.denoise { 1 } else { 0 }));
         out.push_str(
             "# archive=1 saves every recording (native sample rate) plus its transcript to\n\
              # archive_dir indefinitely, capped at archive_max_files. Off by default. See\n\
@@ -316,6 +328,7 @@ mod tests {
             newline_type: NewlineType::PlainReturn,
             logging_enabled: false,
             autostart_initialized: true,
+            denoise: false,
             archive_recordings: true,
             archive_dir: "/mnt/voice-archive".into(),
             archive_max_files: 12345,
@@ -336,6 +349,10 @@ mod tests {
         assert_eq!(
             loaded.autostart_initialized, original.autostart_initialized,
             "autostart_init marker must survive a save/load round-trip"
+        );
+        assert_eq!(
+            loaded.denoise, original.denoise,
+            "denoise defaults on, so a saved 0 must survive or the setting is unusable"
         );
         assert_eq!(loaded.archive_recordings, original.archive_recordings);
         assert_eq!(loaded.archive_dir, original.archive_dir);

@@ -8,6 +8,7 @@
 mod archive;
 mod audio;
 mod corrections;
+mod denoise;
 // autostart is only consumed by the portable tray (Windows + macOS); compiling
 // it on Linux makes it dead code, which fails the -D warnings release build.
 #[cfg(any(target_os = "windows", target_os = "macos"))]
@@ -223,7 +224,11 @@ fn main() -> anyhow::Result<()> {
     // Retention of the native-rate capture is gated here, once, from the
     // setting — off by default, so nothing downstream ever sees a second copy
     // of the audio unless the user has asked for the archive (TASK-VTT150).
-    audio.set_archive_enabled(settings.read().unwrap().archive_recordings);
+    {
+        let s = settings.read().unwrap();
+        audio.set_archive_enabled(s.archive_recordings);
+        audio.set_denoise_enabled(s.denoise);
+    }
 
     // Buffer full notification (shells to notify-send on Linux; libnotify-bin
     // is a runtime dependency. This avoids the notify-rust crate which pulls
@@ -924,6 +929,15 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
     if samples.is_empty() {
         anyhow::bail!("{}: decoded to zero samples", path);
     }
+    // Batch mode exists to reproduce what the app does to a recording, so it
+    // honours the same `denoise` setting the live path does. Without this,
+    // `--file` would transcribe unfiltered audio and quietly disagree with the
+    // hotkey it is meant to debug (TASK-VTT145).
+    let samples = if settings.denoise {
+        denoise::suppress_rumble(&samples, whisper::WHISPER_INPUT_RATE)
+    } else {
+        samples
+    };
 
     let migrated = migrate_legacy_model_name(&settings.selected_model);
     let resolved = models::resolve_variant(&migrated, &settings.selected_language);

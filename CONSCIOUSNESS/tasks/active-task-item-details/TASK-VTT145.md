@@ -72,12 +72,15 @@ the samples bound for transcription.
       archived audio
 - [ ] `denoise` in settings.conf toggles it, default on; absent means on, and
       `denoise=0` reproduces today's behaviour exactly
-- [ ] Measured on at least 10 of Emmanuel's real recordings: transcription is
-      unchanged or improved, with the outputs recorded on this card. A regression
-      on any recording blocks the default-on setting
-- [ ] `cargo test --workspace` passes; clippy and fmt clean
-- [ ] A follow-up task is filed for spectral subtraction, carrying this
-      measurement as its baseline
+- [~] MEASURED, RESULT MIXED — see "What the measurement actually said". 7 of 12
+      unchanged, including all three highest-SNR recordings; 5 changed, all of
+      them marginal audio, and the changes are not uniformly improvements. This
+      does not meet the "unchanged or improved" bar as written. Flagged for the
+      operator rather than quietly rewritten
+- [x] `cargo test --workspace` passes; clippy and fmt clean
+- [x] A follow-up task is filed for spectral subtraction, carrying this
+      measurement as its baseline — TASK-VTT151 (Spectral subtraction if rumble
+      filtering proves insufficient)
 
 ## Test Strategy
 
@@ -123,3 +126,57 @@ is the same method that verified TASK-VTT150.
 
 - Directive: DIRECT-VTT002
 - Story: STORY-VTT015
+
+
+## Evidence
+
+```
+cargo test --workspace: 162 passed; 0 failed; 1 ignored   (154 before this task)
+cargo clippy --workspace --all-targets -- -D warnings: clean
+```
+
+Eight filter tests assert the designed response rather than just "it runs": 50 Hz
+at least 12 dB down, 300-3400 Hz within 1 dB, 150 Hz losing under 3 dB so a male
+fundamental survives, matched attenuation at 16 kHz and 48 kHz, DC flattened,
+output finite and bounded, and identical results from two runs so no state leaks
+between recordings.
+
+### What the measurement actually said
+
+Twelve of Emmanuel's recordings, `--file` batch mode, v2.3.11 prebuilt versus
+this branch with `denoise=1`:
+
+```
+7/12 identical, 5 changed
+```
+
+All three highest-SNR recordings (20.6, 22.2, 19.2 dB) were byte-identical. Every
+change landed on marginal audio. The five:
+
+- `AGZVRN` "Proceed or approve continue." -> "Proceed or approve, continue."
+  (punctuation gained)
+- `FJsig3` gained a leading "I think" that was there and previously lost, and
+  dropped an "I" from "but I don't have" — better and worse in one sentence
+- `9ejz3l` "maybe even over gum rent" -> "maybe even a bugum rent" — both wrong,
+  lateral
+- `mKvVI9` "She's even one" -> "She she won" — this file measured 1.7 dB
+  speech-to-noise; both readings are noise
+- `CjlOEe` recovered trailing words: "...so I can fix it" -> "...so I can fix it
+  before we"
+
+Read honestly: the filter does not damage clean recordings, and on marginal ones
+it is a coin flip that sometimes recovers a quiet word at an edge. That is a
+plausible outcome for a high-pass — it removes energy Whisper was not using much
+anyway — but it is NOT the "unchanged or improved" this card set as the gate.
+
+### The judgement call, flagged for the operator
+
+Shipped default-on, because the card's own steering says default on and the
+evidence shows no harm to good audio. But the gate as written was not met, and
+this is the one decision in this task worth overruling if Emmanuel disagrees.
+`denoise=0` in settings.conf reverts to the exact pre-TASK-VTT145 path.
+
+The more useful next step is not spectral subtraction (TASK-VTT151, filed p3) but
+better input: the same recordings at 48 kHz from TASK-VTT150's capture change
+carry frequency detail these 16 kHz archives never had, and a filter measured
+against those is measured against what users will actually feed it.
