@@ -9,6 +9,7 @@ mod archive;
 mod audio;
 mod corrections;
 mod denoise;
+mod doctor;
 // autostart is only consumed by the portable tray (Windows + macOS); compiling
 // it on Linux makes it dead code, which fails the -D warnings release build.
 #[cfg(any(target_os = "windows", target_os = "macos"))]
@@ -77,6 +78,10 @@ fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let wants_version = args.iter().any(|a| a == "--version" || a == "-V");
     let wants_help = args.iter().any(|a| a == "--help" || a == "-h");
+    // `--doctor` answers "is the app I am running the app I just installed?"
+    // Three deployment failures in one morning all looked like success
+    // (TASK-VTT153); this makes the question answerable on purpose.
+    let wants_doctor = args.iter().any(|a| a == "--doctor");
     // Batch mode: `--file <PATH>` transcribes a 16 kHz WAV and prints the
     // transcript to stdout, then exits — no tray, no hotkey (TASK-VTT023).
     let wants_file = args.iter().any(|a| a == "--file" || a == "-f");
@@ -88,7 +93,7 @@ fn main() -> anyhow::Result<()> {
     // the launching terminal before printing CLI output — otherwise --version /
     // --help / --file would silently produce nothing when run from a shell.
     #[cfg(target_os = "windows")]
-    if wants_version || wants_help || wants_file {
+    if wants_version || wants_help || wants_file || wants_doctor {
         attach_parent_console();
     }
     if wants_version {
@@ -102,7 +107,8 @@ fn main() -> anyhow::Result<()> {
              Options:\n  \
              -V, --version      Print version and exit\n  \
              -h, --help         Print this help and exit\n  \
-             -f, --file <PATH>  Transcribe a 16 kHz WAV to stdout and exit\n\n\
+             -f, --file <PATH>  Transcribe a 16 kHz WAV to stdout and exit\n  \
+                 --doctor       Check the running app matches the installed one\n\n\
              With no options, launches the tray icon. Hold the configured\n\
              hotkey (default: Scroll Lock) and speak. Release to transcribe.\n\n\
              Config:   ~/.local/share/voice-to-text/settings.conf\n\
@@ -111,6 +117,9 @@ fn main() -> anyhow::Result<()> {
             env!("CARGO_PKG_VERSION")
         );
         return Ok(());
+    }
+    if wants_doctor {
+        return run_doctor();
     }
     if wants_file {
         return run_file_mode(file_path.as_deref());
@@ -973,6 +982,92 @@ fn migrate_legacy_model_name(raw: &str) -> String {
         "large" => "large-v3".to_string(),
         _ => stripped,
     }
+}
+
+/// `--doctor`: report whether the running app is the installed one, plus the
+/// paths that were misread during the TASK-VTT150 deployment. Exits non-zero
+/// when anything is wrong, so it is usable in a script.
+fn run_doctor() -> anyhow::Result<()> {
+    use doctor::{diagnose_running, format_report, parse_exe_link, Finding};
+
+    let mut findings = vec![Finding::ok("version", env!("CARGO_PKG_VERSION"))];
+
+    let data_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("/tmp"))
+        .join("voice-to-text");
+    findings.push(Finding::ok(
+        "settings",
+        data_dir.join("settings.conf").display().to_string(),
+    ));
+
+    // The stale ~/.config copy is inert but still on disk for anyone who ran a
+    // pre-2.0 build, and editing it silently does nothing (TASK-VTT150).
+    if let Some(cfg) = dirs::config_dir() {
+        let stale = cfg.join("voice-to-text").join("settings.conf");
+        if stale.exists() {
+            findings.push(Finding::problem(
+                "stale settings",
+                format!(
+                    "{} exists and is NOT read — edits there do nothing",
+                    stale.display()
+                ),
+            ));
+        }
+    }
+
+    let s = settings::Settings::load(&data_dir);
+    findings.push(Finding::ok(
+        "archiving",
+        if s.archive_recordings {
+            format!(
+                "on -> {}",
+                archive::resolve_archive_dir(&s.archive_dir, &data_dir).display()
+            )
+        } else {
+            "off (archive=1 in settings.conf enables it)".to_string()
+        },
+    ));
+
+    // Which binary is actually answering the hotkey.
+    #[cfg(target_os = "linux")]
+    {
+        let installed = std::path::Path::new("/usr/bin/vtt-linux");
+        let mut seen = false;
+        if let Ok(entries) = std::fs::read_dir("/proc") {
+            for e in entries.flatten() {
+                let name = e.file_name();
+                let Some(pid) = name.to_str().and_then(|s| s.parse::<u32>().ok()) else {
+                    continue;
+                };
+                let Ok(target) = std::fs::read_link(format!("/proc/{pid}/exe")) else {
+                    continue;
+                };
+                let target = target.to_string_lossy().to_string();
+                if !target.contains("vtt-linux") {
+                    continue;
+                }
+                if pid == std::process::id() {
+                    continue;
+                }
+                seen = true;
+                findings.push(diagnose_running(pid, &parse_exe_link(&target), installed));
+            }
+        }
+        if !seen {
+            findings.push(Finding::problem(
+                "running binary",
+                "no vtt-linux process found — nothing is listening for the hotkey. \
+                 Start it: `systemctl --user start vtt.service`",
+            ));
+        }
+    }
+
+    let (report, any_problem) = format_report(&findings);
+    print!("{report}");
+    if any_problem {
+        std::process::exit(1);
+    }
+    Ok(())
 }
 
 fn save_and_cleanup(audio_path: &std::path::Path, config_dir: &std::path::Path) {
