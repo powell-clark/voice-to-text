@@ -4,6 +4,10 @@
 //! Replaces the pre-v2.0 architecture which spawned `python3 transcribe.py` per press
 //! and paid the full model-load cost every transcription.
 
+/// The only input rate every supported Whisper model is trained at.
+/// Defined here because this module is what rejects anything else.
+pub const WHISPER_INPUT_RATE: u32 = 16_000;
+
 use std::path::Path;
 use std::time::Instant;
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
@@ -95,7 +99,7 @@ pub fn decode_wav_to_samples(path: &Path) -> anyhow::Result<Vec<f32>> {
     let mut reader = hound::WavReader::open(path)
         .map_err(|e| anyhow::anyhow!("open {}: {}", path.display(), e))?;
     let spec = reader.spec();
-    if spec.sample_rate != 16_000 {
+    if spec.sample_rate != WHISPER_INPUT_RATE {
         anyhow::bail!(
             "{} is {} Hz — --file needs 16 kHz mono audio. Resample first, e.g.: \
              `ffmpeg -i in.wav -ar 16000 -ac 1 out.wav`",

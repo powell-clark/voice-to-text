@@ -10,7 +10,7 @@ use std::time::Instant;
 /// capture no longer happens here. `stop_recording` resamples the capture
 /// buffer down to this immediately before it leaves the audio layer, so the
 /// transcription path sees exactly what it saw before TASK-VTT150.
-const WHISPER_SAMPLE_RATE: u32 = 16000;
+const WHISPER_SAMPLE_RATE: u32 = crate::whisper::WHISPER_INPUT_RATE;
 /// The rate we ask the capture device for. 48 kHz is the native rate of every
 /// modern interface and the rate speech synthesis training wants; capturing at
 /// 16 kHz threw away detail that cannot be recovered by upsampling later. The
@@ -152,6 +152,9 @@ pub struct Audio {
     /// Mirrors the `archive` setting. Gates whether the native-rate buffer is
     /// retained past `stop_recording` at all.
     archive_enabled: Arc<AtomicBool>,
+    /// Mirrors the `denoise` setting. Gates the high-pass on the Whisper path;
+    /// the archive is never filtered either way (TASK-VTT145).
+    denoise_enabled: Arc<AtomicBool>,
 }
 
 /// Resolve a saved input-device ordinal against the number of devices cpal
@@ -218,6 +221,7 @@ impl Audio {
             device_index,
             capture_rate,
             archive_enabled: Arc::new(AtomicBool::new(false)),
+            denoise_enabled: Arc::new(AtomicBool::new(true)),
         })
     }
 
@@ -227,6 +231,13 @@ impl Audio {
     /// native buffer and `RecordingResult::native` is always `None`.
     pub fn set_archive_enabled(&self, on: bool) {
         self.archive_enabled.store(on, Ordering::SeqCst);
+    }
+
+    /// Switch low-frequency noise suppression on the transcription path on or
+    /// off. On by default; `denoise=0` in settings restores the unfiltered
+    /// path exactly.
+    pub fn set_denoise_enabled(&self, on: bool) {
+        self.denoise_enabled.store(on, Ordering::SeqCst);
     }
 
     /// Drop the current stream (if any) and open a fresh one against the
@@ -595,8 +606,15 @@ impl Audio {
         // debug recordings archive is written from these samples too, so the
         // re-transcribe-last recovery net keeps reading the 16 kHz wavs it has
         // always read.
-        let samples: Vec<f32> = resample_to_whisper(&buf, rate);
+        let mut samples: Vec<f32> = resample_to_whisper(&buf, rate);
         drop(buf);
+
+        // Rumble suppression, on the transcription path only. `native` was
+        // cloned above and is untouched, so the voice-clone corpus keeps the
+        // original audio while Whisper gets the cleaned version (TASK-VTT145).
+        if self.denoise_enabled.load(Ordering::SeqCst) {
+            samples = crate::denoise::suppress_rumble(&samples, WHISPER_SAMPLE_RATE);
+        }
         let path = match write_wav(&samples, WHISPER_SAMPLE_RATE) {
             Ok(p) => {
                 crate::vtt_log!("Saved recording to {}", p.display());

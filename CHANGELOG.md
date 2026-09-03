@@ -19,6 +19,11 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   uploaded. See *Archiving your recordings* in the README for what is stored,
   where, how to switch it off and how to delete it.
 
+- **Steady low-frequency noise is filtered out before transcription.** Desk and
+  fan rumble is cut by a high-pass on the audio sent to Whisper; measured on real
+  dictation, four fifths of the background energy sits in the band it removes.
+  On by default, `denoise=0` in `settings.conf` turns it off, and archived audio
+  is never filtered.
 - **The correction dictionary is editable from the tray.** Open *Customize
   Transcription Settings* and there is now a box for your `misheard => correct`
   pairs, one per line, instead of hand-editing `settings.conf`. Emptying the box
