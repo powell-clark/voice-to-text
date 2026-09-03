@@ -61,6 +61,22 @@ pub struct Settings {
     /// control and we never re-enable behind the user's back. Persisted so the
     /// default fires exactly once, even across upgrades.
     pub autostart_initialized: bool,
+    /// Opt-in, off by default: when true, every recording is additionally
+    /// captured at the device's native sample rate (typically 48 kHz, versus
+    /// the 16 kHz Whisper always uses) and archived to `archive_dir` with a
+    /// JSON sidecar carrying its transcript. Off, capture and behaviour are
+    /// byte-identical to a build with no archiving code at all — this flag
+    /// gates the only place native-rate samples are ever read or written to
+    /// disk. See README "Archiving your recordings" before enabling it: it
+    /// saves your voice and what you said to disk indefinitely.
+    pub archive_recordings: bool,
+    /// Directory recordings are archived into when `archive_recordings` is
+    /// true. Empty string means the default, `<config_dir>/archive`.
+    pub archive_dir: String,
+    /// Oldest-first cap on the number of archived recordings (wav+json pairs
+    /// count as one), applied after every archive write. 0 means unbounded —
+    /// the user has explicitly asked for no pruning.
+    pub archive_max_files: usize,
     config_dir: PathBuf,
 }
 
@@ -78,6 +94,9 @@ impl Default for Settings {
             newline_type: NewlineType::ShiftReturn,
             logging_enabled: true,
             autostart_initialized: false,
+            archive_recordings: false,
+            archive_dir: String::new(),
+            archive_max_files: 5000,
             config_dir: PathBuf::new(),
         }
     }
@@ -135,6 +154,11 @@ impl Settings {
                         };
                     }
                     "autostart_init" => settings.autostart_initialized = value == "1",
+                    "archive" => settings.archive_recordings = value == "1",
+                    "archive_dir" => settings.archive_dir = value,
+                    "archive_max_files" => {
+                        settings.archive_max_files = value.parse().unwrap_or(5000);
+                    }
                     _ => {}
                 }
             }
@@ -174,6 +198,19 @@ impl Settings {
             "autostart_init={}\n",
             if self.autostart_initialized { 1 } else { 0 }
         ));
+        out.push_str(
+            "# archive=1 saves every recording (native sample rate) plus its transcript to\n\
+             # archive_dir indefinitely, capped at archive_max_files. Off by default. See\n\
+             # README \"Archiving your recordings\" before turning this on.\n",
+        );
+        out.push_str(&format!(
+            "archive={}\n",
+            if self.archive_recordings { 1 } else { 0 }
+        ));
+        if !self.archive_dir.is_empty() {
+            out.push_str(&format!("archive_dir=\"{}\"\n", escape(&self.archive_dir)));
+        }
+        out.push_str(&format!("archive_max_files={}\n", self.archive_max_files));
 
         fs::write(&path, out)?;
         Ok(())
@@ -279,6 +316,9 @@ mod tests {
             newline_type: NewlineType::PlainReturn,
             logging_enabled: false,
             autostart_initialized: true,
+            archive_recordings: true,
+            archive_dir: "/mnt/voice-archive".into(),
+            archive_max_files: 12345,
             config_dir: dir.path().to_path_buf(),
         };
         original.save().expect("save should succeed");
@@ -297,6 +337,50 @@ mod tests {
             loaded.autostart_initialized, original.autostart_initialized,
             "autostart_init marker must survive a save/load round-trip"
         );
+        assert_eq!(loaded.archive_recordings, original.archive_recordings);
+        assert_eq!(loaded.archive_dir, original.archive_dir);
+        assert_eq!(loaded.archive_max_files, original.archive_max_files);
+    }
+
+    #[test]
+    fn archive_settings_default_off_and_survive_a_missing_file() {
+        let dir = tempdir().unwrap();
+        let s = Settings::load(dir.path());
+        assert!(
+            !s.archive_recordings,
+            "archiving must default to off — it is opt-in"
+        );
+        assert_eq!(s.archive_dir, "");
+        assert_eq!(s.archive_max_files, 5000);
+    }
+
+    #[test]
+    fn archive_dir_omitted_from_settings_conf_when_empty() {
+        let dir = tempdir().unwrap();
+        let s = Settings {
+            config_dir: dir.path().to_path_buf(),
+            ..Settings::default()
+        };
+        s.save().unwrap();
+        let content = std::fs::read_to_string(dir.path().join("settings.conf")).unwrap();
+        assert!(
+            !content.contains("archive_dir="),
+            "an empty archive_dir means \"use the default\" and should not be written, \
+             so a fresh install's settings.conf stays free of a stale absolute path"
+        );
+        assert!(content.contains("archive=0"));
+    }
+
+    #[test]
+    fn archive_max_files_zero_means_unbounded_and_round_trips() {
+        let dir = tempdir().unwrap();
+        let s = Settings {
+            archive_max_files: 0,
+            config_dir: dir.path().to_path_buf(),
+            ..Settings::default()
+        };
+        s.save().unwrap();
+        assert_eq!(Settings::load(dir.path()).archive_max_files, 0);
     }
 
     #[test]
