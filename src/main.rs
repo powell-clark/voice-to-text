@@ -135,7 +135,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Config directory
-    let config_dir = dirs::data_local_dir()
+    let data_dir = dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("/tmp"))
         .join("voice-to-text");
 
@@ -144,12 +144,12 @@ fn main() -> anyhow::Result<()> {
     // lines. Error surfaces on stderr via anyhow's Display impl, which is
     // what the user sees when launching from a terminal anyway.
     #[cfg(unix)]
-    let _lock_fd = singleton_lock(&config_dir)?;
+    let _lock_fd = singleton_lock(&data_dir)?;
     #[cfg(windows)]
     singleton_lock()?;
 
     // Initialize logging (now we know we're the only instance)
-    logging::init(&config_dir);
+    logging::init(&data_dir);
     vtt_log!("===========================================");
     vtt_log!(
         "Voice to Text {} — Starting (Rust)",
@@ -186,7 +186,7 @@ fn main() -> anyhow::Result<()> {
     cleanup_old_wavs();
 
     // Load settings
-    let settings = Arc::new(RwLock::new(settings::Settings::load(&config_dir)));
+    let settings = Arc::new(RwLock::new(settings::Settings::load(&data_dir)));
 
     // First-run default: enable start-at-login once on Windows so VTT is there
     // after a reboot without the user having to find the tray toggle first
@@ -285,14 +285,14 @@ fn main() -> anyhow::Result<()> {
     #[cfg(target_os = "linux")]
     let (_tray, ui_tx) = tray::Tray::new(
         settings.clone(),
-        &config_dir,
+        &data_dir,
         last_transcription.clone(),
         work_tx.clone(),
     )?;
     #[cfg(not(target_os = "linux"))]
     let (mut tray, ui_tx) = tray::Tray::new(
         settings.clone(),
-        &config_dir,
+        &data_dir,
         last_transcription.clone(),
         work_tx.clone(),
     )?;
@@ -303,7 +303,7 @@ fn main() -> anyhow::Result<()> {
     let worker_typing_has_output = typing_has_output.clone();
     let worker_running = running.clone();
     let worker_ui_tx = ui_tx.clone();
-    let worker_config_dir = config_dir.clone();
+    let worker_data_dir = data_dir.clone();
     let worker_last_transcription = last_transcription.clone();
 
     thread::Builder::new()
@@ -317,7 +317,7 @@ fn main() -> anyhow::Result<()> {
                     typing_has_output: worker_typing_has_output,
                     running: worker_running,
                     ui_tx: worker_ui_tx,
-                    config_dir: worker_config_dir,
+                    data_dir: worker_data_dir,
                     last_transcription: worker_last_transcription,
                 },
             );
@@ -609,7 +609,7 @@ struct WorkerCtx {
     typing_has_output: Arc<AtomicBool>,
     running: Arc<AtomicBool>,
     ui_tx: tray::UiSender,
-    config_dir: PathBuf,
+    data_dir: PathBuf,
     last_transcription: tray::LastTranscription,
 }
 
@@ -620,7 +620,7 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
         typing_has_output,
         running,
         ui_tx,
-        config_dir,
+        data_dir,
         last_transcription,
     } = ctx;
 
@@ -676,7 +676,7 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
             // empty archive_path makes the save/prune step below a no-op so the
             // source WAV is not re-archived or self-copied (FEAT-VTT039).
             WorkItem::RetranscribeLast => {
-                let recordings_dir = config_dir.join("recordings");
+                let recordings_dir = data_dir.join("recordings");
                 match newest_wav(&recordings_dir) {
                     Some(path) => match whisper::decode_wav_to_samples(&path) {
                         Ok(s) => {
@@ -810,7 +810,7 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
                 let s = settings.read().unwrap();
                 (s.archive_dir.clone(), s.archive_max_files)
             };
-            let root = archive::resolve_archive_dir(&dir_setting, &config_dir);
+            let root = archive::resolve_archive_dir(&dir_setting, &data_dir);
             let now = chrono::Local::now();
             let meta = archive::Sidecar {
                 id: now.format("%Y%m%dT%H%M%S_%3f").to_string(),
@@ -841,7 +841,7 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
         }
 
         if !archive_path.as_os_str().is_empty() {
-            save_and_cleanup(&archive_path, &config_dir);
+            save_and_cleanup(&archive_path, &data_dir);
         }
 
         ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
@@ -921,7 +921,7 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
     let path =
         path.ok_or_else(|| anyhow::anyhow!("--file needs a path, e.g. `--file clip.wav`"))?;
 
-    let config_dir = dirs::data_local_dir()
+    let data_dir = dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("/tmp"))
         .join("voice-to-text");
     // Deliberately NOT calling logging::init here: the file logger also echoes
@@ -931,7 +931,7 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
     // progress go to stderr. Silence whisper.cpp/ggml C chatter for the same
     // reason.
     whisper_rs::install_logging_hooks();
-    let settings = settings::Settings::load(&config_dir);
+    let settings = settings::Settings::load(&data_dir);
 
     // Decode first so a bad path/format fails fast, before any model download.
     let samples = whisper::decode_wav_to_samples(std::path::Path::new(path))?;
@@ -1070,8 +1070,8 @@ fn run_doctor() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn save_and_cleanup(audio_path: &std::path::Path, config_dir: &std::path::Path) {
-    let recordings_dir = config_dir.join("recordings");
+fn save_and_cleanup(audio_path: &std::path::Path, data_dir: &std::path::Path) {
+    let recordings_dir = data_dir.join("recordings");
     std::fs::create_dir_all(&recordings_dir).ok();
 
     if let Some(filename) = audio_path.file_name() {
@@ -1132,11 +1132,11 @@ fn newest_wav(dir: &std::path::Path) -> Option<PathBuf> {
 // ─── Utilities ──────────────────────────────────────────────────
 
 #[cfg(unix)]
-fn singleton_lock(config_dir: &std::path::Path) -> anyhow::Result<std::fs::File> {
+fn singleton_lock(data_dir: &std::path::Path) -> anyhow::Result<std::fs::File> {
     use std::io::Write;
     use std::os::unix::io::AsRawFd;
-    std::fs::create_dir_all(config_dir)?;
-    let lock_path = config_dir.join("vtt-linux.lock");
+    std::fs::create_dir_all(data_dir)?;
+    let lock_path = data_dir.join("vtt-linux.lock");
     let file = std::fs::OpenOptions::new()
         .create(true)
         .write(true)

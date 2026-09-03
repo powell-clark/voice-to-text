@@ -95,12 +95,13 @@ pub fn should_archive(text: &str) -> bool {
 }
 
 /// Where the archive lives. An empty setting means the default beside the rest
-/// of the app's data; a leading `~/` expands against the home directory so a
-/// hand-edited `settings.conf` behaves the way its author expects.
-pub fn resolve_archive_dir(setting: &str, config_dir: &Path) -> PathBuf {
+/// of the app's data — `~/.local/share/voice-to-text/archive` on Linux, NOT
+/// `~/.config` (TASK-VTT155). A leading `~/` expands against the home directory
+/// so a hand-edited `settings.conf` behaves the way its author expects.
+pub fn resolve_archive_dir(setting: &str, data_dir: &Path) -> PathBuf {
     let trimmed = setting.trim();
     if trimmed.is_empty() {
-        return config_dir.join("archive");
+        return data_dir.join("archive");
     }
     if let Some(rest) = trimmed.strip_prefix("~/") {
         if let Some(home) = dirs::home_dir() {
