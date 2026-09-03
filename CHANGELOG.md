@@ -29,6 +29,9 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   archiving writes, and whether a running process is holding a replaced binary —
   naming the process and the command to fix it, and exiting non-zero so a script
   can gate on it.
+- **Archiving and rumble filtering are switchable from the tray.** Both were
+  settings-file-only; the archiving checkbox states plainly that it saves your
+  voice and your words to disk, and shows where they go.
 - **The correction dictionary is editable from the tray.** Open *Customize
   Transcription Settings* and there is now a box for your `misheard => correct`
   pairs, one per line, instead of hand-editing `settings.conf`. Emptying the box
