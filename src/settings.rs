@@ -69,10 +69,12 @@ pub struct Settings {
     /// gates the only place native-rate samples are ever read or written to
     /// disk. See README "Archiving your recordings" before enabling it: it
     /// saves your voice and what you said to disk indefinitely.
-    /// On by default, unlike archiving: this one only ever removes rumble
-    /// from the audio handed to Whisper, writes nothing to disk, and cannot
-    /// surprise anyone. `denoise=0` reproduces the pre-TASK-VTT145 path
-    /// exactly. See `denoise.rs` for the measurement that chose the corner.
+    /// Off by default. The card asked for default-on against fan noise, but
+    /// the operator has no fan any more and the measured before/after was
+    /// mixed rather than a win — 7 of 12 recordings unchanged, the rest
+    /// changed on marginal audio in both directions. Shipping it on would
+    /// change daily dictation for no demonstrated gain, so it is opt-in:
+    /// `denoise=1` enables it. See `denoise.rs` for the measured profile.
     pub denoise: bool,
     pub archive_recordings: bool,
     /// Directory recordings are archived into when `archive_recordings` is
@@ -99,7 +101,7 @@ impl Default for Settings {
             newline_type: NewlineType::ShiftReturn,
             logging_enabled: true,
             autostart_initialized: false,
-            denoise: true,
+            denoise: false,
             archive_recordings: false,
             archive_dir: String::new(),
             archive_max_files: 5000,
@@ -206,8 +208,8 @@ impl Settings {
             if self.autostart_initialized { 1 } else { 0 }
         ));
         out.push_str(
-            "# denoise=1 (default) high-passes rumble out of the audio sent for\n\
-             # transcription. Archived audio is never filtered.\n",
+            "# denoise=1 high-passes low-frequency rumble out of the audio sent for\n\
+             # transcription. Off by default. Archived audio is never filtered.\n",
         );
         out.push_str(&format!("denoise={}\n", if self.denoise { 1 } else { 0 }));
         out.push_str(
