@@ -237,6 +237,25 @@ fn main() -> anyhow::Result<()> {
         let s = settings.read().unwrap();
         audio.set_archive_enabled(s.archive_recordings);
         audio.set_denoise_enabled(s.denoise);
+        // Say what these resolved to, at startup, every run. An archive-enabled
+        // build that writes nothing is otherwise indistinguishable from a
+        // working one: on 2026-09-03 a stale process kept answering the hotkey
+        // for eighty minutes while transcription worked perfectly and no
+        // archive appeared, and nothing in the log said why (TASK-VTT156).
+        if s.archive_recordings {
+            vtt_log!(
+                "Archiving ON -> {} (cap {})",
+                archive::resolve_archive_dir(&s.archive_dir, &data_dir).display(),
+                if s.archive_max_files == 0 {
+                    "unbounded".to_string()
+                } else {
+                    s.archive_max_files.to_string()
+                }
+            );
+        } else {
+            vtt_log!("Archiving off (set archive=1 in settings.conf to enable)");
+        }
+        vtt_log!("Rumble filtering {}", if s.denoise { "on" } else { "off" });
     }
 
     // Buffer full notification (shells to notify-send on Linux; libnotify-bin
