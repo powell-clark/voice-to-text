@@ -1,10 +1,9 @@
 === CONSCIOUSNESS CONTINUATION BRIEF ===
-Written: 2026-09-03T03:08:50.765Z | session: vtt-5eab9f2f
+Written: 2026-09-03T06:36:19.994Z | session: vtt-5eab9f2f
 The previous session ended or reset its context window. This is its runtime
 state at that moment — the durable PGPS record is the source of truth, so
 re-read the task card before acting on anything below.
 
-Active task: TASK-VTT060|in_progress|p1|Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT060.md|||||b2
 
 Active steering:
 - [preference] /consciousness:issue --gh very awful dangerous...
@@ -17,10 +16,12 @@ Active steering:
 - [preference] work with epc-voice repo to make the voice...
 - [preference] /consciousness:neurologist auto fix
 - [preference] /fewer-permission-prompts
+- [preference] yes please
+- [preference] alla pproved
 
 PGPS summary:
-- TASK-VTT060 (in_progress, p1) Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty
-- TASK-VTT144 (upcoming, p00) Correction dictionary editable from the tray
-- TASK-VTT145 (upcoming, p00) Suppress steady background noise before inference
+- TASK-VTT060 (upcoming, p1) Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty
+- TASK-VTT150 (upcoming, p1) Archive dictation as training-grade audio
+- TASK-VTT144 (in_review, p00) Correction dictionary editable from the tray
 
 === END CONTINUATION BRIEF ===
