@@ -16,7 +16,11 @@
       "Bash(pactl list *)",
       "Bash(cargo test *)",
       "Bash(cargo clippy *)",
-      "Bash(nvidia-smi *)"
+      "Bash(nvidia-smi *)",
+      "Bash(systemctl --user is-active *)",
+      "Bash(systemctl --user is-enabled *)",
+      "Bash(systemctl --user show *)",
+      "Bash(systemctl --user status *)"
     ]
   }
 }

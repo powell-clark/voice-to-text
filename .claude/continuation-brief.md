@@ -1,9 +1,10 @@
 === CONSCIOUSNESS CONTINUATION BRIEF ===
-Written: 2026-09-03T07:53:34.617Z | session: vtt-5eab9f2f
+Written: 2026-09-03T07:56:59.153Z | session: vtt-5eab9f2f
 The previous session ended or reset its context window. This is its runtime
 state at that moment — the durable PGPS record is the source of truth, so
 re-read the task card before acting on anything below.
 
+Active task: TASK-VTT135|in_progress|p1|Self-hosted signed apt repo on GitHub Pages|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT135.md|||||b2q||
 
 Active steering:
 - [preference] /consciousness:issue --gh very awful dangerous...
@@ -24,9 +25,12 @@ Active steering:
 - [constraint] ▐▛███▛█   Claude Code v2
 - [preference] powell-clark@home:~/projects/auxiliary/voice-to...
 - [preference] dh_installchangelogs
+- [preference] /fewer-permission-prompts
+- [preference] [Speech] It's working
 
 PGPS summary:
-- TASK-VTT060 (upcoming, p1) Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty
+- TASK-VTT060 (upcoming, p1) Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty — OPERATOR-DECISION-PENDING (Launchpad web UI needs Emmanuel's logged-in session)
 - TASK-VTT144 (in_review, p00) Correction dictionary editable from the tray
+- TASK-VTT135 (in_progress, p1) Self-hosted signed apt repo on GitHub Pages
 
 === END CONTINUATION BRIEF ===

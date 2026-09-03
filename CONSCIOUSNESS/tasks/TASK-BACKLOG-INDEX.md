@@ -7,7 +7,6 @@ TASK-VTT102|p2|Rename binary — drop the misleading vtt-linux name|STORY-VTT013
 TASK-VTT103|p3|Evaluate unifying Linux GTK tray onto the portable tray (ADR)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT103.md|||||g2a
 TASK-VTT095|p2|Update mechanism — how Windows/macOS users get new versions|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT095.md|||||g3
 TASK-VTT056|p3|Monitor current release in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover (was scoped to v2.0.5, now superseded by v2.3.7)|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT056.md|||||b0
-TASK-VTT064|p1|Windows ARM64 Snapdragon CPU build|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT064.md|TASK-VTT082||||b2a
 TASK-VTT047|p1|Windows Authenticode code signing|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT047.md|TASK-VTT064||||b3
 TASK-VTT040|p4|cargo bundle macOS .app with metal feature, Info.plist with NSMicrophoneUsageDescription|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT040.md|||||b4
 TASK-VTT041|p4|Verify transcription on 2019 Intel i9 Mac with Radeon Pro 5500M via Metal|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT041.md|TASK-VTT040||||b5
@@ -29,7 +28,6 @@ TASK-VTT125|p2|Re-register the macOS Intel self-hosted runner||DIRECT-VTT003||TA
 TASK-VTT128|p3|Unscoped validation stall — needs operator review||||TASK-VTT128.md|||||b2n||
 TASK-VTT129|p2|Tray Microphone submenu — device picker UX|STORY-VTT016|DIRECT-VTT005|FEAT-VTT033|TASK-VTT129.md|TASK-VTT062||||bo
 TASK-VTT130|p3|--file multi-format decode + long-file chunking|STORY-VTT009|DIRECT-VTT002|FEAT-VTT021|TASK-VTT130.md|TASK-VTT023||||bp
-TASK-VTT135|p1|Self-hosted signed apt repo on GitHub Pages|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT135.md|||||b2q||
 TASK-VTT137|p2|Unify release flow — local install + PPA publish in one run|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT137.md|||||b2r||
 TASK-VTT138|p3|Spike hotkey dialog on portable tray|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT138.md|||||b2s||
 TASK-VTT139|p3|Portable tray parity — settings and About dialogs|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT139.md|||||b2t||
