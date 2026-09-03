@@ -74,3 +74,4 @@
 {"schema_version":1,"event":"status-change","task_id":"TASK-VTT116","from":"in_review","to":"done","timestamp":"2026-07-21 11:03:27.001 bst","session_id":"vtt-main-5db2fc27","branch":"main","id":"TEVT-VTT074"}
 {"schema_version":1,"event":"status-change","task_id":"TASK-VTT117","from":"in_review","to":"done","timestamp":"2026-07-21 11:03:27.103 bst","session_id":"vtt-main-5db2fc27","branch":"main","id":"TEVT-VTT075"}
 {"task_id":"TASK-VTT060","event":"claimed","timestamp":"2026-08-15 06:53:26.930 bst","session_id":"vtt-d64cbd57","branch":"main","origin_key":"vtt-d64cbd57.main.jsonl#1@3d286bb443ed18be","id":"TEVT-VTT076"}
+{"task_id":"TASK-VTT060","event":"claimed","timestamp":"2026-09-03 04:08:50.946 bst","session_id":"vtt-5eab9f2f","canonical_id":"5eab9f2f-10a6-41f8-a193-8a90d1c7aab9","branch":"main","origin_key":"vtt-5eab9f2f.main.jsonl#1@6d92085d66160719","id":"TEVT-VTT077"}

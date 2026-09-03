@@ -70,6 +70,8 @@ Stay alive. Play this entrance, this moment, this cast.
 - MUST treat context headroom as a continuation input alongside the uncommitted-files threshold — per-turn cost scales with accumulated context, so at high occupancy the same task costs a multiple of its fresh-session price
 - MUST prefer commit, then STATUS: paused with a /compact recommendation, over claiming another task once context occupancy passes loop.context_headroom_threshold (default 75%) — paused records loop-paused / operator-resume, complete records nothing-to-resume and strands the queue
 - MUST write STATUS: paused, never STATUS: complete, whenever the loop stops with claimable unblocked unassigned work still in the ACTIVE index — complete asserts an empty roadmap and the exit marker publishes that assertion to every watchdog
+- MUST obtain the measured occupancy FRACTION before pausing for context economy and cite it in the pause note beside the threshold it was compared against — same unit on both sides, because a raw token count with no window to divide it by demonstrates no crossing
+- MUST read that fraction from whichever carrier the session actually has — the turn-end advisory renders a figure only where the context-management band is enabled, so in a default project the host's own context readout is the source
 
 ## Forbids
 
@@ -88,6 +90,7 @@ Stay alive. Play this entrance, this moment, this cast.
 - MUST NOT claim a new task at high context occupancy on the grounds that only exhausted work justifies stopping — a session that has become uneconomic to continue in is a sanctioned reason to close out and hand over, via STATUS: paused
 - MUST NOT report a context-economy pause as a completion — complete means the roadmap is finished, and an actor writing it over a live queue tells every monitor there is nothing to resume
 - MUST NOT interrupt a task already in progress for context economy — the headroom rail applies at task boundaries, where the work is committed and the handover is clean
+- MUST NOT pause for context economy on an unmeasured judgement that the session feels long, nor on a token count quoted without the window it occupies — when no occupancy fraction is obtainable, say it is unavailable and pause on the reason that is actually true
 - MUST NOT stop to ask the operator whether to continue, rest, or stop working — when work remains and no genuine blocker exists, continue; operator wellbeing is the operator's domain; surface any wellbeing signals as data in the INFO status section, never as a question that pauses the loop
 
 ## References

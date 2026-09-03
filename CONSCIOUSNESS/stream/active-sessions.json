@@ -1,25 +1,48 @@
 {
   "sessions": {
-    "vtt-4598f616": {
+    "4ce2a46e-7efc-45b2-8d1d-506710305860": {
       "assignment_message_id": null,
       "branch": "main",
-      "canonical_id": "4598f616-a7f9-44b4-ada4-e5d0f7fca396",
+      "canonical_id": "4ce2a46e-7efc-45b2-8d1d-506710305860",
       "conscious_mode": false,
       "context": {
         "adapter": "claude-code",
-        "pane": "%13",
+        "pane": null,
         "project": "vtt"
       },
       "current_activity": null,
       "current_task": null,
       "identity": null,
-      "last_activity": "2026-08-19T02:50:47.398Z",
+      "last_activity": "2026-09-03T03:15:18.947Z",
       "model": null,
-      "pane_id": "%13",
+      "pane_id": null,
       "role": null,
       "session_type": "cli",
       "specialty": null,
-      "started": "2026-08-19T02:48:35.912Z",
+      "started": "2026-09-03T02:42:44.285Z",
+      "worktree": "/home/powell-clark/projects/auxiliary/voice-to-text"
+    },
+    "5eab9f2f-10a6-41f8-a193-8a90d1c7aab9": {
+      "assignment_message_id": null,
+      "branch": "main",
+      "canonical_id": "5eab9f2f-10a6-41f8-a193-8a90d1c7aab9",
+      "conscious_mode": false,
+      "context": {
+        "adapter": "claude-code",
+        "multiplexer": "tmux",
+        "pane": "%22",
+        "project": "vtt"
+      },
+      "current_activity": null,
+      "current_task": null,
+      "identity": null,
+      "last_activity": "2026-09-03T03:22:53.334Z",
+      "model": null,
+      "pane_id": "%22",
+      "role": null,
+      "session_type": "cli",
+      "specialty": null,
+      "started": "2026-09-03T03:09:22.733Z",
       "worktree": "/home/powell-clark/projects/auxiliary/voice-to-text"
     }
   }

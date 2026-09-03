@@ -23,35 +23,34 @@ claim is announced, the plan is stated, and any change of target is declared
 before the first action of the new scope. A one-line declaration costs
 nothing; an interrupted loop costs the whole cycle.
 
-A claim is invisible on the trunk until it merges, and that gap is wide
-enough to double-claim through. The card moves from backlog to in_progress
-inside a change that is still under review, so the trunk index goes on
-reading "unclaimed" — accurately, because on the trunk it is unclaimed. The
-index is not stale or broken; it is answering a different question from the
-one the pre-flight is actually asking. So two sessions can both read a
-truthful index and both conclude the task is free, with no race, no clock
-skew and no misread required. This is a property of the claim flow rather
-than of any one forge: wherever a claim travels in a change that is reviewed
-before it lands, the window exists.
+Claims are coordination data, not implementation cargo. Publish the atomic
+backlog-to-in_progress move to trunk before implementation begins; do not
+leave ownership hidden inside a code branch or pull request. That closes the
+old review-window race, but a row can still outlive its actor after a crash,
+so the trunk index is necessary rather than sufficient evidence. Pre-flight
+also checks the live universe, worktrees and branch history. Query the forge
+only when a human-tier gated change or an older open change may carry relevant
+evidence; ordinary reversible work has no pull request to inspect.
 
 Measured 2026-08-14 on TASK-APGPS29139 (Add target ref to control requests).
 One session claimed it out of the backlog index and applied a database
 migration to production while another session's change for the same task had
 been open for two hours. Both had authored an additive migration adding the
 same column, and the one that reached production carried the later
-timestamp, so merging the open change would have failed twice over — the
+timestamp, so merging the old open change would have failed twice over — the
 column already exists, plus a linear-history violation from applying an
 earlier revision after a later one. It was rolled back losslessly, but only
 because that table held no rows and no shipped code read the column, and
-neither of those is guaranteed next time. The remedy is one command before
-the claim, which is why it belongs here as a required step rather than as
-advice about being careful.
+neither of those is guaranteed next time. The remedy is an atomic published
+claim plus a liveness-aware pre-flight, which is why both are required rather
+than left as advice about being careful.
 
 ## Requires
 
-- MUST run a pre-flight before working a claimed task: check the trunk index, git log, merged changes, AND every open unmerged change, for evidence the task is already claimed elsewhere or its acceptance criteria are already satisfied
-- MUST search the forge's open unmerged changes for the task id before claiming, matching the source branch name as well as the title and body — on a GitHub remote that is `gh pr list --state open --search <TASK-ID>` confirmed against each open change's head branch, and the equivalent merge-request query on any other forge
-- MUST treat a trunk index row reading unclaimed as inconclusive while an open unmerged change carries the same task id — the claim travels in the change that moves the card to in_progress, so the trunk is accurate and not yet informative
+- MUST run a pre-flight before working a task: check the trunk index, live universe, worktrees, git log and branches for evidence that another live actor owns it or its acceptance criteria are already satisfied
+- MUST atomically publish the task's backlog-to-in_progress claim to trunk before implementation begins; a claim left only on a feature branch or pull request does not reserve the task
+- MUST inspect open gated changes when the task touches a human-tier surface or local history shows an older task branch — on a GitHub remote use `gh pr list --state open --search <TASK-ID>` and confirm the head branch
+- MUST treat a trunk claim without matching live-session evidence as potentially stale and investigate before taking or releasing it
 - MUST stop and report when the claimed task is already shipped, blocked, or moot — close or release it with evidence instead of starting adjacent work
 - MUST declare any pivot in one line naming the abandoned scope, the new scope, and the reason, before the first action of the new scope
 - MUST make the claim and plan visible in the transcript before the first mutating action of an autonomous cycle
@@ -61,7 +60,8 @@ advice about being careful.
 - MUST NOT silently substitute different work for the dispatched or claimed task
 - MUST NOT expand scope beyond the claimed task without declaring the expansion first
 - MUST NOT treat an already-done task as licence to begin the nearest adjacent work — report the finding and re-enter the claim flow
-- MUST NOT treat an unclaimed row on the trunk index as evidence that a task is free without also checking open unmerged changes — the claim is invisible on the trunk until the change carrying it merges
+- MUST NOT hide a claim inside implementation work or assume that creating a local branch made ownership visible to another actor
+- MUST NOT require a forge query for ordinary reversible work when the trunk claim, live universe and local branch evidence settle ownership; the PR lane is an exception, not the registry
 
 ## References
 
