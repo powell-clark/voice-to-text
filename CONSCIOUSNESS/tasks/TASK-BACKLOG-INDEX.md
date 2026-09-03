@@ -35,5 +35,4 @@ TASK-VTT138|p3|Spike hotkey dialog on portable tray|STORY-VTT013|DIRECT-VTT002|F
 TASK-VTT139|p3|Portable tray parity — settings and About dialogs|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT139.md|||||b2t||
 TASK-VTT140|p2|Agent-run cost tracking and seat selection for PGPS execution||DIRECT-VTT002||TASK-VTT140.md|||||b2u||
 TASK-VTT143|p4|Rule 63 maintained-directive false positive||DIRECT-VTT002||TASK-VTT143.md|||||b2v||
-TASK-VTT144|p00|Correction dictionary editable from the tray|STORY-VTT019|DIRECT-VTT002|FEAT-VTT037|TASK-VTT144.md|||||a04o4||
 TASK-VTT145|p00|Suppress steady background noise before inference|STORY-VTT015|DIRECT-VTT002||TASK-VTT145.md|||||a1VL8||

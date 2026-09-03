@@ -1273,25 +1273,9 @@
       "started": "2026-09-03 03:43:21.399 bst",
       "ended": "2026-09-03 04:08:54.679 bst",
       "metrics": {
-        "autonomous_loops": 1,
+        "autonomous_loops": 2,
         "tasks_completed": [],
-        "commits": 1,
-        "turns": 0,
-        "human_prompts": 1,
-        "errors": 0,
-        "compactions": 0,
-        "framing_checks_count": 0,
-        "framing_compliance_count": 0,
-        "hooks_latency_ms": {
-          "user-prompt-submit": 55
-        },
-        "usage": {
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "cache_read_input_tokens": 0,
-          "cache_creation_input_tokens": 0,
-          "cache_creation_1h_input_tokens": 0
-        }
+        "commits": 1
       }
     },
     {
