@@ -1,4 +1,5 @@
 use super::{LastTranscription, UiMessage};
+use crate::corrections;
 use crate::hotkey::{self, HotkeyCmd};
 use crate::logging;
 use crate::settings::{NewlineType, Settings};
@@ -594,8 +595,11 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
 
     let dialog = gtk::Window::new(gtk::WindowType::Toplevel);
     dialog.set_title("Customize Transcription Settings");
-    dialog.set_default_size(500, 340);
-    dialog.set_resizable(false);
+    // Six sections now. The old fixed 500x340 fitted five and clipped the
+    // button row when the corrections editor landed (TASK-VTT144), so the
+    // window grows and is allowed to resize rather than hiding Save.
+    dialog.set_default_size(520, 560);
+    dialog.set_resizable(true);
     dialog.set_position(gtk::WindowPosition::Center);
     dialog.set_border_width(20);
 
@@ -656,6 +660,36 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
 
     vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
 
+    // Corrections dictionary. The format is stated in the label because
+    // `parse_pairs` drops a malformed row silently — a user who types `->`
+    // instead of `=>` would otherwise watch their rule vanish on save with no
+    // explanation (TASK-VTT144 pre-mortem).
+    let corrections_label = gtk::Label::new(None);
+    corrections_label
+        .set_markup("<b>Corrections (one per line, <tt>misheard =&gt; correct</tt>):</b>");
+    corrections_label.set_halign(gtk::Align::Start);
+    vbox.pack_start(&corrections_label, false, false, 0);
+
+    let corrections_scrolled =
+        gtk::ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
+    corrections_scrolled.set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Automatic);
+    corrections_scrolled.set_size_request(-1, 110);
+    vbox.pack_start(&corrections_scrolled, true, true, 0);
+
+    let corrections_view = gtk::TextView::new();
+    corrections_view.set_wrap_mode(gtk::WrapMode::WordChar);
+    let corrections_buffer = corrections_view.buffer().unwrap();
+    corrections_buffer.set_text(&corrections::format_pairs(&settings.corrections));
+    corrections_scrolled.add(&corrections_view);
+
+    let corrections_hint = gtk::Label::new(Some(
+        "Whole words only, case-insensitive. Empty the box to remove them all.",
+    ));
+    corrections_hint.set_halign(gtk::Align::Start);
+    vbox.pack_start(&corrections_hint, false, false, 0);
+
+    vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
+
     // Newline toggle
     let newline_toggle = gtk::CheckButton::with_label("Insert newline between transcriptions");
     newline_toggle.set_active(settings.append_newline);
@@ -703,11 +737,13 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
     {
         let pe = prefix_entry.clone();
         let buf = text_view.buffer().unwrap();
+        let cb = corrections_buffer.clone();
         let nt = newline_toggle.clone();
         let sr = shift_radio.clone();
         reset_btn.connect_clicked(move |_| {
             pe.set_text("[Voice] ");
             buf.set_text("");
+            cb.set_text("");
             nt.set_active(true);
             sr.set_active(true);
         });
@@ -727,6 +763,7 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
         let d = dialog.clone();
         let pe = prefix_entry.clone();
         let buf = text_view.buffer().unwrap();
+        let cb = corrections_buffer;
         let nt = newline_toggle;
         let sr = shift_radio;
         save_btn.connect_clicked(move |_| {
@@ -735,12 +772,11 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
 
             settings.voice_prefix = pe.text().to_string();
 
-            let start = buf.start_iter();
-            let end = buf.end_iter();
-            settings.initial_prompt = buf
-                .text(&start, &end, false)
-                .map(|s| s.to_string())
-                .unwrap_or_default();
+            settings.initial_prompt = buffer_text(&buf);
+
+            // An emptied box means "remove them all", so this assigns
+            // unconditionally rather than skipping on empty (TASK-VTT144).
+            settings.corrections = corrections::parse_pairs(&buffer_text(&cb));
 
             settings.append_newline = nt.is_active();
             settings.newline_type = if sr.is_active() {
@@ -754,9 +790,10 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
             }
 
             crate::vtt_log!(
-                "Settings updated: prefix='{}', prompt='{}'",
+                "Settings updated: prefix='{}', prompt='{}', corrections={}",
                 settings.voice_prefix,
-                settings.initial_prompt
+                settings.initial_prompt,
+                settings.corrections.len()
             );
 
             drop(settings);
@@ -768,6 +805,17 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
     }
 
     dialog.show_all();
+}
+
+/// The whole contents of a `TextBuffer` as a String, empty when the buffer
+/// cannot produce text. Both multi-line fields in this dialog need it.
+fn buffer_text(buffer: &gtk::TextBuffer) -> String {
+    let start = buffer.start_iter();
+    let end = buffer.end_iter();
+    buffer
+        .text(&start, &end, false)
+        .map(|s| s.to_string())
+        .unwrap_or_default()
 }
 
 fn update_char_counter(buffer: &gtk::TextBuffer, label: &gtk::Label) {

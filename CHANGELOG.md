@@ -19,6 +19,11 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   uploaded. See *Archiving your recordings* in the README for what is stored,
   where, how to switch it off and how to delete it.
 
+- **The correction dictionary is editable from the tray.** Open *Customize
+  Transcription Settings* and there is now a box for your `misheard => correct`
+  pairs, one per line, instead of hand-editing `settings.conf`. Emptying the box
+  removes them all.
+
 ### Changed
 - **Recording now captures at 48 kHz instead of 16 kHz.** Whisper still
   receives 16 kHz — the audio is resampled once, on the finished recording,

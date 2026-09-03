@@ -28,7 +28,6 @@ pub fn apply(text: &str, corrections: &[(String, String)]) -> String {
 // format halves land together so the round-trip stays covered by tests.
 /// Renders the correction list as the one-pair-per-line text the settings
 /// dialog edits: `misheard => correct`. The inverse of [`parse_pairs`].
-#[allow(dead_code)]
 pub fn format_pairs(corrections: &[(String, String)]) -> String {
     corrections
         .iter()
@@ -43,7 +42,6 @@ pub fn format_pairs(corrections: &[(String, String)]) -> String {
 /// dropped rather than saved, so a half-typed row can never silently
 /// become a rule that eats a word. Order is preserved — corrections apply
 /// in list order and the user controls that order by line order.
-#[allow(dead_code)]
 pub fn parse_pairs(text: &str) -> Vec<(String, String)> {
     text.lines()
         .filter_map(|line| {
@@ -169,6 +167,26 @@ mod tests {
         assert!(parse_pairs("=> odd").is_empty());
         assert!(parse_pairs("ard =>").is_empty());
         assert!(parse_pairs("   =>   ").is_empty());
+    }
+
+    #[test]
+    fn emptying_the_editor_removes_every_correction() {
+        // The tray editor (TASK-VTT144) assigns this result unconditionally, so
+        // an emptied textarea has to mean "remove them all" rather than "no
+        // change" — otherwise a user deletes rules that quietly keep firing.
+        assert!(parse_pairs("").is_empty());
+        assert!(
+            parse_pairs("   \n\n  \n").is_empty(),
+            "whitespace is still empty"
+        );
+    }
+
+    #[test]
+    fn a_wrong_arrow_is_dropped_not_guessed() {
+        // `->` is the plausible typo for `=>`. It must not become a rule, and
+        // it must not take the valid line next to it down with it.
+        let out = parse_pairs("ard -> odd\nteh => the");
+        assert_eq!(out, vec![("teh".to_string(), "the".to_string())]);
     }
 
     #[test]
