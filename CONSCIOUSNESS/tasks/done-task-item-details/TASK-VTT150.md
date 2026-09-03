@@ -31,17 +31,16 @@ settings work is preserved at commit 18479b1.
       on writes wav plus sidecar
 - [x] Five existing recordings transcribe to identical text before and after the
       change, outputs pasted below
-- [ ] DEFERRED (operator gate) — `ffprobe` on a newly archived file shows
-      `sample_rate=48000`, `channels=1`; needs a real dictation with archiving on
-- [ ] DEFERRED (operator gate) — the sidecar json carries id, recorded_at,
-      duration_s, sample_rate, text, model, language and app for that same
-      recording
+- [x] `ffprobe` on a newly archived file shows `sample_rate=48000`, `channels=1`
+      — and `pcm_s24le`, 24-bit, from a real dictation
+- [x] The sidecar json carries id, recorded_at, duration_s, sample_rate, text,
+      model, language and app for that same recording
 - [x] With the three settings absent, behaviour is byte-identical to today:
       `recordings/` still capped at 20, nothing written to an archive
 - [x] `README.md` states what is recorded, where it is stored, how to disable it
       and how to delete it
-- [ ] DEFERRED (operator gate) — the new binary is installed and archiving is
-      enabled in Emmanuel's own `settings.conf`; this card records the date
+- [x] The new binary is running and archiving is enabled in Emmanuel's own
+      `settings.conf`; enabled 2026-09-03, first archived recording 08:50:53
 
 ACs 3, 4 and 7 are a single gate, not three: they all need Emmanuel to read the
 README section and switch archiving on in his own `settings.conf`. Shipping the
@@ -140,3 +139,74 @@ and its sidecar appear and the typed text is unchanged.
   must keep working)
 - Importing anything into epc-voice (TASK-EV035)
 - Uploading archived audio anywhere
+
+
+## Closing evidence, 2026-09-03 08:50
+
+Emmanuel enabled archiving and dictated. The log line that distinguishes the
+builds:
+
+```
+[2026-09-03 08:50:36] Audio stream opened (native 48000 Hz mono)
+[2026-09-03 08:50:36] Audio capture started (48000 Hz mono)
+[2026-09-03 08:50:53] Archived 1.75s at 48000 Hz to
+  .../archive/2026-09-03/vtt_20260903T085053_813.wav
+```
+
+`ffprobe` on that file:
+
+```
+codec_name=pcm_s24le
+sample_rate=48000
+channels=1
+bits_per_raw_sample=24
+duration=1.749333
+```
+
+Its sidecar, every key present:
+
+```json
+{
+  "id": "20260903T085053_813",
+  "recorded_at": "2026-09-03T08:50:53.813524584+01:00",
+  "duration_s": 1.749,
+  "sample_rate": 48000,
+  "text": "Testing, testing, one, two, three.",
+  "model": "large-v3-turbo",
+  "language": "en",
+  "app": null
+}
+```
+
+And the check that mattered most, because getting it wrong would have broken a
+shipped recovery net rather than merely failing: the debug ring is still 16 kHz.
+
+```
+$ ffprobe .../recordings/<newest>.wav
+sample_rate=16000
+channels=1
+```
+
+Archive at 48 kHz 24-bit for the corpus, debug ring at 16 kHz for
+re-transcribe-last, one capture feeding both. That separation was the design
+risk and it held in production, not just in tests.
+
+## What it took to get here, worth recording
+
+Three faults stood between a correct implementation and a working install, and
+none of them announced itself:
+
+- `packaging/linux/vtt-linux.prebuilt` was two weeks old, and `debian/rules`
+  installs it verbatim rather than compiling. A full green build shipped
+  August code. Now gated by TASK-VTT152 (Fail the build when the packaged
+  binary is stale).
+- `apt install` refuses an unchanged version number and exits 0, so the
+  script printed "Installed." over a no-op. `dpkg -i` is the local path.
+- `vtt.service` carries `Restart=always`, so `pkill` respawned the old binary
+  within five seconds and the singleton lock then blocked a direct run.
+
+Separately, the README sent readers to `~/.config/voice-to-text/settings.conf`
+three times. The app reads `~/.local/share/voice-to-text` — `main.rs` names the
+variable `config_dir` and assigns `dirs::data_local_dir()`. A stale `~/.config/`
+settings file from October 2025 still exists on the machine, so the wrong path
+did not fail loudly; it silently did nothing. Fixed at 0276b94.
