@@ -1,2 +1,2 @@
 id|status|priority|kano|description|story_ids|task_ids|doc|last_tested
-FEAT-VTT039|in_review|p1|must-have|Re-transcribe last recording from the tray — recovery net, re-types the newest archived WAV|STORY-VTT018|TASK-VTT132|FEAT-VTT039.md|2026-07-17
+FEAT-VTT039|in_review|p1|must-have|Re-transcribe last recording from the tray — recovery net, re-types the newest archived WAV|STORY-VTT018|TASK-VTT132|FEAT-VTT039.md|2026-09-03

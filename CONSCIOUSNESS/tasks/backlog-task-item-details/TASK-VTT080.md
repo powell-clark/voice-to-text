@@ -82,3 +82,28 @@ doc) is the WRONG artifact — it should be **generated from the cards** or dele
 Re-tier from p3 — this is now the active goal (feature parity + clear specs from
 the aggregate of maintained feature cards). Story: STORY-VTT018. Relates:
 TASK-VTT048, TASK-VTT079, TASK-VTT103.
+
+
+## Partial resolution note, 2026-09-03
+
+The diagnosis above says no `last_tested` field exists. That is no longer true
+of this repo: `FEATURE-ACTIVE-INDEX.md` carries a `last_tested` column and
+FEAT-VTT039 populates it. So the tracking half has landed since the report.
+
+What that column cannot do on its own, demonstrated today: FEAT-VTT039
+(Re-transcribe last recording from the tray) is must-have, carried
+`last_tested=2026-07-17`, and sat seven weeks while an unrelated task
+(TASK-VTT150, Archive dictation as training-grade audio) changed the capture
+rate its decoder depends on. Nothing connected the two. The regression risk was
+caught because the archive task's own pre-mortem named it, not because the
+feature index knew a change had touched its dependencies.
+
+A date is a record, not a gate. What the card's remaining criteria are really
+after is something that goes STALE on a code change — a feature whose
+`last_tested` predates the newest commit touching the files it depends on,
+surfaced the way TASK-VTT152 (Fail the build when the packaged binary is stale)
+surfaces a stale binary. Same shape, same failure mode: something asserting it
+is current while the thing underneath it moved.
+
+The schema-level half (a validated field, structured acceptance criteria) is
+upstream consciousness-plugin work and not this repo's to make.
