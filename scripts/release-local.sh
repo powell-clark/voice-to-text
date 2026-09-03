@@ -92,13 +92,57 @@ chmod 644 "$STAGED_DEB"
 
 if [ "$INSTALL" = true ]; then
     echo "=== Installing (you may be prompted for sudo) ==="
-    sudo apt install -y "$STAGED_DEB"
+    # dpkg -i, NOT apt install. A local build carries the same version as what
+    # is already installed — that is the normal case for this flag — and apt
+    # answers "already the newest version", exits 0, and installs nothing. On
+    # 2026-09-03 that printed "Installed." over a no-op twice (TASK-VTT137).
+    PACKAGED_SHA=$(dpkg-deb --fsys-tarfile "$STAGED_DEB" 2>/dev/null \
+        | tar -xO ./usr/bin/vtt-linux 2>/dev/null | sha256sum | cut -d' ' -f1)
+    sudo dpkg -i "$STAGED_DEB"
+    # dpkg does not resolve dependencies; this is the documented repair and a
+    # no-op when nothing is broken.
+    sudo apt-get -f install -y
+
+    # Verify rather than trust the exit code. Compare content, never mtime:
+    # dpkg preserves the packaged timestamp, which is exactly what made a
+    # two-week-old binary look current this morning.
+    INSTALLED_SHA=$(sha256sum /usr/bin/vtt-linux 2>/dev/null | cut -d' ' -f1)
+    if [ -n "$PACKAGED_SHA" ] && [ "$PACKAGED_SHA" != "$INSTALLED_SHA" ]; then
+        echo ""
+        echo "ERROR: /usr/bin/vtt-linux does not match the package just installed."
+        echo "  packaged:  $PACKAGED_SHA"
+        echo "  installed: $INSTALLED_SHA"
+        echo "The install did not take. Do not trust a later 'it works'."
+        exit 1
+    fi
+    echo "  Verified: /usr/bin/vtt-linux matches the package."
     echo ""
-    echo "Installed. Restart VTT with:"
-    echo "  pkill -f vtt-linux; /usr/bin/vtt-linux &"
+
+    # A running process keeps executing the inode it started from, so the
+    # install has NOT reached the app until it restarts. pkill is the wrong
+    # tool: vtt.service carries Restart=always, so it respawns the old binary
+    # within five seconds and the singleton lock then blocks a replacement.
+    STALE_PIDS=""
+    for exe in /proc/[0-9]*/exe; do
+        target=$(readlink "$exe" 2>/dev/null) || continue
+        case "$target" in
+            *vtt-linux*) STALE_PIDS="$STALE_PIDS ${exe#/proc/}" ;;
+        esac
+    done
+    STALE_PIDS=$(echo "$STALE_PIDS" | sed 's|/exe||g' | tr -s ' ')
+    if [ -n "$(echo "$STALE_PIDS" | tr -d ' ')" ]; then
+        echo "NOTE: vtt-linux is running (pid$STALE_PIDS) and still holds the OLD binary."
+        echo "      It keeps the replaced inode until it restarts."
+    fi
+
+    echo "Restart it so the new binary actually runs:"
+    echo "  systemctl --user restart vtt.service"
+    echo ""
+    echo "Then confirm:"
+    echo "  vtt-linux --doctor      # 'Everything checks out' means it took"
 else
     echo "Install with:"
-    echo "  sudo apt install \"$STAGED_DEB\""
+    echo "  sudo dpkg -i \"$STAGED_DEB\"   # dpkg, not apt: same version installs over"
     echo ""
     echo "Or pass --install to install now."
 fi
