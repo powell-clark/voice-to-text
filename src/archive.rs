@@ -119,9 +119,17 @@ pub fn archive_targets(root: &Path, date: &str, id: &str) -> (PathBuf, PathBuf) 
     )
 }
 
-/// Write 16-bit mono PCM at `sample_rate` to `path`, creating the parent
-/// directory. Separate from `audio::write_wav`, which targets the temp dir and
-/// is always 16 kHz for the debug ring; this one preserves the capture rate.
+/// Peak value of a 24-bit signed sample.
+const I24_MAX: f32 = 8_388_607.0;
+
+/// Write 24-bit mono PCM at `sample_rate` to `path`, creating the parent
+/// directory.
+///
+/// Separate from `audio::write_wav`, which targets the temp dir and is always
+/// 16 kHz 16-bit for the debug ring. This one preserves the capture rate and
+/// takes the wider word: the consumer is a speech-synthesis corpus, whose
+/// conventions call for 24-bit, and the extra headroom costs 1.5x disk on a
+/// capped directory. Cheap now, expensive once a corpus exists.
 pub fn write_wav_at(path: &Path, samples: &[f32], sample_rate: u32) -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -129,12 +137,12 @@ pub fn write_wav_at(path: &Path, samples: &[f32], sample_rate: u32) -> anyhow::R
     let spec = hound::WavSpec {
         channels: 1,
         sample_rate,
-        bits_per_sample: 16,
+        bits_per_sample: 24,
         sample_format: hound::SampleFormat::Int,
     };
     let mut writer = hound::WavWriter::create(path, spec)?;
     for &s in samples {
-        writer.write_sample((s.clamp(-1.0, 1.0) * 32767.0) as i16)?;
+        writer.write_sample((s.clamp(-1.0, 1.0) * I24_MAX) as i32)?;
     }
     writer.finalize()?;
     Ok(())
@@ -379,10 +387,39 @@ mod tests {
         let reader = hound::WavReader::open(&wav).expect("readable wav");
         assert_eq!(reader.spec().sample_rate, 48_000, "capture rate preserved");
         assert_eq!(reader.spec().channels, 1);
-        assert_eq!(reader.spec().bits_per_sample, 16);
+        assert_eq!(
+            reader.spec().bits_per_sample,
+            24,
+            "the corpus consumer's conventions call for 24-bit; 16 would be              silently accepted and quietly worse"
+        );
 
         let text = std::fs::read_to_string(&json).expect("readable sidecar");
         assert!(text.contains("The quick brown fox."));
+    }
+
+    #[test]
+    fn archived_audio_round_trips_through_24_bit() {
+        // A declared bit depth that silently truncates would be worse than
+        // 16-bit honestly labelled, so check the samples survive.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("t.wav");
+        let input: Vec<f32> = (0..512)
+            .map(|i| (i as f32 / 512.0 * std::f32::consts::TAU * 3.0).sin() * 0.5)
+            .collect();
+        write_wav_at(&path, &input, 48_000).expect("write");
+
+        let mut reader = hound::WavReader::open(&path).expect("readable");
+        let decoded: Vec<f32> = reader
+            .samples::<i32>()
+            .map(|s| s.expect("sample") as f32 / 8_388_607.0)
+            .collect();
+        assert_eq!(decoded.len(), input.len());
+        for (a, b) in input.iter().zip(decoded.iter()) {
+            assert!(
+                (a - b).abs() < 1e-5,
+                "24-bit quantisation should be far finer than this: {a} vs {b}"
+            );
+        }
     }
 
     #[test]
