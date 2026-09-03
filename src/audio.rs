@@ -1,13 +1,22 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleRate, StreamConfig};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-/// Whisper's required sample rate. Hardcoded because every supported
-/// Whisper model is trained at 16 kHz; resampling would cost accuracy.
-const SAMPLE_RATE: u32 = 16000;
+/// Whisper's required input rate. Every supported Whisper model is trained at
+/// 16 kHz, so the samples handed to the engine are always at this rate — but
+/// capture no longer happens here. `stop_recording` resamples the capture
+/// buffer down to this immediately before it leaves the audio layer, so the
+/// transcription path sees exactly what it saw before TASK-VTT150.
+const WHISPER_SAMPLE_RATE: u32 = 16000;
+/// The rate we ask the capture device for. 48 kHz is the native rate of every
+/// modern interface and the rate speech synthesis training wants; capturing at
+/// 16 kHz threw away detail that cannot be recovered by upsampling later. The
+/// device may refuse, in which case the native-format fallback records whatever
+/// rate the device does offer and `capture_rate` carries it.
+const CAPTURE_SAMPLE_RATE: u32 = 48000;
 /// Hard cap on recording length. Past this, the buffer stops growing and
 /// the user sees a "[Truncated]" prefix on the transcription. 5 minutes
 /// fits ~4.8M f32 samples = ~19 MB — acceptable RAM for a dictation tool.
@@ -26,7 +35,11 @@ const MIN_AMPLITUDE: i16 = 500;
 pub enum RecordingResult {
     /// Normal recording completed within the duration + amplitude thresholds.
     /// Samples and archived WAV path both present.
-    Audio { samples: Vec<f32>, path: PathBuf },
+    Audio {
+        samples: Vec<f32>,
+        path: PathBuf,
+        native: Option<NativeCapture>,
+    },
     /// Recording was below MIN_DURATION_SECS. Discard.
     TooShort,
     /// Recording was above MIN_DURATION but peak amplitude below MIN_AMPLITUDE.
@@ -35,7 +48,11 @@ pub enum RecordingResult {
     /// Recording hit MAX_RECORDING_SECONDS while the user was still holding
     /// the hotkey. Samples are up to the cap; transcription is prefixed
     /// with "[Truncated]" so the user knows to rehearse shorter.
-    MaxLength { samples: Vec<f32>, path: PathBuf },
+    MaxLength {
+        samples: Vec<f32>,
+        path: PathBuf,
+        native: Option<NativeCapture>,
+    },
     /// The stream delivered zero samples across a hold long enough to have
     /// captured some — the device re-enumerated, the audio session restarted,
     /// or the source was suspended underneath us. Distinct from TooShort so
@@ -44,6 +61,16 @@ pub enum RecordingResult {
     /// been re-opened against the current default device by the time the
     /// caller sees this, so the next press should capture normally.
     NoAudioCaptured,
+}
+
+/// The capture buffer at the device's own rate, retained only when recording
+/// archiving is switched on. This is the single place native-rate samples
+/// survive past the audio layer: with archiving off it is always `None`, so a
+/// build with the setting absent never holds a second copy of the audio and
+/// never has anything to write.
+pub struct NativeCapture {
+    pub samples: Vec<f32>,
+    pub sample_rate: u32,
 }
 
 /// Pure classification of a finished capture, separated from `stop_recording`
@@ -68,6 +95,7 @@ fn classify_capture(
     max_amp: i16,
     was_full: bool,
     held_secs: f32,
+    rate: u32,
 ) -> CaptureClass {
     if sample_count == 0 {
         // Zero samples means a dead stream only when the key was held long
@@ -80,7 +108,7 @@ fn classify_capture(
         }
         return CaptureClass::Empty;
     }
-    let duration = sample_count as f32 / SAMPLE_RATE as f32;
+    let duration = sample_count as f32 / rate as f32;
     if duration < MIN_DURATION_SECS {
         return CaptureClass::TooShort;
     }
@@ -116,6 +144,14 @@ pub struct Audio {
     /// stream is dead if the key was held long enough for cpal to have
     /// delivered a buffer — otherwise it just means the user was quick.
     hold_start: Mutex<Option<Instant>>,
+    /// The rate the open stream actually delivers, written when the stream is
+    /// built. 48 kHz on the direct path; the device's native rate when it
+    /// refused 48 kHz. Read by `stop_recording` to compute duration and to tag
+    /// the archived audio — never assumed.
+    capture_rate: Arc<AtomicU32>,
+    /// Mirrors the `archive` setting. Gates whether the native-rate buffer is
+    /// retained past `stop_recording` at all.
+    archive_enabled: Arc<AtomicBool>,
 }
 
 /// Resolve a saved input-device ordinal against the number of devices cpal
@@ -153,12 +189,13 @@ impl Audio {
     /// `device=N`), or `None` to follow the system default. An out-of-range
     /// choice logs a warning and falls back to the default rather than failing.
     pub fn new(device_index: Option<usize>) -> anyhow::Result<Self> {
-        let max_samples = SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
+        let max_samples = CAPTURE_SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
         let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::with_capacity(max_samples)));
         let recording = Arc::new(AtomicBool::new(false));
         let buffer_full = Arc::new(AtomicBool::new(false));
         let buffer_full_callback: BufferFullCallback = Arc::new(Mutex::new(None));
         let stream_dead = Arc::new(AtomicBool::new(false));
+        let capture_rate = Arc::new(AtomicU32::new(CAPTURE_SAMPLE_RATE));
 
         let stream = Self::open_capture_stream(
             &buffer,
@@ -167,6 +204,7 @@ impl Audio {
             &buffer_full_callback,
             &stream_dead,
             device_index,
+            &capture_rate,
         )?;
 
         Ok(Audio {
@@ -178,7 +216,17 @@ impl Audio {
             buffer_full_callback,
             stream_dead,
             device_index,
+            capture_rate,
+            archive_enabled: Arc::new(AtomicBool::new(false)),
         })
+    }
+
+    /// Switch retention of the native-rate capture buffer on or off. Called
+    /// once at startup from the `archive` setting, and again if the setting
+    /// changes. Off (the default) means `stop_recording` never clones the
+    /// native buffer and `RecordingResult::native` is always `None`.
+    pub fn set_archive_enabled(&self, on: bool) {
+        self.archive_enabled.store(on, Ordering::SeqCst);
     }
 
     /// Drop the current stream (if any) and open a fresh one against the
@@ -202,6 +250,7 @@ impl Audio {
             &self.buffer_full_callback,
             &self.stream_dead,
             self.device_index,
+            &self.capture_rate,
         ) {
             Ok(s) => {
                 *self.stream.lock().unwrap() = Some(s);
@@ -232,6 +281,7 @@ impl Audio {
         buffer_full_callback: &BufferFullCallback,
         stream_dead: &Arc<AtomicBool>,
         device_index: Option<usize>,
+        capture_rate: &Arc<AtomicU32>,
     ) -> anyhow::Result<cpal::Stream> {
         let host = cpal::default_host();
 
@@ -294,7 +344,7 @@ impl Audio {
             device.name().unwrap_or_else(|_| "unknown".into())
         );
 
-        let max = SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
+        let max = CAPTURE_SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
         // The error callback is the death signal, not just a log line: cpal
         // fires it when the device disappears or the backend fails, and the
         // flag makes the next start_recording re-open the stream instead of
@@ -314,11 +364,13 @@ impl Audio {
             buffer_full_callback.clone(),
         );
 
-        // Attempt 1: ask the device for 16 kHz mono f32 directly. ALSA (Linux)
-        // accepts this and resamples internally, so the Linux path is unchanged.
+        // Attempt 1: ask the device for 48 kHz mono f32 directly. ALSA (Linux)
+        // accepts this, and 48 kHz is the native rate of essentially every
+        // interface, so this path now captures at the device's real resolution
+        // instead of asking ALSA to throw two thirds of it away.
         let preferred = StreamConfig {
             channels: 1,
-            sample_rate: SampleRate(SAMPLE_RATE),
+            sample_rate: SampleRate(CAPTURE_SAMPLE_RATE),
             buffer_size: cpal::BufferSize::Default,
         };
 
@@ -336,7 +388,11 @@ impl Audio {
                 None,
             ) {
                 Ok(s) => {
-                    crate::vtt_log!("Audio stream opened (native 16 kHz mono)");
+                    capture_rate.store(CAPTURE_SAMPLE_RATE, Ordering::SeqCst);
+                    crate::vtt_log!(
+                        "Audio stream opened (native {} Hz mono)",
+                        CAPTURE_SAMPLE_RATE
+                    );
                     s
                 }
                 // Attempt 2: WASAPI shared mode (Windows) rejects any non-native
@@ -345,15 +401,17 @@ impl Audio {
                 Err(direct_err) => {
                     let native = device.default_input_config().map_err(|e| {
                         anyhow::anyhow!(
-                            "no native input config ({e}); 16 kHz direct also failed: {direct_err}"
+                            "no native input config ({e}); {CAPTURE_SAMPLE_RATE} Hz direct also failed: {direct_err}"
                         )
                     })?;
                     let rate = native.sample_rate().0;
                     let channels = native.channels() as usize;
                     let fmt = native.sample_format();
                     let cfg: StreamConfig = native.into();
+                    capture_rate.store(rate, Ordering::SeqCst);
                     crate::vtt_log!(
-                        "16 kHz mono unsupported ({direct_err}); native {} Hz {} ch {:?} -> resample to 16 kHz",
+                        "{} Hz mono unsupported ({direct_err}); capturing native {} Hz {} ch {:?}",
+                        CAPTURE_SAMPLE_RATE,
                         rate,
                         channels,
                         fmt
@@ -370,8 +428,7 @@ impl Audio {
                                 &cfg,
                                 move |data: &[f32], _: &cpal::InputCallbackInfo| {
                                     let mono = downmix_to_mono(data, channels);
-                                    let rs = resample_to_16k(&mono, rate);
-                                    ingest(&b, &r, &f, &c, max, &rs);
+                                    ingest(&b, &r, &f, &c, max, &mono);
                                 },
                                 err_cb.clone(),
                                 None,
@@ -390,8 +447,7 @@ impl Audio {
                                     let floats: Vec<f32> =
                                         data.iter().map(|&s| s as f32 / 32768.0).collect();
                                     let mono = downmix_to_mono(&floats, channels);
-                                    let rs = resample_to_16k(&mono, rate);
-                                    ingest(&b, &r, &f, &c, max, &rs);
+                                    ingest(&b, &r, &f, &c, max, &mono);
                                 },
                                 err_cb.clone(),
                                 None,
@@ -409,7 +465,10 @@ impl Audio {
         };
 
         stream.play()?;
-        crate::vtt_log!("Audio capture started (target {} Hz mono)", SAMPLE_RATE);
+        crate::vtt_log!(
+            "Audio capture started ({} Hz mono)",
+            capture_rate.load(Ordering::SeqCst)
+        );
 
         Ok(stream)
     }
@@ -465,10 +524,11 @@ impl Audio {
     pub fn stop_recording(&self) -> Option<RecordingResult> {
         self.recording.store(false, Ordering::SeqCst);
         let was_full = self.buffer_full.load(Ordering::SeqCst);
+        let rate = self.capture_rate.load(Ordering::SeqCst);
 
         let buf = self.buffer.lock().unwrap();
         let sample_count = buf.len();
-        let duration = sample_count as f32 / SAMPLE_RATE as f32;
+        let duration = sample_count as f32 / rate as f32;
 
         // Amplitude in i16 range for comparison (0 for an empty capture)
         let max_amp: i16 = buf
@@ -488,7 +548,7 @@ impl Audio {
             .map(|t| t.elapsed().as_secs_f32())
             .unwrap_or(0.0);
 
-        match classify_capture(sample_count, max_amp, was_full, held_secs) {
+        match classify_capture(sample_count, max_amp, was_full, held_secs, rate) {
             CaptureClass::Empty => {
                 // Zero samples after a hold long enough to have filled a
                 // buffer is a dead stream. Say so, and re-open now so the next
@@ -518,12 +578,26 @@ impl Audio {
             max_amp
         );
 
-        // Snapshot samples for in-process transcription; also write WAV for the
-        // debug recordings archive. If WAV write fails, transcription still proceeds
-        // because samples are already in memory.
-        let samples: Vec<f32> = buf.clone();
+        // Retain the native-rate capture only when archiving is on. This is the
+        // one branch that decides whether a second copy of the audio exists at
+        // all, so with the setting absent the memory and the disk behaviour are
+        // exactly what they were before TASK-VTT150.
+        let native = if self.archive_enabled.load(Ordering::SeqCst) {
+            Some(NativeCapture {
+                samples: buf.clone(),
+                sample_rate: rate,
+            })
+        } else {
+            None
+        };
+
+        // Resample to Whisper's rate here, once, on the finished capture. The
+        // debug recordings archive is written from these samples too, so the
+        // re-transcribe-last recovery net keeps reading the 16 kHz wavs it has
+        // always read.
+        let samples: Vec<f32> = resample_to_whisper(&buf, rate);
         drop(buf);
-        let path = match write_wav(&samples) {
+        let path = match write_wav(&samples, WHISPER_SAMPLE_RATE) {
             Ok(p) => {
                 crate::vtt_log!("Saved recording to {}", p.display());
                 p
@@ -535,14 +609,22 @@ impl Audio {
         };
 
         if was_full {
-            Some(RecordingResult::MaxLength { samples, path })
+            Some(RecordingResult::MaxLength {
+                samples,
+                path,
+                native,
+            })
         } else {
-            Some(RecordingResult::Audio { samples, path })
+            Some(RecordingResult::Audio {
+                samples,
+                path,
+                native,
+            })
         }
     }
 }
 
-fn write_wav(samples: &[f32]) -> anyhow::Result<PathBuf> {
+fn write_wav(samples: &[f32], sample_rate: u32) -> anyhow::Result<PathBuf> {
     // Use the platform temp dir, not a hardcoded "/tmp" — on Windows "/tmp"
     // resolves to a non-existent "C:\tmp" and the write fails (debug recordings
     // silently lost, warning logged every transcription). temp_dir() returns
@@ -556,7 +638,7 @@ fn write_wav(samples: &[f32]) -> anyhow::Result<PathBuf> {
 
     let spec = hound::WavSpec {
         channels: 1,
-        sample_rate: SAMPLE_RATE,
+        sample_rate,
         bits_per_sample: 16,
         sample_format: hound::SampleFormat::Int,
     };
@@ -573,7 +655,8 @@ fn write_wav(samples: &[f32]) -> anyhow::Result<PathBuf> {
     Ok(path)
 }
 
-/// Append captured 16 kHz mono f32 samples into the shared recording buffer,
+/// Append captured mono f32 samples, at the device's own rate, into the shared
+/// recording buffer,
 /// honouring the recording flag, the lock-skip rule (never block the audio
 /// thread), and the buffer-full transition. Shared by the direct-16k and the
 /// native-resampled capture callbacks.
@@ -617,14 +700,16 @@ fn downmix_to_mono(data: &[f32], channels: usize) -> Vec<f32> {
         .collect()
 }
 
-/// Linear-interpolation resample from `in_rate` to 16 kHz. Per-chunk (phase is
-/// not carried across callbacks); for speech-to-text the boundary artefacts are
-/// inaudible to Whisper. `in_rate == 16000` or empty input returns a copy.
-fn resample_to_16k(input: &[f32], in_rate: u32) -> Vec<f32> {
-    if in_rate == SAMPLE_RATE || input.is_empty() {
+/// Linear-interpolation resample from `in_rate` to Whisper's 16 kHz. Applied
+/// once, to the whole finished capture, immediately before the samples leave
+/// the audio layer for transcription — not per callback, so there are no chunk
+/// boundary artefacts at all now. `in_rate == 16000` or empty input returns a
+/// copy.
+fn resample_to_whisper(input: &[f32], in_rate: u32) -> Vec<f32> {
+    if in_rate == WHISPER_SAMPLE_RATE || input.is_empty() {
         return input.to_vec();
     }
-    let ratio = SAMPLE_RATE as f64 / in_rate as f64;
+    let ratio = WHISPER_SAMPLE_RATE as f64 / in_rate as f64;
     let out_len = ((input.len() as f64) * ratio).round() as usize;
     let mut out = Vec::with_capacity(out_len);
     let last = input.len() - 1;
@@ -737,7 +822,10 @@ mod tests {
     fn classify_zero_samples_splits_on_hold_length() {
         // The historic bug: 0 samples logged as "Recording too short (0.00s)",
         // hiding a dead stream behind a user-timing message (TASK-VTT121).
-        assert_eq!(classify_capture(0, 0, false, 3.0), CaptureClass::Empty);
+        assert_eq!(
+            classify_capture(0, 0, false, 3.0, CAPTURE_SAMPLE_RATE),
+            CaptureClass::Empty
+        );
 
         // A tap can end before cpal's first callback fires, so zero samples
         // over a hold shorter than MIN_DURATION_SECS is a quick user, not a
@@ -745,23 +833,29 @@ mod tests {
         // icon in the tray and re-opened the stream for nothing — the symptom
         // that surfaced once releases stopped being discarded (TASK-VTT148).
         assert_eq!(
-            classify_capture(0, 0, false, 0.02),
+            classify_capture(0, 0, false, 0.02, CAPTURE_SAMPLE_RATE),
             CaptureClass::TooShort,
             "a hasty tap must not be reported as a dead microphone"
         );
         // At and beyond the threshold a silent stream is still a real fault.
         assert_eq!(
-            classify_capture(0, 0, false, MIN_DURATION_SECS),
+            classify_capture(0, 0, false, MIN_DURATION_SECS, CAPTURE_SAMPLE_RATE),
             CaptureClass::Empty
         );
-        assert_eq!(classify_capture(0, 0, false, 10.0), CaptureClass::Empty);
+        assert_eq!(
+            classify_capture(0, 0, false, 10.0, CAPTURE_SAMPLE_RATE),
+            CaptureClass::Empty
+        );
     }
 
     #[test]
     fn classify_zero_samples_with_full_flag_is_still_empty() {
         // Shouldn't happen (full implies samples), but empty must win: a dead
         // stream must never masquerade as a max-length recording.
-        assert_eq!(classify_capture(0, 32767, true, 3.0), CaptureClass::Empty);
+        assert_eq!(
+            classify_capture(0, 32767, true, 3.0, CAPTURE_SAMPLE_RATE),
+            CaptureClass::Empty
+        );
     }
 
     #[test]
@@ -769,43 +863,49 @@ mod tests {
         // The boundary: any real samples below MIN_DURATION_SECS are the
         // user's timing, not a device failure.
         assert_eq!(
-            classify_capture(1, 32767, false, 0.01),
+            classify_capture(1, 32767, false, 0.01, CAPTURE_SAMPLE_RATE),
             CaptureClass::TooShort
         );
     }
 
     #[test]
     fn classify_just_under_min_duration_is_too_short() {
-        let just_under = (SAMPLE_RATE as f32 * MIN_DURATION_SECS) as usize - 1;
+        let just_under = (CAPTURE_SAMPLE_RATE as f32 * MIN_DURATION_SECS) as usize - 1;
         assert_eq!(
-            classify_capture(just_under, 32767, false, 0.49),
+            classify_capture(just_under, 32767, false, 0.49, CAPTURE_SAMPLE_RATE),
             CaptureClass::TooShort
         );
     }
 
     #[test]
     fn classify_long_enough_but_quiet_is_too_quiet() {
-        let one_second = SAMPLE_RATE as usize;
+        let one_second = CAPTURE_SAMPLE_RATE as usize;
         assert_eq!(
-            classify_capture(one_second, MIN_AMPLITUDE - 1, false, 1.0),
+            classify_capture(
+                one_second,
+                MIN_AMPLITUDE - 1,
+                false,
+                1.0,
+                CAPTURE_SAMPLE_RATE
+            ),
             CaptureClass::TooQuiet
         );
     }
 
     #[test]
     fn classify_normal_recording() {
-        let one_second = SAMPLE_RATE as usize;
+        let one_second = CAPTURE_SAMPLE_RATE as usize;
         assert_eq!(
-            classify_capture(one_second, MIN_AMPLITUDE, false, 1.0),
+            classify_capture(one_second, MIN_AMPLITUDE, false, 1.0, CAPTURE_SAMPLE_RATE),
             CaptureClass::Normal
         );
     }
 
     #[test]
     fn classify_full_buffer_is_max_length() {
-        let five_minutes = SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
+        let five_minutes = CAPTURE_SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
         assert_eq!(
-            classify_capture(five_minutes, 20_000, true, 300.0),
+            classify_capture(five_minutes, 20_000, true, 300.0, CAPTURE_SAMPLE_RATE),
             CaptureClass::MaxLength
         );
     }
@@ -827,15 +927,41 @@ mod tests {
     #[test]
     fn resample_same_rate_is_passthrough() {
         let s = vec![0.0, 0.5, -0.5, 1.0];
-        assert_eq!(resample_to_16k(&s, SAMPLE_RATE), s);
-        assert!(resample_to_16k(&[], 48_000).is_empty());
+        assert_eq!(resample_to_whisper(&s, WHISPER_SAMPLE_RATE), s);
+        assert!(resample_to_whisper(&[], 48_000).is_empty());
+    }
+
+    #[test]
+    fn whisper_input_is_16k_from_a_48k_capture() {
+        // The invariant TASK-VTT150 rests on: capture moved to 48 kHz, and the
+        // samples handed to Whisper are still 16 kHz, so transcription sees
+        // exactly what it saw before. Three seconds in, three seconds out.
+        let three_seconds: Vec<f32> = (0..(CAPTURE_SAMPLE_RATE as usize * 3))
+            .map(|i| (i as f32 / 400.0).sin() * 0.4)
+            .collect();
+        let out = resample_to_whisper(&three_seconds, CAPTURE_SAMPLE_RATE);
+        let expected = WHISPER_SAMPLE_RATE as usize * 3;
+        assert!(
+            (out.len() as i64 - expected as i64).abs() <= 1,
+            "expected ~{expected} samples at 16 kHz, got {}",
+            out.len()
+        );
+        assert!(out.iter().all(|s| s.is_finite()));
+    }
+
+    #[test]
+    fn whisper_resample_is_a_passthrough_for_a_16k_device() {
+        // A device that only offers 16 kHz still works: the fallback captures
+        // at its native rate and the resample becomes a copy, not a rescale.
+        let s: Vec<f32> = (0..1000).map(|i| i as f32 / 1000.0).collect();
+        assert_eq!(resample_to_whisper(&s, WHISPER_SAMPLE_RATE).len(), s.len());
     }
 
     #[test]
     fn resample_downsamples_48k_to_16k_thirds_the_length() {
         // 48 kHz -> 16 kHz is a 1:3 decimation; 300 in -> ~100 out.
         let input: Vec<f32> = (0..300).map(|i| (i as f32 * 0.01).sin()).collect();
-        let out = resample_to_16k(&input, 48_000);
+        let out = resample_to_whisper(&input, 48_000);
         assert!(
             (out.len() as i32 - 100).abs() <= 1,
             "expected ~100 samples, got {}",
@@ -849,7 +975,7 @@ mod tests {
     #[test]
     fn resample_upsamples_8k_to_16k_doubles_the_length() {
         let input: Vec<f32> = (0..50).map(|i| i as f32 / 50.0).collect();
-        let out = resample_to_16k(&input, 8_000);
+        let out = resample_to_whisper(&input, 8_000);
         assert!(
             (out.len() as i32 - 100).abs() <= 1,
             "expected ~100 samples, got {}",
@@ -865,13 +991,13 @@ mod tests {
             .map(|i| (i as f32 / 100.0 * std::f32::consts::TAU * 5.0).sin() * 0.5)
             .collect();
 
-        let path = write_wav(&input).expect("write should succeed");
+        let path = write_wav(&input, WHISPER_SAMPLE_RATE).expect("write should succeed");
         assert!(path.exists(), "wav file should be on disk after write");
 
         // Read it back via hound (same crate used to write it).
         let mut reader = hound::WavReader::open(&path).expect("readable wav");
         let spec = reader.spec();
-        assert_eq!(spec.sample_rate, SAMPLE_RATE);
+        assert_eq!(spec.sample_rate, WHISPER_SAMPLE_RATE);
         assert_eq!(spec.channels, 1);
         assert_eq!(spec.bits_per_sample, 16);
 
@@ -904,7 +1030,7 @@ mod tests {
         // audio is normalised elsewhere. write_wav should clamp instead of
         // wrapping/panicking during the i16 cast.
         let input = vec![2.0_f32, -2.0, 0.5, -0.5, 1.5, -1.5];
-        let path = write_wav(&input).expect("write should succeed");
+        let path = write_wav(&input, WHISPER_SAMPLE_RATE).expect("write should succeed");
 
         let mut reader = hound::WavReader::open(&path).expect("readable wav");
         let decoded: Vec<i16> = reader

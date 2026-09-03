@@ -85,6 +85,59 @@ Models download on first selection from `ggerganov/whisper.cpp`. Start with
 
 ---
 
+## Archiving your recordings
+
+**Off by default. It saves your voice and your words to your disk. Read this
+before turning it on.**
+
+Normally a recording is transcribed, typed, and thrown away — only the last 20
+are kept, briefly, so the tray's *Re-transcribe last recording* has something to
+work with. Archiving keeps them all instead: every recording you make, at your
+microphone's full quality, next to a file containing exactly what you said.
+
+Nothing is uploaded. Nothing leaves your machine. There is no account, no
+telemetry and no network call in this feature — it writes two files to a folder
+you choose and that is all it does. But it does mean a growing folder of your
+own voice and a searchable record of everything you have dictated, so turn it on
+deliberately, and think about who else can read that disk.
+
+**Turning it on.** Add to `~/.config/voice-to-text/settings.conf`:
+
+```ini
+archive=1
+# Optional. Default: ~/.config/voice-to-text/archive
+archive_dir="~/voice-archive"
+# Optional. Oldest recordings are deleted past this. 0 = keep everything.
+archive_max_files=5000
+```
+
+Restart the app. With `archive` absent or `0`, nothing is written and the app
+behaves exactly as it did before this feature existed.
+
+**What you get**, one folder per day:
+
+```text
+~/voice-archive/2026-09-03/vtt_20260903T034812_123.wav    your voice, 48 kHz mono
+~/voice-archive/2026-09-03/vtt_20260903T034812_123.json   what you said, plus when
+```
+
+The `.json` holds the transcript, the timestamp, the duration, the sample rate,
+the model and the language. At the 5,000-file default the folder settles at
+roughly 11 hours of audio, under a gigabyte.
+
+**Turning it off.** Set `archive=0` (or delete the line) and restart. Recordings
+already archived stay where they are — turning the feature off does not delete
+anything.
+
+**Deleting everything.** The archive is an ordinary folder. Delete it the way
+you would any other, or from a terminal:
+
+```bash
+rm -rf ~/.config/voice-to-text/archive      # or your own archive_dir
+```
+
+---
+
 ## Build from source
 
 One Rust crate, built with `cargo` on every platform. You need Rust (rustup),
