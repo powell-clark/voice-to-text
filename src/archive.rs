@@ -94,21 +94,81 @@ pub fn should_archive(text: &str) -> bool {
     !text.trim().is_empty()
 }
 
-/// Where the archive lives. An empty setting means the default beside the rest
-/// of the app's data — `~/.local/share/voice-to-text/archive` on Linux, NOT
-/// `~/.config` (TASK-VTT155). A leading `~/` expands against the home directory
-/// so a hand-edited `settings.conf` behaves the way its author expects.
-pub fn resolve_archive_dir(setting: &str, data_dir: &Path) -> PathBuf {
-    let trimmed = setting.trim();
-    if trimmed.is_empty() {
-        return data_dir.join("archive");
-    }
-    if let Some(rest) = trimmed.strip_prefix("~/") {
-        if let Some(home) = dirs::home_dir() {
-            return home.join(rest);
+/// What `archive_dir` resolved to, and whether the operator's setting was
+/// honoured. `Rejected` carries the reason so the startup line and `--doctor`
+/// can say why a setting did not take, instead of writing somewhere surprising.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ArchiveDir {
+    /// The default beside the app's own data, because no setting was given.
+    Default(PathBuf),
+    /// The operator's setting, resolved.
+    Configured(PathBuf),
+    /// The setting could not be resolved; the default is used instead.
+    Rejected { used: PathBuf, why: String },
+}
+
+impl ArchiveDir {
+    /// The directory to actually write into, whichever branch was taken.
+    pub fn path(&self) -> &Path {
+        match self {
+            ArchiveDir::Default(p) | ArchiveDir::Configured(p) => p,
+            ArchiveDir::Rejected { used, .. } => used,
         }
     }
-    PathBuf::from(trimmed)
+}
+
+/// Where the archive lives, and whether the setting was honoured.
+///
+/// This decides where the operator's voice is written, so it resolves
+/// predictably or refuses and says why (TASK-VTT161). `settings.conf` is not
+/// shell-expanded, and a relative path would resolve against the process's
+/// working directory — for a systemd user unit that is not the shell directory
+/// the operator typed it in, so recordings would land somewhere unfindable.
+///
+/// The default is beside the app's own data — `~/.local/share/voice-to-text`
+/// on Linux, NOT `~/.config` (TASK-VTT155).
+pub fn resolve_archive_dir_checked(setting: &str, data_dir: &Path) -> ArchiveDir {
+    let default = data_dir.join("archive");
+    let trimmed = setting.trim();
+    if trimmed.is_empty() {
+        return ArchiveDir::Default(default);
+    }
+
+    // A bare `~` means home, not a directory literally called "~".
+    let expanded = if trimmed == "~" {
+        dirs::home_dir()
+    } else if let Some(rest) = trimmed.strip_prefix("~/") {
+        dirs::home_dir().map(|h| h.join(rest))
+    } else {
+        Some(PathBuf::from(trimmed))
+    };
+
+    let Some(path) = expanded else {
+        return ArchiveDir::Rejected {
+            used: default,
+            why: "no home directory to expand ~ against".to_string(),
+        };
+    };
+
+    if path.is_absolute() {
+        ArchiveDir::Configured(path)
+    } else {
+        ArchiveDir::Rejected {
+            used: default,
+            why: format!(
+                "archive_dir must be an absolute path or start with ~/ — \
+                 {trimmed:?} would resolve against the service's working \
+                 directory, not yours"
+            ),
+        }
+    }
+}
+
+/// Convenience for callers that only need the directory to write into.
+pub fn resolve_archive_dir(setting: &str, data_dir: &Path) -> PathBuf {
+    resolve_archive_dir_checked(setting, data_dir)
+        .path()
+        .to_path_buf()
 }
 
 /// True when a filename is one this code wrote: `vtt_<id>.wav`.
@@ -359,6 +419,45 @@ mod tests {
             "an absent setting must not scatter audio somewhere surprising"
         );
         assert_eq!(resolve_archive_dir("   ", &cfg), cfg.join("archive"));
+    }
+
+    #[test]
+    fn a_bare_tilde_means_home_not_a_folder_called_tilde() {
+        let cfg = PathBuf::from("/home/u/.local/share/voice-to-text");
+        let r = resolve_archive_dir_checked("~", &cfg);
+        match (&r, dirs::home_dir()) {
+            (ArchiveDir::Configured(p), Some(home)) => assert_eq!(p, &home),
+            (_, None) => {} // no home on this box; the rejected branch is correct
+            other => panic!("bare ~ should resolve to home, got {other:?}"),
+        }
+        assert_ne!(resolve_archive_dir("~", &cfg), PathBuf::from("~"));
+    }
+
+    #[test]
+    fn a_relative_path_is_refused_with_a_reason() {
+        // settings.conf looks shell-ish, so people type shell-ish things. A
+        // relative path would resolve against the service's cwd — for a systemd
+        // user unit, not the directory the operator typed it in.
+        let cfg = PathBuf::from("/home/u/.local/share/voice-to-text");
+        for bad in ["voice-archive", "$HOME/x", "./out", "~archive"] {
+            match resolve_archive_dir_checked(bad, &cfg) {
+                ArchiveDir::Rejected { used, why } => {
+                    assert_eq!(used, cfg.join("archive"), "must fall back to the default");
+                    assert!(!why.is_empty(), "a refusal must say why");
+                }
+                other => panic!("{bad:?} should be refused, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn an_empty_setting_is_default_not_rejected() {
+        // The overwhelmingly common case must not look like an error.
+        let cfg = PathBuf::from("/home/u/.local/share/voice-to-text");
+        assert!(matches!(
+            resolve_archive_dir_checked("", &cfg),
+            ArchiveDir::Default(_)
+        ));
     }
 
     #[test]
