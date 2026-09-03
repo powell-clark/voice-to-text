@@ -210,3 +210,25 @@ three times. The app reads `~/.local/share/voice-to-text` — `main.rs` names th
 variable `config_dir` and assigns `dirs::data_local_dir()`. A stale `~/.config/`
 settings file from October 2025 still exists on the machine, so the wrong path
 did not fail loudly; it silently did nothing. Fixed at 0276b94.
+
+## Follow-up: persistence
+
+The first verified archive was produced by a direct run of
+`target/release/vtt-linux` after `systemctl --user stop vtt.service`. That is
+session-only: `vtt.service` is still `enabled` with
+`ExecStart=/usr/bin/vtt-linux`, which is the 18 August build with no archive
+code in it. A reboot or any `systemctl --user start` silently returns to 16 kHz
+with archiving dead and nothing in the output to notice.
+
+Closing that needs `sudo dpkg -i` of a rebuilt package so `/usr/bin/vtt-linux`
+is the archiving binary and systemd owns it again. Flagged to Emmanuel with the
+verification command; the acceptance criteria above are met on their own terms
+(a real dictation did archive correctly) and this is a deployment step rather
+than an unmet criterion.
+
+## Follow-up: sidecar id is not the filename stem
+
+`id` is bare (`20260903T085053_813`); the wav and json are `vtt_<id>.wav` and
+`vtt_<id>.json`. A consumer assuming `id == stem` pairs nothing. Surfaced by the
+epc-voice seat against the first real artefact and documented in README rather
+than changed, because data now exists in the shipped shape.
