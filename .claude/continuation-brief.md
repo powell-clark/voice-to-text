@@ -1,5 +1,5 @@
 === CONSCIOUSNESS CONTINUATION BRIEF ===
-Written: 2026-09-03T12:11:53.820Z | session: vtt-5eab9f2f
+Written: 2026-09-03T12:14:36.538Z | session: vtt-5eab9f2f
 The previous session ended or reset its context window. This is its runtime
 state at that moment — the durable PGPS record is the source of truth, so
 re-read the task card before acting on anything below.
@@ -38,6 +38,5 @@ PGPS summary:
 - TASK-VTT135 (upcoming, p1) Self-hosted signed apt repo on GitHub Pages — OPERATOR-DECISION-PENDING (GPG signing key + CI secret for a public repo)
 - TASK-VTT064 (in_progress, p1) Windows ARM64 Snapdragon CPU build
 - TASK-VTT157 (upcoming, p1) Prepare 2.4.0 for release
-- TASK-VTT158 (upcoming, p1) Track transcription accuracy across models and settings
 
 === END CONTINUATION BRIEF ===
