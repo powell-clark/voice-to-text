@@ -109,3 +109,4 @@ TASK-VTT116|APGPS connectivity test — does the issue API land reports on the d
 TASK-VTT117|APGPS connectivity re-test after OAuth re-auth — does the issue API land on the dashboard now? (VERIFIED RESOLVED — see card)||||TASK-VTT117.md||
 TASK-VTT142|Repair FEATURE-MAINTAINED-DONE-INDEX column alignment||||TASK-VTT142.md||
 TASK-VTT145|Suppress steady background noise before inference|STORY-VTT015|DIRECT-VTT002||TASK-VTT145.md||
+TASK-VTT152|Fail the build when the packaged binary is stale|STORY-VTT018|DIRECT-VTT002||TASK-VTT152.md||
