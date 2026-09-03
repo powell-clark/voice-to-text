@@ -27,23 +27,62 @@ using two functions that already exist and are already tested.
 
 ## Acceptance criteria
 
-- [ ] The tray's "Customize Transcription Settings" dialog shows a corrections
+- [x] The tray's "Customize Transcription Settings" dialog shows a corrections
       editor: a scrollable textarea, one `misheard => correct` pair per line,
       pre-filled from the saved corrections
-- [ ] Saving parses the textarea with `corrections::parse_pairs` and persists the
+- [x] Saving parses the textarea with `corrections::parse_pairs` and persists the
       result, so a pair added in the dialog survives a restart
-- [ ] A half-typed row (no `=>`, empty left side, or empty right side) is dropped
+- [x] A half-typed row (no `=>`, empty left side, or empty right side) is dropped
       rather than saved — a rule that eats a word can never be created by
       accident
-- [ ] Clearing the textarea and saving leaves zero corrections rather than
+- [x] Clearing the textarea and saving leaves zero corrections rather than
       leaving the previous list in place
-- [ ] Reset Default clears the corrections textarea alongside the other fields
-- [ ] The dialog still fits its content after the new section — the window grows
-      or scrolls rather than clipping the button row
-- [ ] `format_pairs` and `parse_pairs` lose their `#[allow(dead_code)]`
+- [x] Reset Default clears the corrections textarea alongside the other fields
+- [ ] DEFERRED (operator gate) — the dialog still fits its content after the new
+      section; needs eyes on a rebuilt binary, see the note below
+- [x] `format_pairs` and `parse_pairs` lose their `#[allow(dead_code)]`
       attributes, because they are now called
-- [ ] `cargo test --workspace` passes; `cargo clippy --workspace --all-targets --
+- [x] `cargo test --workspace` passes; `cargo clippy --workspace --all-targets --
       -D warnings` is clean
+
+## Evidence
+
+```
+cargo test --workspace: 154 passed; 0 failed; 1 ignored
+cargo clippy --workspace --all-targets -- -D warnings: clean
+cargo build: clean
+```
+
+Two new tests cover what the editor newly makes reachable — the round trip
+itself was already tested seven ways by TASK-VTT118, so this adds only the cases
+the dialog introduces:
+
+- `emptying_the_editor_removes_every_correction` — the save path assigns
+  `parse_pairs` unconditionally, so an emptied box must mean "remove them all"
+  rather than "no change"; whitespace-only counts as empty
+- `a_wrong_arrow_is_dropped_not_guessed` — `->` is the plausible typo for `=>`;
+  it must not become a rule and must not take the valid line beside it down
+
+Removing the two `#[allow(dead_code)]` attributes is itself a check: the build
+would now fail on an unused-function warning under `-D warnings` if the wiring
+were not actually reached.
+
+`buffer_text` was extracted while wiring the second multi-line field, and the
+initial-prompt save now uses it too — the same four lines had been inlined.
+
+### The one deferred criterion
+
+The dialog was `set_resizable(false)` at a fixed 500x340 holding five controls;
+a sixth clips the button row, which is failure mode 1 in the pre-mortem. It is
+now 520x560 and resizable. Section heights sum to roughly 545px — prefix 55,
+prompt 110, corrections 155, newline block 110, buttons 35, border 40, spacers
+40 — so 560 fits with the resize handle absorbing font-scale variance.
+
+That is construction, not verification. GTK is not unit-testable here and this
+repo's story scope calls widget tests brittle and low-ROI, so the check is a
+human opening the dialog on a rebuilt binary. It shares a gate with TASK-VTT150
+(Archive dictation as training-grade audio): both need
+`bash scripts/release-local.sh --install` and a look.
 
 ## Test Strategy
 
