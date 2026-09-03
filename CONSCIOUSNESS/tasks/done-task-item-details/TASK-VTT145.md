@@ -70,13 +70,16 @@ the samples bound for transcription.
       within 1 dB, asserted on synthesised tones
 - [x] The filter is applied to the samples bound for Whisper and NOT to the
       archived audio
-- [x] `denoise` in settings.conf toggles it, default on; absent means on, and
-      `denoise=0` reproduces today's behaviour exactly
-- [~] MEASURED, RESULT MIXED — see "What the measurement actually said". 7 of 12
-      unchanged, including all three highest-SNR recordings; 5 changed, all of
-      them marginal audio, and the changes are not uniformly improvements. This
-      does not meet the "unchanged or improved" bar as written. Flagged for the
-      operator rather than quietly rewritten
+- [x] `denoise` in settings.conf toggles it — default OFF, amended from the
+      card's original "default on" by operator decision once the fan the card
+      was written against turned out to be gone; absent means off, and
+      `denoise=1` enables it
+- [x] MEASURED, RESULT MIXED, AND RESOLVED — 7 of 12 unchanged, including all
+      three highest-SNR recordings; 5 changed, all marginal audio, not uniformly
+      improvements. That did not meet the "unchanged or improved" bar, so it was
+      flagged rather than quietly rewritten. Emmanuel then removed the premise —
+      no fan any more — and the gate is satisfied the honest way: the filter
+      ships off by default, so no recording changes unless he asks for it
 - [x] `cargo test --workspace` passes; clippy and fmt clean
 - [x] A follow-up task is filed for spectral subtraction, carrying this
       measurement as its baseline — TASK-VTT151 (Spectral subtraction if rumble

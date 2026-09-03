@@ -108,3 +108,4 @@ TASK-VTT115|PGPS feature MAINTAINED/DONE display double-lists — validator reje
 TASK-VTT116|APGPS connectivity test — does the issue API land reports on the dashboard now that voice-to-text is connected? (SUPERSEDED by TASK-VTT117 — see card)||||TASK-VTT116.md||
 TASK-VTT117|APGPS connectivity re-test after OAuth re-auth — does the issue API land on the dashboard now? (VERIFIED RESOLVED — see card)||||TASK-VTT117.md||
 TASK-VTT142|Repair FEATURE-MAINTAINED-DONE-INDEX column alignment||||TASK-VTT142.md||
+TASK-VTT145|Suppress steady background noise before inference|STORY-VTT015|DIRECT-VTT002||TASK-VTT145.md||
