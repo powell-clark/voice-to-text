@@ -72,7 +72,12 @@ pub const DEFAULT_CUTOFF_HZ: f32 = 90.0;
 /// doubling it puts deep rumble more than 20 dB down while leaving 300 Hz and
 /// above untouched.
 pub struct HighPass {
-    sections: [Biquad; 2],
+    /// `None` when the requested corner cannot be realised at this sample rate,
+    /// in which case the filter passes audio through untouched. Silence is the
+    /// wrong failure here: `2*PI*cutoff/0` is infinity, `sin_cos` of infinity is
+    /// NaN, and NaN coefficients turn every sample into NaN — Whisper would
+    /// receive NaN audio rather than a clean error (TASK-VTT159).
+    sections: Option<[Biquad; 2]>,
 }
 
 impl HighPass {
@@ -83,17 +88,30 @@ impl HighPass {
     /// across recordings would leak the tail of one into the head of the next.
     pub fn new(cutoff_hz: f32, sample_rate: u32) -> Self {
         let fs = sample_rate as f32;
+        // A corner at or above Nyquist is not a high-pass — the coefficients
+        // come out with gain above 1 and the filter amplifies instead of
+        // attenuating (measured b0 = 1.98 at 100 Hz). Rate 0 is worse still.
+        // Neither can arise from the direct capture path, but `capture_rate` is
+        // read from the device on the native-format fallback and nothing
+        // guarantees it is sane.
+        let realisable =
+            sample_rate > 0 && cutoff_hz > 0.0 && cutoff_hz * 2.0 < fs && cutoff_hz.is_finite();
         Self {
-            sections: [
-                Biquad::high_pass(cutoff_hz, fs, 0.541_196_1),
-                Biquad::high_pass(cutoff_hz, fs, 1.306_562_9),
-            ],
+            sections: realisable.then(|| {
+                [
+                    Biquad::high_pass(cutoff_hz, fs, 0.541_196_1),
+                    Biquad::high_pass(cutoff_hz, fs, 1.306_562_9),
+                ]
+            }),
         }
     }
 
     fn sample(&mut self, x: f32) -> f32 {
+        let Some(sections) = self.sections.as_mut() else {
+            return x;
+        };
         let mut y = x;
-        for s in &mut self.sections {
+        for s in sections {
             y = s.process(y);
         }
         y
@@ -197,6 +215,42 @@ mod tests {
             "DC should be flattened, got rms {}",
             rms(&out)
         );
+    }
+
+    #[test]
+    fn a_zero_sample_rate_passes_audio_through_rather_than_nan() {
+        // 2*PI*cutoff/0 is infinity and sin_cos of infinity is NaN, so an
+        // unguarded filter turns every sample into NaN and hands Whisper NaN
+        // audio instead of failing cleanly.
+        let input: Vec<f32> = (0..64).map(|i| (i as f32 / 64.0) - 0.5).collect();
+        let out = suppress_rumble(&input, 0);
+        assert!(
+            out.iter().all(|s| s.is_finite()),
+            "no NaN may reach Whisper"
+        );
+        assert_eq!(out, input, "an unrealisable filter must pass audio through");
+    }
+
+    #[test]
+    fn a_corner_above_nyquist_passes_through_rather_than_amplifying() {
+        // At 100 Hz the 90 Hz corner sits above Nyquist and the coefficients
+        // come out with gain above 1 — the filter would amplify what it is
+        // meant to remove.
+        let input: Vec<f32> = (0..64).map(|i| ((i % 8) as f32 / 8.0) - 0.5).collect();
+        for fs in [100, 180] {
+            let out = suppress_rumble(&input, fs);
+            assert_eq!(out, input, "fs={fs} cannot realise a 90 Hz corner");
+        }
+    }
+
+    #[test]
+    fn the_lowest_realisable_rate_still_filters() {
+        // Just above 2x the corner must still build a real filter, so the guard
+        // is not quietly disabling the feature at ordinary rates.
+        let input: Vec<f32> = (0..2000).map(|i| (i as f32 / 50.0).sin() * 0.4).collect();
+        let out = suppress_rumble(&input, 8_000);
+        assert!(out.iter().all(|s| s.is_finite()));
+        assert_ne!(out, input, "8 kHz is realisable and must actually filter");
     }
 
     #[test]
