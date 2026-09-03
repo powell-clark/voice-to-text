@@ -115,3 +115,4 @@ TASK-VTT153|Verify the running binary matches the installed one|STORY-VTT018|DIR
 TASK-VTT137|Unify release flow — local install + PPA publish in one run|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT137.md||
 TASK-VTT154|Expose archiving and denoise in the settings dialog|STORY-VTT019|DIRECT-VTT002||TASK-VTT154.md||
 TASK-VTT155|Rename config_dir to data_dir throughout|STORY-VTT018|DIRECT-VTT002||TASK-VTT155.md||
+TASK-VTT156|Log the resolved archiving state at startup|STORY-VTT020|DIRECT-VTT002||TASK-VTT156.md||
