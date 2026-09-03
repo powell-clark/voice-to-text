@@ -26,22 +26,23 @@
       "assignment_message_id": null,
       "branch": "main",
       "canonical_id": "5eab9f2f-10a6-41f8-a193-8a90d1c7aab9",
-      "conscious_mode": true,
+      "conscious_mode": false,
       "context": {
         "adapter": "claude-code",
+        "multiplexer": "tmux",
         "pane": "%22",
         "project": "vtt"
       },
       "current_activity": null,
       "current_task": null,
       "identity": null,
-      "last_activity": "2026-09-03T23:47:13.457Z",
+      "last_activity": "2026-09-03T23:50:06.118Z",
       "model": null,
       "pane_id": "%22",
       "role": null,
       "session_type": "cli",
       "specialty": null,
-      "started": "2026-09-03T12:23:01.699Z",
+      "started": "2026-09-03T23:47:44.706Z",
       "worktree": "/home/powell-clark/projects/auxiliary/voice-to-text"
     }
   }

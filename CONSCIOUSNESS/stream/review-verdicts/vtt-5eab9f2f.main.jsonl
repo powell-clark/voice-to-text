@@ -1,1 +1,0 @@
-{"target_type":"task","target_id":"TASK-VTT161","target_title":"Resolve archive_dir predictably or refuse it","reviewer_type":"agent","reviewer_id":"vtt-5eab9f2f","verdict":"bypass-approved","reviewed_at":"2026-09-03 23:47:13.670 gmt","note":"Operator-settable path resolves predictably or refuses with a reason, surfaced where a human looks."}

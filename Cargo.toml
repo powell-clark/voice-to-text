@@ -79,13 +79,25 @@ rdev = "0.5"
 windows-sys = { version = "0.59", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }
 # Start-at-login toggle via the HKCU Run key (TASK-VTT094, FEAT parity VTT015).
 winreg = "0.52"
-# Vulkan GPU acceleration on Windows (TASK-VTT088, FEAT-VTT024) — vendor-neutral
-# (NVIDIA/AMD/Intel) so one build accelerates every GPU without a CUDA Toolkit
-# dependency. Needs the Vulkan SDK at build time (glslc + headers + vulkan-1.lib);
-# the runtime vulkan-1.dll ships with the GPU driver. whisper-rs falls back to
-# CPU when no Vulkan device is present. The ARM64 build (TASK-VTT064) overrides
-# this back to CPU where Adreno/Vulkan is unproven.
+
+# ─── Windows x86-64: Vulkan ─────────────────────────────────────
+# Vendor-neutral GPU acceleration (NVIDIA/AMD/Intel) so one build accelerates
+# every GPU without a CUDA Toolkit dependency (TASK-VTT088, FEAT-VTT024). Needs
+# the Vulkan SDK at build time (glslc + headers + vulkan-1.lib); the runtime
+# vulkan-1.dll ships with the GPU driver, and whisper-rs falls back to CPU when
+# no Vulkan device is present.
+[target.'cfg(all(target_os = "windows", target_arch = "x86_64"))'.dependencies]
 whisper-rs = { version = "0.16", default-features = false, features = ["vulkan"] }
+
+# ─── Windows ARM64: CPU only ────────────────────────────────────
+# Deliberately NOT Vulkan (TASK-VTT064). The Snapdragon's Adreno Vulkan path on
+# Windows-on-ARM is unproven, and the Oryon cores run base/small models in real
+# time on CPU. The generic windows cfg above matches aarch64 as well as x86_64,
+# so without this split an ARM64 build would pull in Vulkan and demand an SDK
+# that does not ship for the target — the arch split is what makes "CPU-only"
+# true rather than merely intended.
+[target.'cfg(all(target_os = "windows", target_arch = "aarch64"))'.dependencies]
+whisper-rs = { version = "0.16", default-features = false }
 
 # ─── macOS ──────────────────────────────────────────────────────
 [target.'cfg(target_os = "macos")'.dependencies]

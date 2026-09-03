@@ -1,5 +1,5 @@
 === CONSCIOUSNESS CONTINUATION BRIEF ===
-Written: 2026-09-03T12:19:06.664Z | session: vtt-5eab9f2f
+Written: 2026-09-03T23:47:33.745Z | session: vtt-5eab9f2f
 The previous session ended or reset its context window. This is its runtime
 state at that moment — the durable PGPS record is the source of truth, so
 re-read the task card before acting on anything below.
@@ -31,6 +31,7 @@ Active steering:
 - [preference] [Speech] When was your last APT release?
 - [preference] 
 - [preference] [Speech] Also we'll probably do a model update...
+- [preference] /consciousness:on
 
 PGPS summary:
 - TASK-VTT060 (upcoming, p1) Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty — OPERATOR-DECISION-PENDING (Launchpad web UI needs Emmanuel's logged-in session)

@@ -128,6 +128,43 @@ jobs:
       - name: cargo build --all-targets
         run: cargo build --all-targets
 
+  build-windows-arm64:
+    name: build (windows-11-arm, aarch64-msvc, CPU whisper)
+    # ARM64 Windows compile gate (TASK-VTT064, STORY-VTT013). The ARM64 tester
+    # runs a Snapdragon X Plus, and this is the target their binary comes from.
+    #
+    # Deliberately NO Vulkan SDK step: this target builds whisper-rs CPU-only,
+    # because the Adreno Vulkan path on Windows-on-ARM is unproven and the Oryon
+    # cores run base/small models in real time on CPU. The arch split in
+    # Cargo.toml is what makes that true — the generic windows cfg matches
+    # aarch64 too, so without it this job would fail looking for an SDK that
+    # does not ship for the target.
+    runs-on: windows-11-arm
+    # Compile gate, not a lint gate — don't inherit -D warnings.
+    env:
+      RUSTFLAGS: ""
+      CARGO_TARGET_DIR: C:\t
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain (stable, aarch64-msvc)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      # Green here is the compile proof criterion 2 asks for. Running the binary
+      # on real Snapdragon hardware is criterion 4 and cannot be done in CI.
+      - name: cargo build --all-targets
+        run: cargo build --all-targets
+
   build-macos:
     name: build (macos-latest, arm64, Metal whisper)
     # macOS compile gate — free on public repos (GitHub-hosted runner).
