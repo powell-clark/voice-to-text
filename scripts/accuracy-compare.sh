@@ -59,6 +59,14 @@ CANDIDATE=""
 SETTINGS_A=""
 SETTINGS_B=""
 CORPUS="$CORPUS_DEFAULT"
+# Tracks whether --corpus was passed explicitly, independent of its value.
+# The old check compared $CORPUS against $CORPUS_DEFAULT to infer this, which
+# silently broke the one caller most likely to hit it: `--corpus
+# "$DATA_DIR/recordings"` (the debug ring) is indistinguishable in VALUE from
+# never passing --corpus at all, so it got overridden by the archive
+# preference below exactly like the no-flag case (TASK-VTT164, found while
+# running TASK-VTT162).
+CORPUS_EXPLICIT=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -66,7 +74,7 @@ while [ $# -gt 0 ]; do
         --candidate)  CANDIDATE="$2"; shift 2 ;;
         --settings-a) SETTINGS_A="$2"; shift 2 ;;
         --settings-b) SETTINGS_B="$2"; shift 2 ;;
-        --corpus)     CORPUS="$2"; shift 2 ;;
+        --corpus)     CORPUS="$2"; CORPUS_EXPLICIT=1; shift 2 ;;
         -n)           N="$2"; shift 2 ;;
         -h|--help)    sed -n '2,20p' "$0"; exit 0 ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
@@ -75,9 +83,10 @@ done
 
 # Prefer the archive when it has enough material: those wavs are paired with the
 # transcript that was actually typed, so a future version of this script can
-# score against ground truth rather than only diffing two runs.
+# score against ground truth rather than only diffing two runs. Only applies
+# when the caller did not explicitly choose a corpus (see CORPUS_EXPLICIT above).
 ARCHIVE="$DATA_DIR/archive"
-if [ "$CORPUS" = "$CORPUS_DEFAULT" ] && [ -d "$ARCHIVE" ]; then
+if [ "$CORPUS_EXPLICIT" -eq 0 ] && [ -d "$ARCHIVE" ]; then
     ARCHIVE_COUNT=$(find "$ARCHIVE" -name '*.wav' 2>/dev/null | wc -l)
     if [ "$ARCHIVE_COUNT" -ge "$N" ]; then
         CORPUS="$ARCHIVE"

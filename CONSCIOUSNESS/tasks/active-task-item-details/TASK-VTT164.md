@@ -6,11 +6,43 @@ Discovered in TASK-VTT162: scripts/accuracy-compare.sh sets CORPUS_DEFAULT="$DAT
 
 ## Acceptance criteria
 
-- [ ] `--corpus` is tracked via an explicit "was this flag passed" boolean, not inferred from string-equality to `CORPUS_DEFAULT`
-- [ ] `--corpus "$DATA_DIR/recordings"` (the debug ring, which happens to equal the default) is honoured — the archive-preference override does NOT silently redirect it
-- [ ] `--corpus` pointing at any other directory (e.g. a custom test corpus) is still honoured, unaffected by this fix
-- [ ] No `--corpus` flag at all still triggers the existing archive-preference logic exactly as before (the fix must not change the no-override behaviour)
-- [ ] Falsification: re-run the harness with `--corpus "$DATA_DIR/recordings"` while the archive holds ≥N files and confirm it actually reads from `recordings/`, not `archive/` (this is the exact bug TASK-VTT162 hit)
+- [x] `--corpus` is tracked via an explicit "was this flag passed" boolean (`CORPUS_EXPLICIT`), not inferred from string-equality to `CORPUS_DEFAULT`
+- [x] `--corpus "$DATA_DIR/recordings"` (the debug ring, which happens to equal the default) is honoured — the archive-preference override does NOT silently redirect it
+- [x] `--corpus` pointing at any other directory (e.g. a custom test corpus) is still honoured, unaffected by this fix
+- [x] No `--corpus` flag at all still triggers the existing archive-preference logic exactly as before (the fix must not change the no-override behaviour)
+- [x] Falsification: re-run the harness with `--corpus "$DATA_DIR/recordings"` while the archive holds ≥N files and confirm it actually reads from `recordings/`, not `archive/` (this is the exact bug TASK-VTT162 hit)
+
+## Evidence, 2026-09-04
+
+Archive holds 173 real recordings (well over any test `N`), so the bug's
+trigger condition is genuinely present on this machine right now — not a
+hypothetical.
+
+```
+$ scripts/accuracy-compare.sh --baseline ./target/release/vtt-linux --candidate ./target/release/vtt-linux --corpus "$DATA_DIR/recordings" -n 2
+[1] SAME  vtt_recording_X5ytWI.wav
+[2] SAME  vtt_recording_mryvjS.wav
+```
+No "corpus: archive" line — correctly stayed on `recordings/` (filenames
+are the `vtt_recording_*` debug-ring pattern, not archive's dated-path
+pattern). Before this fix, this exact invocation silently redirected to
+archive.
+
+```
+$ scripts/accuracy-compare.sh --baseline ./target/release/vtt-linux --candidate ./target/release/vtt-linux -n 2
+corpus: archive (173 recordings, paired with transcripts)
+```
+No `--corpus` flag: archive preference still fires exactly as before —
+regression check passes.
+
+```
+$ scripts/accuracy-compare.sh --baseline ./target/release/vtt-linux --candidate ./target/release/vtt-linux --corpus /tmp/.../corpus-16k -n 2
+[1] SAME  vtt_recording_Ce82Q1.wav
+[2] SAME  vtt_recording_lFErtZ.wav
+```
+Custom corpus path: honoured, unaffected by the fix, as expected.
+
+`bash -n scripts/accuracy-compare.sh`: clean.
 
 ## Dependencies
 
