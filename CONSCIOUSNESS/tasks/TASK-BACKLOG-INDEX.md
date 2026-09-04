@@ -15,7 +15,6 @@ TASK-VTT043|p4|Apple developer signing + notarisation|STORY-VTT012|DIRECT-VTT003
 TASK-VTT048|p2|GitHub Actions matrix workflow: ubuntu-latest + macos-latest + macos-14 (ARM) + windows-latest|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT048.md|TASK-VTT047,TASK-VTT041,TASK-VTT042||||b8
 TASK-VTT049|p2|Auto-release on tag push with binaries + .deb + .dmg + .msi attached|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT049.md|TASK-VTT048||||b9
 TASK-VTT050|p2|Integrate silero-rs VAD for auto-stop on silence and noise filtering|STORY-VTT015|DIRECT-VTT002|FEAT-VTT032|TASK-VTT050.md|||||bb
-TASK-VTT051|p2|GTK settings dialog replacing settings.conf hand-editing|STORY-VTT016|DIRECT-VTT002|FEAT-VTT033|TASK-VTT051.md|||||bc
 TASK-VTT052|p2|Design persistent Python daemon protocol (stdin/stdout line-delimited JSON) for optional CT2 backend|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT052.md|||||bd
 TASK-VTT053|p2|Implement transcribe_daemon.py with faster-whisper persistent model and IPC loop|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT053.md|TASK-VTT052||||be
 TASK-VTT054|p2|Settings toggle CT2 vs native backend; spawn daemon at startup when enabled; fall back to whisper-rs if daemon crashes|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT054.md|TASK-VTT053||||bf
