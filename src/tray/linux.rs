@@ -672,9 +672,9 @@ fn show_settings_dialog(state: &Rc<RefCell<TrayState>>) {
 
     let current_base = settings.selected_model.replace(".en", "");
     let legacy = ["CT2 ", "W "];
-    let cleaned = legacy
-        .iter()
-        .fold(current_base, |acc, p| acc.trim_start_matches(*p).to_string());
+    let cleaned = legacy.iter().fold(current_base, |acc, p| {
+        acc.trim_start_matches(*p).to_string()
+    });
     let base_key = cleaned.trim_end_matches(".en");
 
     let model_entries: Vec<(String, &str)> = crate::models::MODELS
@@ -723,7 +723,12 @@ fn show_settings_dialog(state: &Rc<RefCell<TrayState>>) {
     device_combo.set_active(Some(device_selection));
     vbox.pack_start(&device_combo, false, false, 0);
 
-    vbox.pack_start(&gtk::Separator::new(gtk::Orientation::Horizontal), false, false, 5);
+    vbox.pack_start(
+        &gtk::Separator::new(gtk::Orientation::Horizontal),
+        false,
+        false,
+        5,
+    );
 
     // Voice prefix
     let prefix_label = gtk::Label::new(None);
