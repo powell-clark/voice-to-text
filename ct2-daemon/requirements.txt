@@ -1,0 +1,4 @@
+# CT2 daemon backend (optional; TASK-VTT053, FEAT-VTT034). Not required to
+# build or run the default whisper-rs backend -- only when a user opts into
+# backend=ct2 (TASK-VTT054).
+faster-whisper>=1.0.0
