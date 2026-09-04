@@ -34,3 +34,4 @@ TASK-VTT140|p2|Agent-run cost tracking and seat selection for PGPS execution||DI
 TASK-VTT143|p4|Rule 63 maintained-directive false positive||DIRECT-VTT002||TASK-VTT143.md|||||b2v||
 TASK-VTT151|p3|Spectral subtraction if rumble filtering proves insufficient|STORY-VTT015|DIRECT-VTT002||TASK-VTT151.md|||||b2wGVx||
 TASK-VTT163|p2|Archive corpus is 48kHz; accuracy-compare.sh needs 16kHz|STORY-VTT018|DIRECT-VTT002||TASK-VTT163.md|||||b2xFKv||
+TASK-VTT164|p3|accuracy-compare.sh --corpus override is neutralised by default-equality check|STORY-VTT018|DIRECT-VTT002||TASK-VTT164.md|||||b2yK0P||
