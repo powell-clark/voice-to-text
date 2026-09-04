@@ -1,3 +1,45 @@
+voice-to-text (2.4.0) noble; urgency=medium
+
+  * feat(archive): dictation can be archived as training-grade audio with
+    its transcript. Off by default. Turned on, every recording is saved at
+    the microphone's own sample rate at 24-bit, beside a JSON file holding
+    exactly what was said, in one folder per day, capped so it cannot fill
+    the disk. Nothing is uploaded. See "Archiving your recordings" in the
+    README for what is stored, where, and how to delete it.
+  * feat(denoise): steady low-frequency noise is filtered out before
+    transcription. Desk and fan rumble is cut by a high-pass on the audio
+    sent to Whisper; measured on real dictation, four fifths of the
+    background energy sits in the band it removes. Off by default — set
+    denoise=1 in settings.conf. Archived audio is never filtered.
+  * feat(doctor): `vtt-linux --doctor` tells you whether the app running is
+    the app you installed. Reports the version, which settings file is
+    actually read, where archiving writes, and whether a running process is
+    holding a replaced binary — naming the process and the fix, and exiting
+    non-zero so a script can gate on it.
+  * fix(archive): the archive cap only deletes recordings this app wrote.
+    It matches only its own vtt_<id>.wav names inside its own dated
+    folders, so pointing archive_dir at a folder that already held audio
+    can no longer remove unrelated files.
+  * feat(tray): archiving and rumble filtering are switchable from the
+    tray settings dialog. The archiving checkbox states plainly that it
+    saves your voice and your words to disk, and shows where they go.
+  * feat(tray): the correction dictionary is editable from the tray. Open
+    "Customize Transcription Settings" for a box of `misheard => correct`
+    pairs, one per line, instead of hand-editing settings.conf. Emptying
+    the box removes them all.
+  * fix(file): `vtt-linux --file` now transcribes the way the hotkey does.
+    Batch mode ignored the initial prompt and skipped the correction
+    dictionary, so the same recording could come out differently from a
+    live press with nothing to say why. It now applies both, which also
+    lets scripts/accuracy-compare.sh measure the app rather than a
+    different code path.
+  * change(audio): recording now captures at 48 kHz instead of 16 kHz.
+    Whisper still receives 16 kHz — resampled once on the finished
+    recording — so accuracy is unchanged; the archived recording keeps the
+    detail 16 kHz threw away.
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Fri, 04 Sep 2026 01:53:28 +0100
+
 voice-to-text (2.3.11) noble; urgency=medium
 
   * fix(hotkey): a KeyRelease is never discarded, so the microphone can no

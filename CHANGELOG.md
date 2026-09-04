@@ -11,6 +11,10 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+---
+
+## [2.4.0] — 2026-09-04
+
 ### Added
 - **Your dictation can now be archived as high-quality audio with its
   transcript.** Off by default. Turned on, every recording is saved at your
@@ -47,6 +51,13 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   immediately before transcription — so transcription accuracy is unchanged.
   Capturing at the microphone's real rate is what makes an archived recording
   worth keeping; 16 kHz threw away detail that upsampling cannot bring back.
+
+### Fixed
+- **`vtt-linux --file` now transcribes the way the hotkey does.** Batch mode
+  ignored your initial prompt and skipped the correction dictionary, so the same
+  recording could come out differently from a live press with nothing to say
+  why. It now applies both, which also lets `scripts/accuracy-compare.sh`
+  measure the app rather than a different code path.
 
 ---
 
