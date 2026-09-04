@@ -1,10 +1,9 @@
 === CONSCIOUSNESS CONTINUATION BRIEF ===
-Written: 2026-09-04T21:43:20.963Z | session: vtt-793d823b
+Written: 2026-09-04T21:45:32.183Z | session: vtt-793d823b
 The previous session ended or reset its context window. This is its runtime
 state at that moment — the durable PGPS record is the source of truth, so
 re-read the task card before acting on anything below.
 
-Active task: TASK-VTT050|in_progress|p2|Integrate silero-rs VAD for auto-stop on silence and noise filtering|STORY-VTT015|DIRECT-VTT002|FEAT-VTT032|TASK-VTT050.md|||||bb
 
 Active steering:
 - [preference] /consciousness:issue --gh very awful dangerous...
@@ -49,6 +48,6 @@ PGPS summary:
 - TASK-VTT135 (upcoming, p1) Self-hosted signed apt repo on GitHub Pages — OPERATOR-DECISION-PENDING (GPG signing key + CI secret for a public repo)
 - TASK-VTT064 (upcoming, p1) Windows ARM64 Snapdragon CPU build — OPERATOR-DECISION-PENDING (needs the tester's Snapdragon; 3 of 5 criteria met)
 - TASK-VTT079 (upcoming, p2) Upstream — feature-index status column splits PGPS display but fails validator (dist build inconsistency) — OPERATOR-DECISION-PENDING (fix lives in the consciousness plugin repo, not voice-to-text)
-- TASK-VTT050 (in_progress, p2) Integrate silero-rs VAD for auto-stop on silence and noise filtering
+- TASK-VTT050 (upcoming, p2) Integrate silero-rs VAD for auto-stop on silence and noise filtering — OPERATOR-DECISION-PENDING (which VAD crate / ONNX Runtime bundling tradeoff — see card's crate research)
 
 === END CONTINUATION BRIEF ===

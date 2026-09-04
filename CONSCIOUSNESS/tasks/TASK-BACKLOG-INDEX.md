@@ -14,7 +14,6 @@ TASK-VTT042|p4|Apple Silicon build with coreml + metal features enabled|STORY-VT
 TASK-VTT043|p4|Apple developer signing + notarisation|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT043.md|TASK-VTT041,TASK-VTT042||||b7
 TASK-VTT048|p2|GitHub Actions matrix workflow: ubuntu-latest + macos-latest + macos-14 (ARM) + windows-latest|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT048.md|TASK-VTT047,TASK-VTT041,TASK-VTT042||||b8
 TASK-VTT049|p2|Auto-release on tag push with binaries + .deb + .dmg + .msi attached|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT049.md|TASK-VTT048||||b9
-TASK-VTT053|p2|Implement transcribe_daemon.py with faster-whisper persistent model and IPC loop|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT053.md|TASK-VTT052||||be
 TASK-VTT054|p2|Settings toggle CT2 vs native backend; spawn daemon at startup when enabled; fall back to whisper-rs if daemon crashes|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT054.md|TASK-VTT053||||bf
 TASK-VTT075|p3|PGPS validation error wall is overwhelming for new users — needs friendlier guidance and auto-fix path||||TASK-VTT075.md|||||a2||
 TASK-VTT076|p3|Telemetry opt-in should be default at install — 30-day retention agreed at walkthrough, no opt-out required||||TASK-VTT076.md|||||b2b||
