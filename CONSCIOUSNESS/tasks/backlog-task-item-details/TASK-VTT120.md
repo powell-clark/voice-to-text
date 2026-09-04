@@ -1,4 +1,4 @@
-# TASK-VTT120: Review-gate kano override never resolves (getFeatureKano bug)
+# TASK-VTT120: Review-gate kano override never resolves (getFeatureKano bug) — OPERATOR-DECISION-PENDING (fix lives in the consciousness plugin repo, not voice-to-text)
 
 ## Context
 

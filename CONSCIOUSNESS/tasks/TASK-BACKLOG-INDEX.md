@@ -20,8 +20,7 @@ TASK-VTT053|p2|Implement transcribe_daemon.py with faster-whisper persistent mod
 TASK-VTT054|p2|Settings toggle CT2 vs native backend; spawn daemon at startup when enabled; fall back to whisper-rs if daemon crashes|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT054.md|TASK-VTT053||||bf
 TASK-VTT075|p3|PGPS validation error wall is overwhelming for new users — needs friendlier guidance and auto-fix path||||TASK-VTT075.md|||||a2||
 TASK-VTT076|p3|Telemetry opt-in should be default at install — 30-day retention agreed at walkthrough, no opt-out required||||TASK-VTT076.md|||||b2b||
-TASK-VTT079|p2|Upstream — feature-index status column splits PGPS display but fails validator (dist build inconsistency)||DIRECT-VTT002||TASK-VTT079.md|||||b3
-TASK-VTT120|p2|Review-gate kano override never resolves (getFeatureKano bug)||DIRECT-VTT002||TASK-VTT120.md|||||b2i||
+TASK-VTT120|p2|Review-gate kano override never resolves (getFeatureKano bug) — OPERATOR-DECISION-PENDING (fix lives in the consciousness plugin repo, not voice-to-text)||DIRECT-VTT002||TASK-VTT120.md|||||b2i||
 TASK-VTT125|p2|Re-register the macOS Intel self-hosted runner||DIRECT-VTT003||TASK-VTT125.md|||Emmanuel||b2m
 TASK-VTT128|p3|Unscoped validation stall — needs operator review||||TASK-VTT128.md|||||b2n||
 TASK-VTT129|p2|Tray Microphone submenu — device picker UX|STORY-VTT016|DIRECT-VTT005|FEAT-VTT033|TASK-VTT129.md|TASK-VTT062||||bo

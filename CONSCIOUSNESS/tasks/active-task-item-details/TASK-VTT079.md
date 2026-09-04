@@ -1,8 +1,8 @@
 ---
 id: TASK-VTT079
-status: backlog
+status: upcoming
 priority: p2
-title: Upstream — feature-index status column splits PGPS display but fails validator (dist build inconsistency)
+title: Upstream — feature-index status column splits PGPS display but fails validator (dist build inconsistency) — OPERATOR-DECISION-PENDING (fix lives in the consciousness plugin repo, not voice-to-text)
 story_ids: []
 epic_id: DIRECT-VTT002
 feature_ids: []
