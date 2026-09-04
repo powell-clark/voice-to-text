@@ -1036,7 +1036,10 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
     let settings = settings::Settings::load(&data_dir);
 
     // Decode first so a bad path/format fails fast, before any model download.
-    let samples = whisper::decode_wav_to_samples(std::path::Path::new(path))?;
+    // decode_audio_to_samples (not decode_wav_to_samples) is the multi-format,
+    // any-input-rate path (TASK-VTT130) -- accepts wav/mp3/m4a/aac/flac and
+    // resamples to 16 kHz internally.
+    let samples = whisper::decode_audio_to_samples(std::path::Path::new(path))?;
     if samples.is_empty() {
         anyhow::bail!("{}: decoded to zero samples", path);
     }
@@ -1073,10 +1076,55 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
     } else {
         Some(settings.initial_prompt.as_str())
     };
-    let text = engine.transcribe(&samples, &settings.selected_language, prompt)?;
+    // Long files (>5 min) are transcribed in bounded-memory chunks with
+    // progress on stderr (TASK-VTT130 criterion 3) rather than one call over
+    // the whole buffer. Short files (the overwhelming common case) take the
+    // unchanged single-call path — chunk_ranges returns exactly one range
+    // covering the whole buffer when it fits under the threshold.
+    let ranges = chunk_ranges(samples.len(), FILE_CHUNK_SAMPLES);
+    let mut text = String::new();
+    for (i, (start, end)) in ranges.iter().enumerate() {
+        if ranges.len() > 1 {
+            eprintln!("chunk {}/{}...", i + 1, ranges.len());
+        }
+        let chunk_text =
+            engine.transcribe(&samples[*start..*end], &settings.selected_language, prompt)?;
+        if !chunk_text.trim().is_empty() {
+            if !text.is_empty() {
+                text.push(' ');
+            }
+            text.push_str(chunk_text.trim());
+        }
+    }
     let text = corrections::apply(text.trim(), &settings.corrections);
     println!("{text}");
     Ok(())
+}
+
+/// Chunking threshold: over 5 minutes at 16 kHz mono. Chunking exists to
+/// bound memory and give the user visible progress on long inputs, not to
+/// change short-file behaviour — anything at or under this returns as a
+/// single range (TASK-VTT130).
+const FILE_CHUNK_SAMPLES: usize = 5 * 60 * whisper::WHISPER_INPUT_RATE as usize;
+
+/// Pure: split `total` samples into non-overlapping `(start, end)` ranges of
+/// at most `chunk_size` each. No overlap-and-trim — a word split exactly at
+/// a chunk boundary is a known, documented limitation, accepted in favour of
+/// not risking duplicated text from an overlap-deduplication step that has
+/// no simple correct implementation against whisper's segment timestamps.
+/// Testable without any audio or model dependency.
+fn chunk_ranges(total: usize, chunk_size: usize) -> Vec<(usize, usize)> {
+    if total == 0 {
+        return vec![(0, 0)];
+    }
+    let mut ranges = Vec::new();
+    let mut start = 0;
+    while start < total {
+        let end = (start + chunk_size).min(total);
+        ranges.push((start, end));
+        start = end;
+    }
+    ranges
 }
 
 /// Translate legacy settings.conf model names ("CT2 large-v3-turbo", "W medium")
@@ -1491,6 +1539,51 @@ fn is_whisper_filler(trimmed: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn chunk_ranges_short_input_is_one_range_covering_everything() {
+        assert_eq!(chunk_ranges(1000, FILE_CHUNK_SAMPLES), vec![(0, 1000)]);
+    }
+
+    #[test]
+    fn chunk_ranges_exact_multiple_splits_evenly_with_no_trailing_empty_range() {
+        assert_eq!(
+            chunk_ranges(2000, 1000),
+            vec![(0, 1000), (1000, 2000)],
+            "an exact multiple must not produce a trailing (2000, 2000) empty range"
+        );
+    }
+
+    #[test]
+    fn chunk_ranges_remainder_becomes_a_shorter_final_chunk() {
+        assert_eq!(
+            chunk_ranges(2500, 1000),
+            vec![(0, 1000), (1000, 2000), (2000, 2500)]
+        );
+    }
+
+    #[test]
+    fn chunk_ranges_zero_total_is_one_empty_range_not_zero_ranges() {
+        // A caller iterating `ranges` must see at least one (possibly empty)
+        // chunk, never an empty Vec silently producing no transcription call.
+        assert_eq!(chunk_ranges(0, 1000), vec![(0, 0)]);
+    }
+
+    #[test]
+    fn chunk_ranges_covers_every_sample_exactly_once_for_many_sizes() {
+        for total in [0usize, 1, 999, 1000, 1001, 4_800_000, 4_800_001, 9_600_003] {
+            let ranges = chunk_ranges(total, FILE_CHUNK_SAMPLES);
+            let mut covered = 0usize;
+            for &(start, end) in &ranges {
+                assert_eq!(
+                    start, covered,
+                    "ranges must be contiguous, no gaps or overlap"
+                );
+                covered = end;
+            }
+            assert_eq!(covered, total, "ranges must cover exactly `total` samples");
+        }
+    }
 
     #[test]
     fn compose_final_text_prepends_prefix_when_missing() {
