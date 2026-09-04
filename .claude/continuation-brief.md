@@ -1,10 +1,9 @@
 === CONSCIOUSNESS CONTINUATION BRIEF ===
-Written: 2026-09-04T21:18:05.036Z | session: vtt-793d823b
+Written: 2026-09-04T21:30:18.530Z | session: vtt-793d823b
 The previous session ended or reset its context window. This is its runtime
 state at that moment — the durable PGPS record is the source of truth, so
 re-read the task card before acting on anything below.
 
-Active task: TASK-VTT051|in_progress|p2|GTK settings dialog replacing settings.conf hand-editing|STORY-VTT016|DIRECT-VTT002|FEAT-VTT033|TASK-VTT051.md|||||bc
 
 Active steering:
 - [preference] /consciousness:issue --gh very awful dangerous...
@@ -48,6 +47,5 @@ PGPS summary:
 - TASK-VTT144 (in_review, p00) Correction dictionary editable from the tray
 - TASK-VTT135 (upcoming, p1) Self-hosted signed apt repo on GitHub Pages — OPERATOR-DECISION-PENDING (GPG signing key + CI secret for a public repo)
 - TASK-VTT064 (upcoming, p1) Windows ARM64 Snapdragon CPU build — OPERATOR-DECISION-PENDING (needs the tester's Snapdragon; 3 of 5 criteria met)
-- TASK-VTT051 (in_progress, p2) GTK settings dialog replacing settings.conf hand-editing
 
 === END CONTINUATION BRIEF ===

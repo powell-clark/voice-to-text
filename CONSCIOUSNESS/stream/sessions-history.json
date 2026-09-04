@@ -2,33 +2,6 @@
   "sessions": [
     {
       "id": "vtt-main-01997904",
-      "prev": "vtt-main-5db2fc27",
-      "started": "2026-07-21 10:38:19.264 bst",
-      "ended": "2026-07-21 10:38:22.960 bst",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 0,
-        "human_prompts": 0,
-        "errors": 0,
-        "compactions": 0,
-        "framing_checks_count": 0,
-        "framing_compliance_count": 0,
-        "hooks_latency_ms": {
-          "session-init": 94
-        },
-        "usage": {
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "cache_read_input_tokens": 0,
-          "cache_creation_input_tokens": 0,
-          "cache_creation_1h_input_tokens": 0
-        }
-      }
-    },
-    {
-      "id": "vtt-main-01997904",
       "prev": "vtt-main-01997904",
       "started": "2026-07-21 10:38:22.960 bst",
       "ended": "2026-07-21 10:38:24.286 bst",
@@ -1109,7 +1082,7 @@
       "started": "2026-09-04 21:41:11.031 bst",
       "ended": "2026-09-04 21:41:11.123 bst",
       "metrics": {
-        "autonomous_loops": 1,
+        "autonomous_loops": 2,
         "tasks_completed": [],
         "commits": 0
       },
@@ -1164,6 +1137,27 @@
       "prev": "vtt-793d823b",
       "started": "2026-09-04 22:18:09.311 bst",
       "ended": "2026-09-04 22:18:09.699 bst",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_creation_1h_input_tokens": 0
+        }
+      },
+      "commit_shas": [],
+      "commit_attributions": [],
+      "end_reason": "queue_empty"
+    },
+    {
+      "id": "vtt-793d823b",
+      "prev": "vtt-793d823b",
+      "started": "2026-09-04 22:30:22.456 bst",
+      "ended": "2026-09-04 22:30:22.545 bst",
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
