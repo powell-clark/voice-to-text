@@ -33,3 +33,4 @@ TASK-VTT139|p3|Portable tray parity — settings and About dialogs|STORY-VTT013|
 TASK-VTT140|p2|Agent-run cost tracking and seat selection for PGPS execution||DIRECT-VTT002||TASK-VTT140.md|||||b2u||
 TASK-VTT143|p4|Rule 63 maintained-directive false positive||DIRECT-VTT002||TASK-VTT143.md|||||b2v||
 TASK-VTT151|p3|Spectral subtraction if rumble filtering proves insufficient|STORY-VTT015|DIRECT-VTT002||TASK-VTT151.md|||||b2wGVx||
+TASK-VTT162|p2|Measure large-v3 against large-v3-turbo with the accuracy harness|STORY-VTT018|DIRECT-VTT002||TASK-VTT162.md|||||b2xPX4||
