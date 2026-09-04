@@ -33,3 +33,4 @@ TASK-VTT143|p4|Rule 63 maintained-directive false positive||DIRECT-VTT002||TASK-
 TASK-VTT151|p3|Spectral subtraction if rumble filtering proves insufficient|STORY-VTT015|DIRECT-VTT002||TASK-VTT151.md|||||b2wGVx||
 TASK-VTT164|p3|accuracy-compare.sh --corpus override is neutralised by default-equality check|STORY-VTT018|DIRECT-VTT002||TASK-VTT164.md|||||b2yK0P||
 TASK-VTT165|p3|Upstream: validator + VERIFICATION verdict for per-platform ACs|STORY-VTT018|DIRECT-VTT005||TASK-VTT165.md|||||b2znCT||
+TASK-VTT166|p3|Migrate remaining parity cards, retire docs/PLATFORM-PARITY.md|STORY-VTT018|DIRECT-VTT005||TASK-VTT166.md|||||b30hfs||
