@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "type": "LOOP_EXIT",
+  "event": "loop-paused",
+  "reason": "context-headroom-pause",
+  "supervisor_hint": "operator-resume",
+  "session_id": "vtt-5eab9f2f",
+  "session_suffix": "5eab9f2f",
+  "loop_count": 340,
+  "reserved_task": null,
+  "guidance": "context-headroom brake at a task boundary — /compact or start a fresh session, then /consciousness:on. Resuming the same context re-trips it immediately",
+  "detail": "context occupancy 90% (897264/1000000) exceeded threshold 75% at the boundary before TASK-VTT064",
+  "timestamp": "2026-09-03T23:50:45.907Z"
+}

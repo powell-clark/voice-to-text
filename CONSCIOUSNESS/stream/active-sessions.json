@@ -1,26 +1,26 @@
 {
   "sessions": {
-    "67b1c29f-dba4-4eac-af75-a8b05ef3df52": {
+    "793d823b-9740-4761-86c0-92fb70f9b394": {
       "assignment_message_id": null,
       "branch": "main",
-      "canonical_id": "67b1c29f-dba4-4eac-af75-a8b05ef3df52",
-      "conscious_mode": false,
+      "canonical_id": "793d823b-9740-4761-86c0-92fb70f9b394",
+      "conscious_mode": true,
       "context": {
         "adapter": "claude-code",
         "multiplexer": "tmux",
-        "pane": "%22",
+        "pane": "%20",
         "project": "vtt"
       },
       "current_activity": null,
       "current_task": null,
       "identity": null,
-      "last_activity": "2026-09-04T01:44:30.880Z",
-      "model": "fable",
-      "pane_id": "%22",
-      "role": "bodhisattva",
+      "last_activity": "2026-09-04T20:20:09.274Z",
+      "model": null,
+      "pane_id": "%20",
+      "role": null,
       "session_type": "cli",
       "specialty": null,
-      "started": "2026-09-04T00:45:12.914Z",
+      "started": "2026-09-04T20:18:46.494Z",
       "worktree": "/home/powell-clark/projects/auxiliary/voice-to-text"
     }
   }
