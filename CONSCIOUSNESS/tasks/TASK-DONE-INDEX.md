@@ -123,3 +123,4 @@ TASK-VTT161|Resolve archive_dir predictably or refuse it|STORY-VTT020|DIRECT-VTT
 TASK-VTT157|Prepare 2.4.0 for release|STORY-VTT018|DIRECT-VTT002||TASK-VTT157.md||
 TASK-VTT162|Measure large-v3 against large-v3-turbo with the accuracy harness|STORY-VTT018|DIRECT-VTT002||TASK-VTT162.md||
 TASK-VTT163|Archive corpus is 48kHz; accuracy-compare.sh needs 16kHz|STORY-VTT018|DIRECT-VTT002||TASK-VTT163.md||
+TASK-VTT051|GTK settings dialog replacing settings.conf hand-editing|STORY-VTT016|DIRECT-VTT002|FEAT-VTT033|TASK-VTT051.md||
