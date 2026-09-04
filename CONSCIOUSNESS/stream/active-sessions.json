@@ -12,15 +12,15 @@
         "project": "vtt"
       },
       "current_activity": null,
-      "current_task": null,
+      "current_task": "TASK-VTT095",
       "identity": null,
-      "last_activity": "2026-09-04T23:30:28.538Z",
+      "last_activity": "2026-09-04T23:32:05.476Z",
       "model": null,
       "pane_id": "%20",
       "role": null,
       "session_type": "cli",
       "specialty": null,
-      "started": "2026-09-04T22:44:30.512Z",
+      "started": "2026-09-04T23:31:30.146Z",
       "worktree": "/home/powell-clark/projects/auxiliary/voice-to-text"
     }
   }

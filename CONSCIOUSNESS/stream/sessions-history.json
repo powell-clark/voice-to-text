@@ -1,35 +1,6 @@
 {
   "sessions": [
     {
-      "id": "vtt-main-5db2fc27",
-      "prev": "vtt-main-a7d8f38a",
-      "started": "2026-07-21 11:04:16.789 bst",
-      "ended": "2026-07-21 11:04:18.486 bst",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 0,
-        "human_prompts": 0,
-        "errors": 0,
-        "compactions": 0,
-        "framing_checks_count": 0,
-        "framing_compliance_count": 0,
-        "hooks_latency_ms": {
-          "session-init": 215
-        },
-        "usage": {
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "cache_read_input_tokens": 0,
-          "cache_creation_input_tokens": 0,
-          "cache_creation_1h_input_tokens": 0
-        }
-      },
-      "commit_shas": [],
-      "end_reason": "queue_empty"
-    },
-    {
       "id": "vtt-main-e402bb4b",
       "prev": "vtt-main-5db2fc27",
       "started": "2026-07-21 20:40:17.609 bst",
@@ -1134,6 +1105,27 @@
       "prev": "vtt-793d823b",
       "started": "2026-09-04 23:44:02.136 bst",
       "ended": "2026-09-04 23:44:02.250 bst",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_creation_1h_input_tokens": 0
+        }
+      },
+      "commit_shas": [],
+      "commit_attributions": [],
+      "end_reason": "queue_empty"
+    },
+    {
+      "id": "vtt-793d823b",
+      "prev": "vtt-793d823b",
+      "started": "2026-09-05 00:31:12.421 bst",
+      "ended": "2026-09-05 00:31:12.586 bst",
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
