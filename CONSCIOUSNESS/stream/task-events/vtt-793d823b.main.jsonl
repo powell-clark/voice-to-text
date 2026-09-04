@@ -1,0 +1,2 @@
+{"schema_version":1,"event":"status-change","task_id":"TASK-VTT162","from":"backlog","to":"in_progress","note":"auto-claim by vtt-793d823b","timestamp":"2026-09-04 21:23:01.374 bst","session_id":"vtt-793d823b","canonical_id":"793d823b-9740-4761-86c0-92fb70f9b394","branch":"main"}
+{"task_id":"TASK-VTT162","event":"claimed","timestamp":"2026-09-04 21:23:01.493 bst","session_id":"vtt-793d823b","canonical_id":"793d823b-9740-4761-86c0-92fb70f9b394","branch":"main"}
