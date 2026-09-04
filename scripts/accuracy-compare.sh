@@ -14,8 +14,42 @@
 # change transcription?". Two settings files answer "did the model, prompt or
 # corrections change it?" — the same binary either way, so the only variable is
 # configuration.
+#
+# Requires ffmpeg/ffprobe: any corpus file not already 16 kHz mono (e.g. the
+# archive, kept at native rate for training-grade quality — TASK-VTT150) is
+# resampled to a scratch copy before use, since --file hard-requires 16 kHz.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+# --file requires 16 kHz mono to match what the live capture pipeline
+# decodes. Archived recordings (TASK-VTT150) are intentionally kept at
+# their native rate (48 kHz here) for training-grade quality, so this
+# script resamples a scratch copy rather than touching the archive.
+RESAMPLE_DIR=""
+cleanup_resample() { [ -n "$RESAMPLE_DIR" ] && rm -rf "$RESAMPLE_DIR"; }
+trap cleanup_resample EXIT
+
+resolve_16k() {  # resolve_16k <wav> -> path to a 16kHz mono WAV (original or a resampled scratch copy)
+    local wav="$1" rate
+    rate=$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of csv=p=0 "$wav" 2>/dev/null)
+    if [ "$rate" = "16000" ]; then
+        echo "$wav"
+        return 0
+    fi
+    if ! command -v ffmpeg >/dev/null 2>&1; then
+        echo "accuracy-compare.sh: $wav is ${rate:-an unknown sample rate}, needs 16000, and ffmpeg is not installed to resample it" >&2
+        return 1
+    fi
+    [ -z "$RESAMPLE_DIR" ] && RESAMPLE_DIR=$(mktemp -d)
+    local out="$RESAMPLE_DIR/$(basename "$wav")"
+    if [ ! -f "$out" ]; then
+        ffmpeg -y -v error -i "$wav" -ar 16000 -ac 1 "$out" || {
+            echo "accuracy-compare.sh: failed to resample $wav to 16kHz" >&2
+            return 1
+        }
+    fi
+    echo "$out"
+}
 
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/voice-to-text"
 CORPUS_DEFAULT="$DATA_DIR/recordings"
@@ -95,8 +129,9 @@ same=0; diff=0; n=0
 echo ""
 for wav in $FILES; do
     n=$((n + 1))
-    a=$(run_one "$BIN_A" "$CONF_A" "$wav")
-    b=$(run_one "$BIN_B" "$CONF_B" "$wav")
+    resolved=$(resolve_16k "$wav") || exit 1
+    a=$(run_one "$BIN_A" "$CONF_A" "$resolved")
+    b=$(run_one "$BIN_B" "$CONF_B" "$resolved")
     if [ "$a" = "$b" ]; then
         same=$((same + 1))
         echo "[$n] SAME  $(basename "$wav")"
