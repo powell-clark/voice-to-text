@@ -4,7 +4,6 @@ TASK-VTT108|p2|Branded Windows app + installer icon and version info|STORY-VTT01
 TASK-VTT101|p3|Windows installer pre-provisions the default model — parity FEAT-VTT028|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT101.md|||||g1a
 TASK-VTT104|p4|macOS universal binary (lipo Intel + Apple Silicon)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT104.md|||||g1c
 TASK-VTT102|p2|Rename binary — drop the misleading vtt-linux name|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT102.md|||||g2
-TASK-VTT103|p3|Evaluate unifying Linux GTK tray onto the portable tray (ADR)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT103.md|||||g2a
 TASK-VTT095|p2|Update mechanism — how Windows/macOS users get new versions|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT095.md|||||g3
 TASK-VTT056|p3|Monitor current release in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover (was scoped to v2.0.5, now superseded by v2.3.7)|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT056.md|||||b0
 TASK-VTT047|p1|Windows Authenticode code signing|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT047.md|TASK-VTT064||||b3
