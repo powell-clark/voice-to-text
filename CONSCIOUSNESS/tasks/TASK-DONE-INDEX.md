@@ -126,3 +126,4 @@ TASK-VTT163|Archive corpus is 48kHz; accuracy-compare.sh needs 16kHz|STORY-VTT01
 TASK-VTT051|GTK settings dialog replacing settings.conf hand-editing|STORY-VTT016|DIRECT-VTT002|FEAT-VTT033|TASK-VTT051.md||
 TASK-VTT080|Features and testing are not connected — add per-feature test-status tracking (last_tested field and/or verification reviews)|STORY-VTT018|DIRECT-VTT005||TASK-VTT080.md||
 TASK-VTT052|Design persistent Python daemon protocol (stdin/stdout line-delimited JSON) for optional CT2 backend|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT052.md||
+TASK-VTT053|Implement transcribe_daemon.py with faster-whisper persistent model and IPC loop|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT053.md||
