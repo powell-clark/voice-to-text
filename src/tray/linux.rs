@@ -89,6 +89,16 @@ impl Tray {
         mic_item.set_sensitive(false);
         menu.append(&mic_item);
 
+        // --- Backend (info label, TASK-VTT054) ---
+        let backend_label = if settings.read().unwrap().backend == "ct2" {
+            "Backend: CT2 (starting...)"
+        } else {
+            "Backend: Native"
+        };
+        let backend_item = gtk::MenuItem::with_label(backend_label);
+        backend_item.set_sensitive(false);
+        menu.append(&backend_item);
+
         // --- Hotkey ---
         let hk_code = settings.read().unwrap().hotkey_keycode;
         let hk_name = hotkey::get_key_name(hk_code);
@@ -309,6 +319,7 @@ impl Tray {
 
         let status_item_clone = status_item.clone();
         let indicator_clone = indicator.clone();
+        let backend_item_clone = backend_item.clone();
         glib::timeout_add_local(std::time::Duration::from_millis(50), move || {
             while let Ok(msg) = ui_rx.try_recv() {
                 match msg {
@@ -325,6 +336,9 @@ impl Tray {
                         indicator_clone
                             .borrow_mut()
                             .set_icon_full(icon_name, "status");
+                    }
+                    UiMessage::SetBackendLabel(label) => {
+                        backend_item_clone.set_label(&format!("Backend: {}", label));
                     }
                 }
             }

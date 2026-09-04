@@ -654,7 +654,7 @@ impl Audio {
     }
 }
 
-fn write_wav(samples: &[f32], sample_rate: u32) -> anyhow::Result<PathBuf> {
+pub(crate) fn write_wav(samples: &[f32], sample_rate: u32) -> anyhow::Result<PathBuf> {
     // Use the platform temp dir, not a hardcoded "/tmp" — on Windows "/tmp"
     // resolves to a non-existent "C:\tmp" and the write fails (debug recordings
     // silently lost, warning logged every transcription). temp_dir() returns

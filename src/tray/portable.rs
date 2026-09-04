@@ -30,6 +30,11 @@ struct MenuIds {
     models: Vec<(CheckMenuItem, String)>,
     lang_en: CheckMenuItem,
     lang_multi: CheckMenuItem,
+    /// TASK-VTT054. NOT independently verified on Windows/macOS — written by
+    /// analogy to the `status` item beside it (same MenuItem type, same
+    /// `.set_text()` update pattern), but this module only compiles on those
+    /// two targets, neither of which this dev machine can build for.
+    backend: MenuItem,
 }
 
 // Commands from the event-matching thread (Send-safe) to the main thread.
@@ -55,6 +60,7 @@ impl Tray {
         let current_model = s.selected_model.clone();
         let current_lang = s.selected_language.clone();
         let logging_enabled = s.logging_enabled;
+        let backend_enabled = s.backend == "ct2";
         drop(s);
 
         // Build menu
@@ -101,6 +107,18 @@ impl Tray {
         }
         menu.append(&model_sub)?;
         menu.append(&PredefinedMenuItem::separator())?;
+
+        // Backend (info label, TASK-VTT054)
+        let backend = MenuItem::new(
+            if backend_enabled {
+                "Backend: CT2 (starting...)"
+            } else {
+                "Backend: Native"
+            },
+            false,
+            None,
+        );
+        menu.append(&backend)?;
 
         // Logging
         let logging = MenuItem::new(
@@ -161,6 +179,7 @@ impl Tray {
             models,
             lang_en,
             lang_multi,
+            backend,
         };
 
         // muda::MenuId wraps String so it is Clone + Send.
@@ -261,6 +280,9 @@ impl Tray {
                         _ => (0u8, 180u8, 0u8), // ready / idle
                     };
                     let _ = self.tray_icon.set_icon(Some(create_icon(r, g, b)));
+                }
+                UiMessage::SetBackendLabel(label) => {
+                    self.ids.backend.set_text(format!("Backend: {label}"));
                 }
             }
         }

@@ -1,6 +1,17 @@
+// The shared `Set*` prefix predates this variant and is used at 44 call
+// sites across both tray implementations — renaming all three to drop it
+// is a real cleanup but out of scope for the task that added this one
+// variant (TASK-VTT054).
+#[allow(clippy::enum_variant_names)]
 pub enum UiMessage {
     SetStatus(String),
     SetIcon(String),
+    /// Persistent backend label (TASK-VTT054) — distinct from SetStatus,
+    /// which cycles through Ready/Recording/Transcribing and would
+    /// overwrite a transient "Backend: CT2" the user could never actually
+    /// read. Sent once at startup and again if the CT2 daemon dies
+    /// mid-session (falls back to native without user intervention).
+    SetBackendLabel(String),
 }
 
 /// Platform-agnostic UI sender (uses mpsc on all platforms)
