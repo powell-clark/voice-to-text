@@ -1,4 +1,4 @@
-# TASK-VTT050: Silero VAD integration
+# TASK-VTT050: Silero VAD integration — OPERATOR-DECISION-PENDING (which VAD crate / ONNX Runtime bundling tradeoff — see crate research below)
 
 ## Acceptance Criteria
 1. Recording auto-stops within 1s of speech ending (silence detected by Silero VAD)
