@@ -167,6 +167,18 @@ fn resolve_device_ordinal(index: usize, count: usize) -> Option<usize> {
     (index < count).then_some(index)
 }
 
+/// Input device names in the same cpal-reported order `open_capture_stream`
+/// indexes by — a device picker built from this list can save an ordinal that
+/// `resolve_device_ordinal` will resolve back to the same device (TASK-VTT051).
+/// Empty on enumeration failure rather than erroring — a picker UI degrades to
+/// "no devices listed", not a crash.
+pub fn list_input_device_names() -> Vec<String> {
+    cpal::default_host()
+        .input_devices()
+        .map(|iter| iter.filter_map(|d| d.name().ok()).collect())
+        .unwrap_or_default()
+}
+
 // Safety: cpal::Stream is Send but not marked as such in all versions.
 // The stream is created on the main thread and, on recovery, dropped and
 // re-created from the hotkey monitor thread — it is only ever owned and
