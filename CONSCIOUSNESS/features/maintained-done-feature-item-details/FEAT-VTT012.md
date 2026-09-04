@@ -19,6 +19,8 @@ Transcribed text is pushed to the X11 clipboard using an `xclip` subprocess call
 ## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
 Anchored to `CONSCIOUSNESS/artifacts/PARITY-MATRIX.md` (capability 4 — clipboard paste fallback).
 
+last_tested: { linux: null, windows: null, macos: null } — ADR-0008 starts freshness tracking clean rather than backfilling guessed dates; the statuses below are believed current as of this card's last edit but have not been freshly re-verified under this field.
+
 **🐧 Linux — ✅ works**
 - [x] Transcription written to the clipboard via `xclip`/`arboard`; `xclip` in `debian/control` Depends — `src/typing.rs:187-252`, `debian/control:36` (TASK-VTT110)
 - [x] Manual Ctrl+V pastes correctly; no crash across 50+ writes

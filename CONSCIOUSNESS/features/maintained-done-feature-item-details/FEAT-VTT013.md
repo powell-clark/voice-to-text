@@ -18,6 +18,8 @@ When the user holds the push-to-talk hotkey down, X11 generates repeated keypres
 ## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
 Anchored to `CONSCIOUSNESS/artifacts/PARITY-MATRIX.md` (capability 6 — hotkey auto-repeat handling).
 
+last_tested: { linux: null, windows: null, macos: null } — ADR-0008 starts freshness tracking clean rather than backfilling guessed dates; the statuses below are believed current as of this card's last edit but have not been freshly re-verified under this field.
+
 **🐧 Linux — ✅ works** (this card)
 - [x] Held hotkey = exactly one recording — X11 `XkbSetDetectableAutoRepeat` + manual KeyPress/KeyRelease pairing — `src/hotkey/linux.rs`
 

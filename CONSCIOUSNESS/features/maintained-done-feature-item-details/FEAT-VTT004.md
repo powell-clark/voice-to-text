@@ -20,6 +20,8 @@ On Linux, VTT displays a system tray icon using GTK3 and the `libappindicator3` 
 ## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
 Anchored to `CONSCIOUSNESS/artifacts/PARITY-MATRIX.md` (capability 5 — system tray/menu). The tray capability spans this card (Linux/GTK) and the portable tray (`src/tray/portable.rs`) used on macOS + Windows.
 
+last_tested: { linux: null, windows: null, macos: null } — ADR-0008 starts freshness tracking clean rather than backfilling guessed dates; the statuses below are believed current as of this card's last edit but have not been freshly re-verified under this field.
+
 **🐧 Linux — ✅ works** (this card)
 - [x] GTK3 + libappindicator tray: status, model picker, Logs submenu, hotkey picker, quit — `src/tray/linux.rs`
 

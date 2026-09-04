@@ -22,6 +22,8 @@ After transcription completes, the text is typed into the currently focused appl
 ## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
 Anchored to `CONSCIOUSNESS/artifacts/PARITY-MATRIX.md` (capability 3 — text injection).
 
+last_tested: { linux: null, windows: null, macos: null } — ADR-0008 starts freshness tracking clean rather than backfilling guessed dates; the statuses below are believed current as of this card's last edit but have not been freshly re-verified under this field.
+
 **🐧 Linux — ✅ works**
 - [x] Text types at the cursor via `xdotool type` (primary) with `enigo`/x11rb fallback — `src/typing.rs:41-152`
 - [x] £/é/ñ/emoji type correctly; no duplicate characters in X11/XWayland

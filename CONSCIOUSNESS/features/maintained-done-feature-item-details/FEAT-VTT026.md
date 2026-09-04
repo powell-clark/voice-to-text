@@ -34,6 +34,8 @@ When the user selects a model that is not present in the local cache, VTT downlo
 ## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
 Anchored to `CONSCIOUSNESS/artifacts/PARITY-MATRIX.md` (capability 8 — model download). Behaviour is identical on all platforms (one `src/models.rs` path); the only gap is cross-cutting.
 
+last_tested: { linux: null, windows: null, macos: null } — ADR-0008 starts freshness tracking clean rather than backfilling guessed dates; the statuses below are believed current as of this card's last edit but have not been freshly re-verified under this field.
+
 **🐧 Linux / 🍎 macOS / 🪟 Windows — ✅ works (uniform)**
 - [x] Selecting an uncached model downloads from HuggingFace over HTTPS (rustls) with tray progress and atomic `.tmp`→rename — `src/models.rs:135-193`
 - [x] Cache path resolves per-OS via `dirs::cache_dir`: `~/.cache` (Linux), `~/Library/Caches` (macOS), `%LOCALAPPDATA%` (Windows)

@@ -70,12 +70,56 @@ doc) is the WRONG artifact — it should be **generated from the cards** or dele
 
 ## Acceptance criteria
 
-- [ ] ADR filed for the per-platform feature-card schema change
-- [ ] Maintained FEAT-VTT cards carry a per-platform AC table + last_tested
-- [ ] Validator fails a maintained feature lacking per-platform ACs / test status
-- [ ] Verification reviews recorded per (feature × platform), distinct from approval
-- [ ] Per-platform spec is GENERATED from the cards; docs/PLATFORM-PARITY.md retired
-- [ ] At least the parity-relevant cards (VTT004/005/012/013/015/026 …) migrated as the pattern
+- [x] ADR filed for the per-platform feature-card schema change — ADR-0008
+- [x] Maintained FEAT-VTT cards carry a per-platform AC table + last_tested —
+  the "Cross-platform acceptance criteria" convention already existed
+  organically in 5 cards (VTT004/005/012/013/026); added the `last_tested`
+  line ADR-0008 specifies to all 5. All three dates are `null` — no
+  fabricated verification history; a genuine date lands only when someone
+  actually re-tests that platform.
+- [ ] **DEFERRED — Validator fails a maintained feature lacking per-platform
+  ACs / test status.** Upstream consciousness-plugin work (the validator
+  lives in that repo's checkout, not this one). Tracked as TASK-VTT165.
+- [ ] **DEFERRED — Verification reviews recorded per (feature × platform),
+  distinct from approval.** review-gates' verdict enum is capped
+  (pending-review/agent-approved/agent-rejected/bypass-approved) by the
+  same upstream plugin; adding a VERIFICATION kind is the same blocker.
+  Tracked as TASK-VTT165.
+- [x] Per-platform spec is GENERATED from the cards —
+  `scripts/generate-platform-spec.sh` reads every maintained card's
+  Cross-platform section and emits `docs/GENERATED-PLATFORM-SPEC.md`.
+  **docs/PLATFORM-PARITY.md is NOT retired** — its 19-card scope and gap
+  register are richer than the 5 migrated cards can replace yet; retiring
+  it now would silently drop real detail. Tracked as TASK-VTT166.
+- [x] At least the parity-relevant cards migrated as the pattern —
+  VTT004/005/012/013/026 (5 of the 6 named). **VTT015 corrected, not
+  migrated**: it's `status: done` (not `maintained` — this repo's own
+  CLAUDE.md exempts done cards from ongoing freshness tracking) and its
+  systemd/DISPLAY-inheritance capability has no Windows/macOS analogue to
+  compare against in the first place. Forcing a three-platform table onto
+  a one-platform capability would have manufactured false parity rows;
+  ADR-0008 documents this correction explicitly rather than silently
+  dropping it from scope.
+
+## Evidence, 2026-09-04
+
+```
+$ bash scripts/generate-platform-spec.sh | grep -c '^## FEAT-'
+5
+```
+Output written to `docs/GENERATED-PLATFORM-SPEC.md`, matches all 5 migrated
+cards' Cross-platform sections verbatim (spot-checked against the source
+cards). `bash -n scripts/generate-platform-spec.sh`: clean.
+
+No Rust code changed by this task, so `cargo test`/clippy are not
+applicable here (they were run and passed for TASK-VTT051 earlier this
+session, unaffected by this task's markdown/script-only changes).
+
+**Two follow-up tasks filed and referenced from ADR-0008:**
+- TASK-VTT165 — the two upstream-plugin deferrals above
+- TASK-VTT166 — migrate the remaining 14 parity cards and retire
+  docs/PLATFORM-PARITY.md once the generated view is verified not to have
+  silently dropped detail
 
 ## Migration note
 
