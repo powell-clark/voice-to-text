@@ -4,4 +4,3 @@ TASK-VTT144|in_review|p00|Correction dictionary editable from the tray|STORY-VTT
 TASK-VTT135|upcoming|p1|Self-hosted signed apt repo on GitHub Pages — OPERATOR-DECISION-PENDING (GPG signing key + CI secret for a public repo)|STORY-VTT014|DIRECT-VTT002|FEAT-VTT031|TASK-VTT135.md|||||b2q||
 TASK-VTT064|upcoming|p1|Windows ARM64 Snapdragon CPU build — OPERATOR-DECISION-PENDING (needs the tester's Snapdragon; 3 of 5 criteria met)|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT064.md|TASK-VTT082||||b2a
 TASK-VTT079|upcoming|p2|Upstream — feature-index status column splits PGPS display but fails validator (dist build inconsistency) — OPERATOR-DECISION-PENDING (fix lives in the consciousness plugin repo, not voice-to-text)||DIRECT-VTT002||TASK-VTT079.md|||||b3
-TASK-VTT052|in_progress|p2|Design persistent Python daemon protocol (stdin/stdout line-delimited JSON) for optional CT2 backend|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT052.md|||||bd
