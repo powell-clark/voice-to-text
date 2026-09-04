@@ -121,3 +121,4 @@ TASK-VTT159|Guard the high-pass against degenerate sample rates|STORY-VTT015|DIR
 TASK-VTT160|Prune only the recordings we wrote|STORY-VTT020|DIRECT-VTT002||TASK-VTT160.md||
 TASK-VTT161|Resolve archive_dir predictably or refuse it|STORY-VTT020|DIRECT-VTT002||TASK-VTT161.md||
 TASK-VTT157|Prepare 2.4.0 for release|STORY-VTT018|DIRECT-VTT002||TASK-VTT157.md||
+TASK-VTT162|Measure large-v3 against large-v3-turbo with the accuracy harness|STORY-VTT018|DIRECT-VTT002||TASK-VTT162.md||
