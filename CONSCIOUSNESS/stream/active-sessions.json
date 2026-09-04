@@ -1,31 +1,9 @@
 {
   "sessions": {
-    "4ce2a46e-7efc-45b2-8d1d-506710305860": {
+    "67b1c29f-dba4-4eac-af75-a8b05ef3df52": {
       "assignment_message_id": null,
       "branch": "main",
-      "canonical_id": "4ce2a46e-7efc-45b2-8d1d-506710305860",
-      "conscious_mode": false,
-      "context": {
-        "adapter": "claude-code",
-        "pane": null,
-        "project": "vtt"
-      },
-      "current_activity": null,
-      "current_task": null,
-      "identity": null,
-      "last_activity": "2026-09-03T07:51:19.679Z",
-      "model": null,
-      "pane_id": null,
-      "role": null,
-      "session_type": "cli",
-      "specialty": null,
-      "started": "2026-09-03T02:42:44.285Z",
-      "worktree": "/home/powell-clark/projects/auxiliary/voice-to-text"
-    },
-    "5eab9f2f-10a6-41f8-a193-8a90d1c7aab9": {
-      "assignment_message_id": null,
-      "branch": "main",
-      "canonical_id": "5eab9f2f-10a6-41f8-a193-8a90d1c7aab9",
+      "canonical_id": "67b1c29f-dba4-4eac-af75-a8b05ef3df52",
       "conscious_mode": false,
       "context": {
         "adapter": "claude-code",
@@ -36,13 +14,13 @@
       "current_activity": null,
       "current_task": null,
       "identity": null,
-      "last_activity": "2026-09-03T23:50:06.118Z",
-      "model": null,
+      "last_activity": "2026-09-04T01:44:30.880Z",
+      "model": "fable",
       "pane_id": "%22",
-      "role": null,
+      "role": "bodhisattva",
       "session_type": "cli",
       "specialty": null,
-      "started": "2026-09-03T23:47:44.706Z",
+      "started": "2026-09-04T00:45:12.914Z",
       "worktree": "/home/powell-clark/projects/auxiliary/voice-to-text"
     }
   }
