@@ -129,3 +129,4 @@ TASK-VTT052|Design persistent Python daemon protocol (stdin/stdout line-delimite
 TASK-VTT053|Implement transcribe_daemon.py with faster-whisper persistent model and IPC loop|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT053.md||
 TASK-VTT054|Settings toggle CT2 vs native backend; spawn daemon at startup when enabled; fall back to whisper-rs if daemon crashes|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT054.md||
 TASK-VTT164|accuracy-compare.sh --corpus override is neutralised by default-equality check|STORY-VTT018|DIRECT-VTT002||TASK-VTT164.md||
+TASK-VTT103|Evaluate unifying Linux GTK tray onto the portable tray (ADR)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT103.md||
