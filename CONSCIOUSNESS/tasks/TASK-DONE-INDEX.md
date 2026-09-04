@@ -127,3 +127,4 @@ TASK-VTT051|GTK settings dialog replacing settings.conf hand-editing|STORY-VTT01
 TASK-VTT080|Features and testing are not connected — add per-feature test-status tracking (last_tested field and/or verification reviews)|STORY-VTT018|DIRECT-VTT005||TASK-VTT080.md||
 TASK-VTT052|Design persistent Python daemon protocol (stdin/stdout line-delimited JSON) for optional CT2 backend|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT052.md||
 TASK-VTT053|Implement transcribe_daemon.py with faster-whisper persistent model and IPC loop|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT053.md||
+TASK-VTT054|Settings toggle CT2 vs native backend; spawn daemon at startup when enabled; fall back to whisper-rs if daemon crashes|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT054.md||
