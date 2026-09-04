@@ -90,23 +90,29 @@ impl WhisperEngine {
     }
 }
 
-/// Decode a 16 kHz WAV file into the mono f32 PCM samples whisper expects
-/// (`--file` batch mode, TASK-VTT023). Stereo is down-mixed by averaging
+/// Down-mix interleaved multi-channel f32 samples to mono by channel
+/// averaging. Shared by every decode path (WAV via hound, everything else
+/// via symphonia) so there is exactly one down-mix formula to get right.
+fn downmix_to_mono(interleaved: &[f32], channels: usize) -> Vec<f32> {
+    let channels = channels.max(1);
+    if channels == 1 {
+        return interleaved.to_vec();
+    }
+    interleaved
+        .chunks(channels)
+        .map(|frame| frame.iter().sum::<f32>() / channels as f32)
+        .collect()
+}
+
+/// Decode a WAV file into mono f32 PCM samples at its native sample rate —
+/// no rate restriction, no resampling. Stereo is down-mixed by averaging
 /// channels; 16-bit (and wider) integer and 32-bit float sample formats are
-/// supported. A non-16 kHz file is rejected with an actionable error rather
-/// than silently mis-transcribed — resampling is out of scope for this pass.
-pub fn decode_wav_to_samples(path: &Path) -> anyhow::Result<Vec<f32>> {
+/// supported. Returns `(samples, native_sample_rate)`; the caller resamples
+/// to 16 kHz if needed (`decode_audio_to_samples`).
+fn decode_wav_native(path: &Path) -> anyhow::Result<(Vec<f32>, u32)> {
     let mut reader = hound::WavReader::open(path)
         .map_err(|e| anyhow::anyhow!("open {}: {}", path.display(), e))?;
     let spec = reader.spec();
-    if spec.sample_rate != WHISPER_INPUT_RATE {
-        anyhow::bail!(
-            "{} is {} Hz — --file needs 16 kHz mono audio. Resample first, e.g.: \
-             `ffmpeg -i in.wav -ar 16000 -ac 1 out.wav`",
-            path.display(),
-            spec.sample_rate
-        );
-    }
 
     // Read every interleaved sample as f32 in roughly [-1, 1].
     let interleaved: Vec<f32> = match spec.sample_format {
@@ -122,14 +128,206 @@ pub fn decode_wav_to_samples(path: &Path) -> anyhow::Result<Vec<f32>> {
         hound::SampleFormat::Float => reader.samples::<f32>().collect::<Result<_, _>>()?,
     };
 
-    let channels = spec.channels.max(1) as usize;
-    if channels == 1 {
-        return Ok(interleaved);
+    let mono = downmix_to_mono(&interleaved, spec.channels as usize);
+    Ok((mono, spec.sample_rate))
+}
+
+/// Decode a 16 kHz WAV file into the mono f32 PCM samples whisper expects
+/// (`--file` batch mode, TASK-VTT023). A non-16 kHz file is rejected with an
+/// actionable error — this function's contract is unchanged from TASK-VTT023
+/// (still used by `RetranscribeLast`, which only ever sees archives this
+/// app itself already captured at 16 kHz). `--file`'s own multi-rate/
+/// multi-format support is `decode_audio_to_samples` (TASK-VTT130), which
+/// calls `decode_wav_native` directly rather than rejecting non-16 kHz WAV.
+pub fn decode_wav_to_samples(path: &Path) -> anyhow::Result<Vec<f32>> {
+    let (mono, rate) = decode_wav_native(path)?;
+    if rate != WHISPER_INPUT_RATE {
+        anyhow::bail!(
+            "{} is {} Hz — --file needs 16 kHz mono audio. Resample first, e.g.: \
+             `ffmpeg -i in.wav -ar 16000 -ac 1 out.wav`",
+            path.display(),
+            rate
+        );
     }
-    Ok(interleaved
-        .chunks(channels)
-        .map(|frame| frame.iter().sum::<f32>() / channels as f32)
-        .collect())
+    Ok(mono)
+}
+
+/// Decode `.mp3`, `.m4a`/`.aac`, or `.flac` into mono f32 PCM at native
+/// sample rate via `symphonia` (ADR-0006). Returns `(samples,
+/// native_sample_rate)`, matching `decode_wav_native`'s contract so both
+/// feed the same resample step in `decode_audio_to_samples`.
+fn decode_via_symphonia(path: &Path) -> anyhow::Result<(Vec<f32>, u32)> {
+    use symphonia::core::audio::SampleBuffer;
+    use symphonia::core::codecs::{DecoderOptions, CODEC_TYPE_NULL};
+    use symphonia::core::errors::Error as SymErr;
+    use symphonia::core::formats::FormatOptions;
+    use symphonia::core::io::MediaSourceStream;
+    use symphonia::core::meta::MetadataOptions;
+    use symphonia::core::probe::Hint;
+
+    let file =
+        std::fs::File::open(path).map_err(|e| anyhow::anyhow!("open {}: {}", path.display(), e))?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+
+    let mut hint = Hint::new();
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        hint.with_extension(ext);
+    }
+
+    let probed = symphonia::default::get_probe()
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "{}: unrecognised or unsupported audio format ({e})",
+                path.display()
+            )
+        })?;
+    let mut format = probed.format;
+
+    let track = format
+        .tracks()
+        .iter()
+        .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+        .ok_or_else(|| anyhow::anyhow!("{}: no decodable audio track found", path.display()))?
+        .clone();
+    let track_id = track.id;
+
+    let mut decoder = symphonia::default::get_codecs()
+        .make(&track.codec_params, &DecoderOptions::default())
+        .map_err(|e| anyhow::anyhow!("{}: unsupported codec ({e})", path.display()))?;
+
+    let mut mono_samples: Vec<f32> = Vec::new();
+    let mut native_rate: Option<u32> = None;
+
+    loop {
+        let packet = match format.next_packet() {
+            Ok(p) => p,
+            Err(SymErr::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+            Err(e) => return Err(anyhow::anyhow!("{}: read error: {e}", path.display())),
+        };
+        if packet.track_id() != track_id {
+            continue;
+        }
+        let decoded = match decoder.decode(&packet) {
+            Ok(d) => d,
+            Err(SymErr::IoError(_)) | Err(SymErr::DecodeError(_)) => continue, // skip one bad packet, keep going
+            Err(e) => return Err(anyhow::anyhow!("{}: decode error: {e}", path.display())),
+        };
+        let spec = *decoded.spec();
+        native_rate.get_or_insert(spec.rate);
+
+        let mut buf = SampleBuffer::<f32>::new(decoded.capacity() as u64, spec);
+        buf.copy_interleaved_ref(decoded);
+        mono_samples.extend(downmix_to_mono(buf.samples(), spec.channels.count()));
+    }
+
+    let rate = native_rate
+        .ok_or_else(|| anyhow::anyhow!("{}: no audio packets decoded", path.display()))?;
+    Ok((mono_samples, rate))
+}
+
+/// Resample mono f32 PCM from `native_rate` to `WHISPER_INPUT_RATE` via
+/// `rubato` (ADR-0006). A no-op (returns the input unchanged) when the rates
+/// already match, so callers can call this unconditionally.
+fn resample_to_16k(samples: &[f32], native_rate: u32) -> anyhow::Result<Vec<f32>> {
+    use rubato::{FftFixedIn, Resampler};
+
+    if native_rate == WHISPER_INPUT_RATE || samples.is_empty() {
+        return Ok(samples.to_vec());
+    }
+
+    const CHUNK_SIZE_IN: usize = 1024;
+    let mut resampler = FftFixedIn::<f32>::new(
+        native_rate as usize,
+        WHISPER_INPUT_RATE as usize,
+        CHUNK_SIZE_IN,
+        2,
+        1,
+    )
+    .map_err(|e| {
+        anyhow::anyhow!("resampler init ({native_rate} Hz -> {WHISPER_INPUT_RATE} Hz): {e}")
+    })?;
+
+    let expected_len =
+        (samples.len() as u64 * WHISPER_INPUT_RATE as u64 / native_rate as u64) as usize;
+    let mut output: Vec<f32> = Vec::with_capacity(expected_len + CHUNK_SIZE_IN);
+
+    let mut pos = 0usize;
+    while pos + CHUNK_SIZE_IN <= samples.len() {
+        let input = [samples[pos..pos + CHUNK_SIZE_IN].to_vec()];
+        let out = resampler
+            .process(&input, None)
+            .map_err(|e| anyhow::anyhow!("resample chunk: {e}"))?;
+        output.extend_from_slice(&out[0]);
+        pos += CHUNK_SIZE_IN;
+    }
+
+    // Final partial chunk (may be shorter than CHUNK_SIZE_IN, or empty if
+    // samples.len() was an exact multiple).
+    let tail = samples[pos..].to_vec();
+    let tail_input = [tail];
+    let tail_ref: Option<&[Vec<f32>]> = if tail_input[0].is_empty() {
+        None
+    } else {
+        Some(&tail_input)
+    };
+    let out = resampler
+        .process_partial(tail_ref, None)
+        .map_err(|e| anyhow::anyhow!("resample tail: {e}"))?;
+    output.extend_from_slice(&out[0]);
+
+    // Flush the resampler's internal delay. Bounded (never unconditional) —
+    // an FFT resampler's remaining buffer empties in one or two calls; this
+    // caps it well above that so a future rubato behaviour change fails
+    // loud (a truncated transcript) rather than hanging (JSOC: bounded
+    // execution).
+    for _ in 0..8 {
+        let out = resampler
+            .process_partial::<Vec<f32>>(None, None)
+            .map_err(|e| anyhow::anyhow!("resample flush: {e}"))?;
+        if out[0].is_empty() {
+            break;
+        }
+        output.extend_from_slice(&out[0]);
+    }
+
+    // Trim the resampler's start-up delay, then the length to exactly what
+    // the input duration and rate ratio predict (README's documented
+    // "resampling a clip" procedure).
+    let delay = resampler.output_delay();
+    if delay < output.len() {
+        output.drain(0..delay);
+    } else {
+        output.clear();
+    }
+    output.truncate(expected_len);
+    Ok(output)
+}
+
+/// Decode any of `.wav`, `.mp3`, `.m4a`, `.aac`, `.flac` at any input sample
+/// rate into the mono 16 kHz f32 PCM whisper expects (`--file` batch mode,
+/// TASK-VTT130). WAV stays on `hound` (ADR-0006); everything else goes
+/// through `symphonia`. Both paths feed the same `resample_to_16k` step, so
+/// a WAV recorded at, say, 44.1 kHz now works too — the old "must be
+/// 16 kHz" restriction was specific to `decode_wav_to_samples`
+/// (`RetranscribeLast`'s contract, kept unchanged), not to `--file` itself.
+pub fn decode_audio_to_samples(path: &Path) -> anyhow::Result<Vec<f32>> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let (samples, native_rate) = if ext == "wav" {
+        decode_wav_native(path)?
+    } else {
+        decode_via_symphonia(path)?
+    };
+    resample_to_16k(&samples, native_rate)
 }
 
 #[cfg(test)]
@@ -297,6 +495,29 @@ mod tests {
             );
         }
 
+        assert_transcript_has_expected_content(&text);
+    }
+
+    /// Shared assertion for both e2e tests below: the fixture's known
+    /// content words and spoken digits, however whisper happens to render
+    /// them, must be present.
+    fn assert_transcript_has_expected_content(text: &str) {
+        let normalised: String = text
+            .to_lowercase()
+            .chars()
+            .map(|c| if c.is_alphanumeric() { c } else { ' ' })
+            .collect();
+        let words: std::collections::HashSet<&str> = normalised.split_whitespace().collect();
+
+        for expected in ["testing", "quick", "brown", "fox", "lazy", "dog"] {
+            assert!(
+                words.contains(expected),
+                "transcript {:?} missing expected word {:?}",
+                text,
+                expected
+            );
+        }
+
         // The spoken digits "one two three four" — whisper normalises these to
         // "1234" (or "1 2 3 4"), so accept either the numeric or spelled forms
         // rather than asserting one rendering.
@@ -310,5 +531,28 @@ mod tests {
             "transcript {:?} missing the spoken digits in any recognised form",
             text
         );
+    }
+
+    #[test]
+    #[ignore = "downloads ~142 MB base.en model and runs CPU inference"]
+    fn e2e_transcribes_mp3_fixture_via_decode_audio_to_samples() {
+        // Same spoken content as testing-one-two-three.wav, transcoded to mp3
+        // at 44.1 kHz (a genuinely different container AND sample rate from
+        // the 16 kHz wav fixture) — real end-to-end proof for TASK-VTT130's
+        // multi-format criterion, not just a decode-only unit test.
+        let fixture =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/testing-one-two-three.mp3");
+        assert!(fixture.exists(), "missing fixture {}", fixture.display());
+
+        let samples = decode_audio_to_samples(&fixture).expect("decode mp3 fixture");
+        assert!(!samples.is_empty(), "mp3 fixture decoded to zero samples");
+
+        let model = ensure_e2e_model();
+        let engine = WhisperEngine::new(&model, "base.en").expect("load base.en");
+        let text = engine
+            .transcribe(&samples, "en", None)
+            .expect("transcription should succeed");
+
+        assert_transcript_has_expected_content(&text);
     }
 }

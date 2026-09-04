@@ -23,6 +23,12 @@ cpal = "0.15"
 hound = "3.5"
 tempfile = "3"
 
+# Multi-format --file decode (ADR-0006, TASK-VTT130). WAV stays on hound
+# (unaffected, already well-tested); symphonia covers mp3/m4a/flac, feature-
+# gated to bound binary size to the formats TASK-VTT130 actually asks for.
+symphonia = { version = "0.5", default-features = false, features = ["mp3", "isomp4", "aac", "flac"] }
+rubato = "0.16"
+
 # Clipboard (cross-platform)
 arboard = "3"
 
