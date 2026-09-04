@@ -51,6 +51,9 @@ regex = "1"
 # HTTP downloads (rustls, no OpenSSL system dep)
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls", "stream"] }
 
+# CT2 daemon IPC wire format (ADR-0009, docs/CT2-DAEMON-PROTOCOL.md)
+serde_json = "1"
+
 # ─── Linux-specific ─────────────────────────────────────────────
 [target.'cfg(target_os = "linux")'.dependencies]
 enigo = { version = "0.6", features = ["x11rb"] }
