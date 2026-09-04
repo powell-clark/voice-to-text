@@ -95,8 +95,10 @@ impl Tray {
         let hotkey_item = gtk::MenuItem::with_label(&format!("Hotkey: {}", hk_name));
         menu.append(&hotkey_item);
 
-        // --- Customize Transcription Settings ---
-        let prompt_item = gtk::MenuItem::with_label("Customize Transcription Settings...");
+        // --- Settings (TASK-VTT051: single consolidated dialog, replacing
+        // hand-editing settings.conf; language/model/hotkey stay also
+        // reachable from their own tray items above, unchanged) ---
+        let prompt_item = gtk::MenuItem::with_label("Settings...");
         menu.append(&prompt_item);
 
         // --- Copy last transcription (recovery net, FEAT-VTT038) ---
@@ -234,11 +236,11 @@ impl Tray {
             });
         }
 
-        // Prompt settings
+        // Settings dialog
         {
             let st = state.clone();
             prompt_item.connect_activate(move |_| {
-                show_prompt_dialog(&st);
+                show_settings_dialog(&st);
             });
         }
 
@@ -588,7 +590,7 @@ fn show_about_dialog() {
     }
 }
 
-fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
+fn show_settings_dialog(state: &Rc<RefCell<TrayState>>) {
     let s = state.borrow();
     let settings = s.settings.read().unwrap().clone();
     drop(s);
@@ -600,17 +602,128 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
         .join("voice-to-text");
 
     let dialog = gtk::Window::new(gtk::WindowType::Toplevel);
-    dialog.set_title("Customize Transcription Settings");
-    // Six sections now. The old fixed 500x340 fitted five and clipped the
-    // button row when the corrections editor landed (TASK-VTT144), so the
-    // window grows and is allowed to resize rather than hiding Save.
-    dialog.set_default_size(520, 680);
+    dialog.set_title("Settings");
+    // Grown for TASK-VTT051 (hotkey/language/model/device sections added
+    // above the original six). Resizable rather than clipping Save, same
+    // reasoning as the TASK-VTT144 resize.
+    dialog.set_default_size(520, 860);
     dialog.set_resizable(true);
     dialog.set_position(gtk::WindowPosition::Center);
     dialog.set_border_width(20);
 
     let vbox = gtk::Box::new(gtk::Orientation::Vertical, 10);
     dialog.add(&vbox);
+
+    // Hotkey — reuses show_hotkey_dialog's own capture-and-save flow (it
+    // saves and updates the tray label itself on release), so this is just
+    // an entry point into that existing, already-correct mechanism rather
+    // than a second implementation of key capture.
+    let hotkey_label = gtk::Label::new(None);
+    hotkey_label.set_markup("<b>Push-to-talk hotkey:</b>");
+    hotkey_label.set_halign(gtk::Align::Start);
+    vbox.pack_start(&hotkey_label, false, false, 0);
+
+    let hotkey_row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+    let hotkey_current = gtk::Label::new(Some(&hotkey::get_key_name(settings.hotkey_keycode)));
+    hotkey_current.set_halign(gtk::Align::Start);
+    hotkey_row.pack_start(&hotkey_current, true, true, 0);
+    let hotkey_change_btn = gtk::Button::with_label("Change...");
+    hotkey_row.pack_start(&hotkey_change_btn, false, false, 0);
+    vbox.pack_start(&hotkey_row, false, false, 0);
+    {
+        let st = state.clone();
+        let hotkey_current = hotkey_current.clone();
+        hotkey_change_btn.connect_clicked(move |_| {
+            show_hotkey_dialog(&st);
+            // show_hotkey_dialog saves on release; re-read so this dialog's
+            // own label doesn't go stale while it stays open.
+            let code = st.borrow().settings.read().unwrap().hotkey_keycode;
+            hotkey_current.set_text(&hotkey::get_key_name(code));
+        });
+    }
+
+    vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
+
+    // Language
+    let lang_label = gtk::Label::new(None);
+    lang_label.set_markup("<b>Language:</b>");
+    lang_label.set_halign(gtk::Align::Start);
+    vbox.pack_start(&lang_label, false, false, 0);
+
+    let dlg_lang_en = gtk::RadioButton::with_label("English only (fastest)");
+    let dlg_lang_multi =
+        gtk::RadioButton::with_label_from_widget(&dlg_lang_en, "Multilingual (99 languages)");
+    if settings.selected_language == "en" {
+        dlg_lang_en.set_active(true);
+    } else {
+        dlg_lang_multi.set_active(true);
+    }
+    vbox.pack_start(&dlg_lang_en, false, false, 0);
+    vbox.pack_start(&dlg_lang_multi, false, false, 0);
+
+    vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
+
+    // Model — same catalogue and base-key normalisation rebuild_model_menu
+    // uses, so the dialog's list matches the tray's own submenu exactly.
+    let model_label = gtk::Label::new(None);
+    model_label.set_markup("<b>Model:</b>");
+    model_label.set_halign(gtk::Align::Start);
+    vbox.pack_start(&model_label, false, false, 0);
+
+    let current_base = settings.selected_model.replace(".en", "");
+    let legacy = ["CT2 ", "W "];
+    let cleaned = legacy
+        .iter()
+        .fold(current_base, |acc, p| acc.trim_start_matches(*p).to_string());
+    let base_key = cleaned.trim_end_matches(".en");
+
+    let model_entries: Vec<(String, &str)> = crate::models::MODELS
+        .iter()
+        .filter(|m| m.multilingual)
+        .map(|m| (display_name_for_model(m.name), m.name))
+        .collect();
+    let mut dlg_model_group: Option<gtk::RadioButton> = None;
+    let mut dlg_model_buttons: Vec<(gtk::RadioButton, String)> = Vec::new();
+    for (label, key) in &model_entries {
+        let item = match &dlg_model_group {
+            None => gtk::RadioButton::with_label(label.as_str()),
+            Some(g) => gtk::RadioButton::with_label_from_widget(g, label.as_str()),
+        };
+        if dlg_model_group.is_none() {
+            dlg_model_group = Some(item.clone());
+        }
+        item.set_active(*key == base_key);
+        vbox.pack_start(&item, false, false, 0);
+        dlg_model_buttons.push((item, (*key).to_string()));
+    }
+
+    vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
+
+    // Input device — a basic picker (list + save the ordinal); the fuller
+    // tray submenu with hot-plug refresh and live stream rebuild is
+    // TASK-VTT129's scope, not duplicated here.
+    let device_label = gtk::Label::new(None);
+    device_label.set_markup("<b>Input device (restart required to take effect):</b>");
+    device_label.set_halign(gtk::Align::Start);
+    vbox.pack_start(&device_label, false, false, 0);
+
+    let device_names = crate::audio::list_input_device_names();
+    let device_combo = gtk::ComboBoxText::new();
+    device_combo.append_text("Default");
+    for name in &device_names {
+        device_combo.append_text(name);
+    }
+    let device_selection = if settings.selected_device_index >= 0
+        && (settings.selected_device_index as usize) < device_names.len()
+    {
+        (settings.selected_device_index as u32) + 1
+    } else {
+        0
+    };
+    device_combo.set_active(Some(device_selection));
+    vbox.pack_start(&device_combo, false, false, 0);
+
+    vbox.pack_start(&gtk::Separator::new(gtk::Orientation::Horizontal), false, false, 5);
 
     // Voice prefix
     let prefix_label = gtk::Label::new(None);
@@ -808,6 +921,10 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
         let sr = shift_radio;
         let at = archive_toggle;
         let dt = denoise_toggle;
+        let dlg_lang_en = dlg_lang_en.clone();
+        let dlg_model_buttons = dlg_model_buttons.clone();
+        let device_combo = device_combo.clone();
+        let device_count = device_names.len();
         save_btn.connect_clicked(move |_| {
             let s = st.borrow();
             let mut settings = s.settings.write().unwrap();
@@ -830,21 +947,53 @@ fn show_prompt_dialog(state: &Rc<RefCell<TrayState>>) {
                 NewlineType::PlainReturn
             };
 
+            // Language (TASK-VTT051) — same field the top-level tray radios
+            // write; rebuild_model_menu below keeps that menu in sync.
+            settings.selected_language = if dlg_lang_en.is_active() {
+                "en".to_string()
+            } else {
+                "auto".to_string()
+            };
+
+            // Model (TASK-VTT051) — whichever radio is active; falls back to
+            // the existing selection if none matched (shouldn't happen, the
+            // group always has exactly one active button).
+            if let Some((_, key)) = dlg_model_buttons.iter().find(|(btn, _)| btn.is_active()) {
+                settings.selected_model = key.clone();
+                s.model_item.set_label(&format!("Model: {}", key));
+            }
+
+            // Input device (TASK-VTT051) — combo index 0 is "Default" (-1
+            // sentinel); index i>=1 maps to device ordinal i-1, matching the
+            // order list_input_device_names() and resolve_device_ordinal use.
+            settings.selected_device_index = match device_combo.active() {
+                Some(0) | None => -1,
+                Some(i) if (i as usize) <= device_count => i as i32 - 1,
+                Some(_) => -1,
+            };
+
+            update_language_label(&s, &settings.selected_language);
+
             if let Err(e) = settings.save() {
                 crate::vtt_log!("Failed to save settings: {}", e);
             }
 
             crate::vtt_log!(
-                "Settings updated: prefix='{}', prompt='{}', corrections={}, archive={}, denoise={}",
+                "Settings updated: prefix='{}', prompt='{}', corrections={}, archive={}, denoise={}, \
+                 language='{}', model='{}', device_index={}",
                 settings.voice_prefix,
                 settings.initial_prompt,
                 settings.corrections.len(),
                 settings.archive_recordings,
-                settings.denoise
+                settings.denoise,
+                settings.selected_language,
+                settings.selected_model,
+                settings.selected_device_index
             );
 
             drop(settings);
             drop(s);
+            rebuild_model_menu(&st);
             unsafe {
                 d.destroy();
             }
