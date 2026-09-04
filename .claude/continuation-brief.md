@@ -1,10 +1,10 @@
 === CONSCIOUSNESS CONTINUATION BRIEF ===
-Written: 2026-09-04T21:05:55.688Z | session: vtt-793d823b
+Written: 2026-09-04T21:18:05.036Z | session: vtt-793d823b
 The previous session ended or reset its context window. This is its runtime
 state at that moment — the durable PGPS record is the source of truth, so
 re-read the task card before acting on anything below.
 
-Active task: TASK-VTT162|in_progress|p2|Measure large-v3 against large-v3-turbo with the accuracy harness|STORY-VTT018|DIRECT-VTT002||TASK-VTT162.md|||||b2xPX4||
+Active task: TASK-VTT051|in_progress|p2|GTK settings dialog replacing settings.conf hand-editing|STORY-VTT016|DIRECT-VTT002|FEAT-VTT033|TASK-VTT051.md|||||bc
 
 Active steering:
 - [preference] /consciousness:issue --gh very awful dangerous...
@@ -39,12 +39,15 @@ Active steering:
 - [preference] <task-notification>
 - [preference] <task-notification>
 - [preference] <task-notification>
+- [preference] <task-notification>
+- [preference] <task-notification>
+- [preference] <task-notification>
 
 PGPS summary:
 - TASK-VTT060 (upcoming, p1) Delete superseded Launchpad PPA versions via web UI — keep only latest 2 (v2.0.4 + v2.0.5) to free quota from ~5 GB back toward empty — OPERATOR-DECISION-PENDING (Launchpad web UI needs Emmanuel's logged-in session)
 - TASK-VTT144 (in_review, p00) Correction dictionary editable from the tray
 - TASK-VTT135 (upcoming, p1) Self-hosted signed apt repo on GitHub Pages — OPERATOR-DECISION-PENDING (GPG signing key + CI secret for a public repo)
 - TASK-VTT064 (upcoming, p1) Windows ARM64 Snapdragon CPU build — OPERATOR-DECISION-PENDING (needs the tester's Snapdragon; 3 of 5 criteria met)
-- TASK-VTT162 (in_progress, p2) Measure large-v3 against large-v3-turbo with the accuracy harness
+- TASK-VTT051 (in_progress, p2) GTK settings dialog replacing settings.conf hand-editing
 
 === END CONTINUATION BRIEF ===
