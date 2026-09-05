@@ -181,8 +181,10 @@ cargo build --release      # output: target/release/vtt[.exe]
   `bash scripts/release-local.sh --install`.
 - **macOS** — `brew install cmake`, then `cargo build --release`.
 
-See [`docs/PLATFORM-PARITY.md`](docs/PLATFORM-PARITY.md) for the per-platform
-capability spec and [`CLAUDE.md`](CLAUDE.md) for build/packaging commands.
+See [`docs/GENERATED-PLATFORM-SPEC.md`](docs/GENERATED-PLATFORM-SPEC.md) for
+the per-platform capability spec (generated from feature cards — re-run
+`scripts/generate-platform-spec.sh` after editing one) and
+[`CLAUDE.md`](CLAUDE.md) for build/packaging commands.
 
 ---
 
