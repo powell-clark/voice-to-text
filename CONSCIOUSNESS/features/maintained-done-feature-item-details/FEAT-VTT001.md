@@ -18,6 +18,20 @@ The user holds a configurable hotkey (default: F4) to record audio. Recording st
 - [x] **AC-6** — Minimum recording quality filters (silence detection, noise floor) applied before sending — verify in `src/audio.rs`
 - [x] **AC-7** — The hotkey is configurable via `settings.conf` `hotkey` field — verified
 
+## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
+Anchored to `docs/PLATFORM-PARITY.md` §1.1. Capture is shared `cpal`-based code (`src/audio.rs`) with one platform-specific branch for sample-rate negotiation.
+
+last_tested: { linux: null, windows: null, macos: null } — ADR-0008 starts freshness tracking clean rather than backfilling guessed dates.
+
+**🐧 Linux — ✅ works** (this card)
+- [x] `cpal` (ALSA), 16 kHz requested directly from the device — `src/audio.rs`
+
+**🪟 Windows — ✅ works**
+- [x] `cpal` (WASAPI). WASAPI shared mode rejects a direct 16 kHz open, so capture opens at the device's native rate and resamples to 16 kHz in software — `src/audio.rs` (v2.2.0)
+
+**🍎 macOS — ✅ works**
+- [x] `cpal` (CoreAudio), same shared-code path as Linux/Windows; no macOS-specific branch exists in `src/audio.rs`
+
 ## Linked Tasks
 - TASK-VTT001, TASK-VTT016
 

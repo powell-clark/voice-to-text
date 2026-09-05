@@ -14,6 +14,20 @@ behaviour, then gives the per-platform mechanism and status. Status: ✅ done ·
 **Source cards (maintained):** VTT001, 004, 005, 006, 008, 010, 011, 012, 013, 014,
 015, 016, 017, 022, 023, 026, 027, 028, 035.
 
+> **CORRECTED (2026-09-05, TASK-VTT166):** the list above is this doc's original
+> claim and is partly stale — checked against each card's actual current
+> frontmatter `status` field, VTT010, VTT011, VTT014, and VTT023 are `status: done`
+> (a one-time achievement, per this repo's CLAUDE.md distinction), not
+> `status: maintained`, so per ADR-0008's own VTT015 precedent they do not carry
+> a per-platform freshness table. VTT015, VTT016, and VTT027 describe a
+> genuinely single-platform mechanism (systemd autostart, the PPA release
+> script, and the cargo-in-`debian/rules` build respectively) with no shared
+> code or comparable Windows/macOS analogue to table against — same exclusion
+> reasoning ADR-0008 already applied to VTT015. The actual migration set is
+> VTT001, 004, 005, 006, 008, 012, 013, 017, 022, 026, 028, 035 (12 cards) —
+> all now carry the "Cross-platform acceptance criteria" section and appear in
+> `scripts/generate-platform-spec.sh`'s output.
+
 ---
 
 ## 0. Platform path conventions (cross-cutting)
@@ -164,14 +178,25 @@ Canonical: cargo tests gate every change; CI on every push.
 | Tray icon colour + status text not shown | TASK-VTT093 | p1 | ✅ v2.3.3 |
 | Clipboard not set as paste fallback | TASK-VTT099 | p2 | ✅ v2.3.3 |
 | Hotkey auto-repeat not suppressed (non-toggle keys) | TASK-VTT100 | p2 | ✅ v2.3.3 |
-| Tray Logs submenu absent | TASK-VTT098 | p2 | ❌ |
-| Unicode typing unverified (£ é ñ emoji) | TASK-VTT092 (AC) | p1 | 🟡 needs hardware check |
+| Tray Logs submenu absent | TASK-VTT098 | p2 | ✅ (corrected 2026-09-05, TASK-VTT166) |
+| Unicode typing unverified (£ é ñ emoji) | TASK-VTT092 (AC) | p1 | 🟡 needs hardware check (task closed, but this specific AC's checkbox is still unticked on the card and genuinely needs real Windows hardware) |
 | Autostart on login (Windows) | TASK-VTT094 | p2 | ✅ v2.3.4 |
-| Default model not pre-provisioned by installer | TASK-VTT101 | p3 | ❌ |
-| In-app update check | TASK-VTT095 | p2 | ❌ |
-| `system_cache()` returns Linux path on Windows | TASK-VTT097 | p3 | ❌ |
-| Cross-platform test matrix (run tests on win/mac) | TASK-VTT048 | p3 | ❌ |
+| Default model not pre-provisioned by installer | TASK-VTT101 | p3 | ❌ (confirmed still open, 2026-09-05) |
+| In-app update check | TASK-VTT095 | p2 | ✅ (corrected 2026-09-05, TASK-VTT166) — GitHub Releases check ships and is CI/live-API verified; the narrower "real Windows in-place .msi upgrade" verification is split out as TASK-VTT168 (open) |
+| `system_cache()` returns Linux path on Windows | TASK-VTT097 | p3 | ✅ (corrected 2026-09-05, TASK-VTT166) — `models.rs::system_cache()` is `#[cfg(target_os = "linux")]`-gated, verified by reading the source |
+| Cross-platform test matrix (run tests on win/mac) | TASK-VTT048 | p3 | ❌ (confirmed still open, 2026-09-05) |
 
 **Parity is reached when every row above is ✅.** This register is the definition of
 done for "Windows feature parity with Linux". Update this spec whenever a maintained
 feature card changes or a new capability lands on one platform.
+
+**Retirement status (2026-09-05, TASK-VTT166):** NOT retired yet. 12 of the
+19 originally-listed source cards now carry the generator-compatible
+"Cross-platform acceptance criteria" section (see the correction above for
+the other 7's exclusion reasoning) and `scripts/generate-platform-spec.sh`
+successfully aggregates all 12. But the generator only concatenates each
+card's own section — it has no equivalent for section 0 (platform path
+conventions) or for this consolidated, priority-sorted gap register table,
+so deleting this file today would silently drop both. Retiring it is
+deferred to a follow-up that either extends the generator to synthesise
+these two views or makes an explicit, operator-reviewed call to drop them.

@@ -43,8 +43,24 @@ Before: 0 tests, 0 CI runs per push, regression caught by Emmanuel at the PPA st
 After: ~81 tests across 9 modules, CI runs on every push, pre-push hook catches failures before the push leaves the machine. Target: two consecutive releases without a post-release hotfix commit.
 
 ## Acceptance Criteria
-- [x] **AC-1** — `cargo test` passes on main with at least 20 tests covering settings, log labels, audio bounds, and text composition — verified: ~81 runnable tests across 9 modules as of v2.3.7 (expanded from original 20)
+- [x] **AC-1** — `cargo test` passes on main with at least 20 tests covering settings, log labels, audio bounds, and text composition — verified: 209 runnable tests (212 total, 3 ignored e2e) as of 2026-09-05 (TASK-VTT166), up from ~81 at v2.3.7
 - [x] **AC-2** — `.github/workflows/ci.yml` exists and runs fmt + clippy + test + build on every push to main — verified in repo
 - [x] **AC-3** — `scripts/git-hooks/pre-push` exists and mirrors CI checks locally — verified in repo, installed via `scripts/install-dev.sh`
 - [x] **AC-4** — README CI badge links to the GitHub Actions run and shows green — added to README.md (CI workflow status badge)
 - [x] **AC-5** — Two consecutive releases (v2.0.5 → v2.1.0 → v2.1.1) shipped without a post-release hotfix commit needed for a regression — verified in git log
+
+## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
+Anchored to `docs/PLATFORM-PARITY.md` §7. This card's own Scope section already excludes the full cross-platform matrix ("Cross-platform CI matrix (TASK-VTT048 covers macOS + Windows separately)") — this table tracks the CURRENT state of that gap, not a claim that it's closed.
+
+last_tested: { linux: null, windows: null, macos: null } — ADR-0008 starts freshness tracking clean rather than backfilling guessed dates.
+
+**🐧 Linux — ✅ works** (this card)
+- [x] `ubuntu-24.04` job runs `cargo fmt --check`, `cargo clippy --release --all-targets -- -D warnings`, `cargo test --release`, `cargo build --release` — `.github/workflows/ci.yml`
+
+**🪟 Windows — 🟡 partial**
+- [x] `windows-latest` (x86_64-msvc, Vulkan) and `windows-11-arm` (aarch64-msvc, CPU) jobs run `cargo build --all-targets` — compile-green gate
+- [ ] Neither Windows job runs `cargo test` — the 209 tests never execute on real Windows CI, only compile — TASK-VTT048 (open)
+
+**🍎 macOS — 🟡 partial**
+- [x] `macos-latest` (arm64, Metal) job runs `cargo build --all-targets`
+- [ ] Same gap as Windows: build-only, no `cargo test` execution — TASK-VTT048 (open)

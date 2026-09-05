@@ -26,6 +26,20 @@ The Whisper model is loaded into memory exactly once per VTT process lifetime an
 - [x] **AC-4** — VTT log file contains exactly one `Model loaded:` line per model (startup + any user-triggered switches), regardless of how many transcriptions run — verified in v2.0.0
 - [x] **AC-5** — Memory usage stays constant after the initial model load — `ps -o rss vtt-linux` shows no growth over 100 consecutive transcriptions — verified in v2.0.x extended use
 
+## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
+Anchored to `docs/PLATFORM-PARITY.md` §1.2. The worker loop (`load_engine` in `src/main.rs`, `whisper-rs` engine) has no `target_os` branches at all — this is one code path shared byte-for-byte across every platform.
+
+last_tested: { linux: null, windows: null, macos: null } — ADR-0008 starts freshness tracking clean rather than backfilling guessed dates.
+
+**🐧 Linux — ✅ works** (this card)
+- [x] Model loaded once at worker-thread startup, reused for every transcription — `src/main.rs::load_engine`
+
+**🪟 Windows — ✅ works**
+- [x] Identical shared code path — `main.rs` has several `target_os` branches elsewhere (tray/hotkey wiring), but none fall inside `load_engine` or the transcription worker loop itself (verified: no `target_os` hit between those functions' line range)
+
+**🍎 macOS — ✅ works**
+- [x] Same shared code path as Windows; no macOS-specific branch either
+
 ## Linked Tasks
 - TASK-VTT024, TASK-VTT026, TASK-VTT027, TASK-VTT028, TASK-VTT030, TASK-VTT033, TASK-VTT034
 

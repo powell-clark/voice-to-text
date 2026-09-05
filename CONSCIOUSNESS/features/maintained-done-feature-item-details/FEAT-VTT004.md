@@ -27,12 +27,13 @@ last_tested: { linux: null, windows: null, macos: null } — ADR-0008 starts fre
 
 **🍎 macOS — 🟡 partial**
 - [ ] `tray/portable.rs` (tray-icon + muda) shows status, model picker, quit — compiles and ships, but a menu-bar item needs NSApplication/`.app` activation; untested without the `.app` (FEAT-VTT029)
-- [ ] No Logs submenu and no hotkey picker (parity gap vs Linux)
+- [x] CORRECTED (2026-09-05, TASK-VTT166): Logs submenu IS present — `src/tray/portable.rs` is shared between Windows and macOS, so TASK-VTT098's fix applies here too (compiles and ships; untested without the `.app` bundle, same caveat as the line above)
+- [ ] No hotkey picker (parity gap vs Linux) — TASK-VTT138/TASK-VTT170
 
 **🪟 Windows — 🟡 partial**
 - [x] `tray/portable.rs` shows status, model picker, logging + autostart toggles, quit; Win32 message pump drives it — `src/main.rs:399-419` (TASK-VTT091)
-- [ ] Logs submenu missing (parity gap vs Linux) — TASK-VTT098
-- [ ] No hotkey picker (config-file only)
+- [x] CORRECTED (2026-09-05, TASK-VTT166): Logs submenu shipped — TASK-VTT098 is done (`src/tray/portable.rs`'s `refresh_logs_submenu`)
+- [ ] No hotkey picker (config-file only) — TASK-VTT138/TASK-VTT170 track the toolkit spike + follow-on work
 
 ## Linked Tasks
 - TASK-VTT004, TASK-VTT019

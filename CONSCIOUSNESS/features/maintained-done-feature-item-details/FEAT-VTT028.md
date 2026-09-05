@@ -28,6 +28,22 @@ On first install from the PPA, a postinst script downloads `ggml-small.en.bin` (
 - [x] **AC-5** — `debian/postrm` on `purge` removes `/usr/share/voice-to-text/models/` — verify in `debian/postrm`
 - [x] **AC-6** — Fresh install: binary transcribes on first launch without a second download prompt — verified in v2.0.0 local install testing
 
+## Cross-platform acceptance criteria (DIRECT-VTT005 parity spec)
+Anchored to `docs/PLATFORM-PARITY.md` §6. The user-facing capability is "offline-ready immediately after install/first launch" — Linux reaches it at install time (root, network, postinst), Windows only at runtime (no installer-time hook exists).
+
+last_tested: { linux: null, windows: null, macos: null } — ADR-0008 starts freshness tracking clean rather than backfilling guessed dates.
+
+**🐧 Linux — ✅ works** (this card)
+- [x] `debian/postinst` downloads the default model during `apt install`, before the user ever opens the app
+
+**🪟 Windows — 🟡 partial**
+- [x] No surprise data loss: `src/main.rs::load_engine` runs at worker-thread startup (before any hotkey action reaches the transcribe step), so a recording made mid-download is queued, not dropped
+- [x] Progress IS shown — `UiMessage::SetStatus("Downloading {model}... {pct}%")` sets the tray tooltip (`src/tray/portable.rs`) — same shared code Linux uses
+- [ ] Unlike Linux, this is tooltip-only (hover-to-see), not a proactive install-time step — a first-time user who doesn't hover has no visible signal that a ~465 MB download is happening — TASK-VTT101 (open)
+
+**🍎 macOS — ❌ missing**
+- [ ] Same runtime download-with-tooltip mechanism as Windows would apply once a `.app` bundle exists (FEAT-VTT029, blocked on TASK-VTT040) — untested, no bundle to test it in
+
 ## Linked Tasks
 - TASK-VTT037
 

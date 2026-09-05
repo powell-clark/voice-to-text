@@ -20,6 +20,6 @@ TASK-VTT140|p2|Agent-run cost tracking and seat selection for PGPS execution —
 TASK-VTT143|p4|Rule 63 maintained-directive false positive||DIRECT-VTT002||TASK-VTT143.md|||||b2v||
 TASK-VTT151|p3|Spectral subtraction if rumble filtering proves insufficient|STORY-VTT015|DIRECT-VTT002||TASK-VTT151.md|||||b2wGVx||
 TASK-VTT165|p3|Upstream: validator + VERIFICATION verdict for per-platform ACs|STORY-VTT018|DIRECT-VTT005||TASK-VTT165.md|||||b2znCT||
-TASK-VTT166|p3|Migrate remaining parity cards, retire docs/PLATFORM-PARITY.md|STORY-VTT018|DIRECT-VTT005||TASK-VTT166.md|||||b30hfs||
+TASK-VTT172|p3|Extend the platform-spec generator and retire docs/PLATFORM-PARITY.md|STORY-VTT018|DIRECT-VTT005||TASK-VTT172.md|||||b30hfs2||
 TASK-VTT171|p3|Package ct2-daemon into the Windows/macOS installs|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT171.md|TASK-VTT040||||b31FzH2||
 TASK-VTT168|p3|Verify Windows .msi in-place upgrade|STORY-VTT013|DIRECT-VTT004||TASK-VTT168.md|||||b32P6S||
