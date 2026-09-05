@@ -140,3 +140,4 @@ TASK-VTT139|Portable tray About dialog parity|STORY-VTT013|DIRECT-VTT004|FEAT-VT
 TASK-VTT138|Spike hotkey dialog on portable tray|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT138.md||
 TASK-VTT167|Package ct2-daemon into the Linux .deb install|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT167.md||
 TASK-VTT166|Migrate remaining parity cards to the DIRECT-VTT005 section|STORY-VTT018|DIRECT-VTT005||TASK-VTT166.md||
+TASK-VTT172|Extend the platform-spec generator and retire docs/PLATFORM-PARITY.md|STORY-VTT018|DIRECT-VTT005||TASK-VTT172.md||
