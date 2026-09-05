@@ -21,27 +21,41 @@ regression in how this project tracks parity.
 
 ## Acceptance criteria
 
-- [ ] `docs/PLATFORM-PATHS.md` (new) carries the path-conventions table
+- [x] `docs/PLATFORM-PATHS.md` (new) carries the path-conventions table
       (settings/model-cache/logs/recordings, Linux vs Windows), moved
-      verbatim from `docs/PLATFORM-PARITY.md` §0 — this content isn't tied
-      to any single feature card, so it needs its own permanent home before
-      the old doc can go.
-- [ ] `scripts/generate-platform-spec.sh` prepends that file's content and
-      appends a synthesised "Open gaps" section built by scanning every
+      verbatim from `docs/PLATFORM-PARITY.md` §0, plus a correction (its
+      `system_cache()` gap note pointed at TASK-VTT097, which is done —
+      updated to say so).
+- [x] `scripts/generate-platform-spec.sh` now prepends that file's content
+      and appends a synthesised "Open gaps" section built by scanning every
       migrated card's Cross-platform section for unchecked (`- [ ]`)
-      bullets and extracting the referenced `TASK-VTT*` id, in card order
-      (no fabricated priority sort — the real priority already lives in
+      bullets and printing them per card, in card order (no fabricated
+      priority sort — the real priority already lives in
       `TASK-BACKLOG-INDEX.md`, not duplicated here).
-- [ ] Diffed the generator's new "Open gaps" output against
-      `docs/PLATFORM-PARITY.md`'s current gap-register table line by line —
-      every currently-open row (and only the currently-open rows) appears;
-      nothing silently dropped, nothing fabricated.
-- [ ] `docs/PLATFORM-PARITY.md` deleted once the above is confirmed;
-      `git grep` for any remaining reference to it elsewhere in the repo
-      (README, other cards, scripts) updated to point at the generated
-      output or `docs/PLATFORM-PATHS.md` instead.
-- [ ] `cargo fmt`/`clippy`/`test` unaffected (docs/scripts-only change) —
-      confirmed green.
+- [x] Diffed the generator's new "Open gaps" output against the old
+      gap-register table's 10 rows by hand: 6 correctly absent (shipped —
+      TASK-VTT093/094/097/098/099/100), 4 correctly present (TASK-VTT101,
+      TASK-VTT048, TASK-VTT168, and TASK-VTT092's on-hardware AC). That last
+      one required a real correction, not just a migration: FEAT-VTT005's
+      Windows section had marked TASK-VTT092 `[x]` done, but TASK-VTT092's
+      own card still has an unchecked AC-1 and says "needs on-hardware
+      verification" — the feature card was overclaiming. Fixed to `[ ]` and
+      restored the honest caveat so the generator doesn't silently drop it.
+      New gaps surfaced beyond the old 10-row table too (e.g. FEAT-VTT012's
+      Cmd+V-vs-Ctrl+V macOS gap, TASK-VTT114) — the generated view is richer
+      than the hand-maintained one it replaces, not just equivalent.
+- [x] `docs/PLATFORM-PARITY.md` deleted. `git grep` found only expected
+      remaining references: already-released `CHANGELOG.md` blocks
+      (append-only, not rewritten), ADR-0008/ADR-0009 (active ADRs —
+      editing requires operator approval, and their references are
+      historical/accurate for when they were written, not live pointers),
+      and already-`done` task cards (historical record). The one live,
+      user-facing pointer — `README.md` — updated to link
+      `docs/GENERATED-PLATFORM-SPEC.md` instead, and that file regenerated
+      and committed (was stale since the original 5-card ADR-0008 commit).
+- [x] `cargo fmt`/`clippy --all-targets -D warnings`/`cargo test --release`
+      (209 tests) all green — docs/scripts-only change, confirmed no
+      regression.
 
 ## Dependencies
 

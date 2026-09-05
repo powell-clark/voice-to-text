@@ -33,9 +33,9 @@ last_tested: { linux: null, windows: null, macos: null } — ADR-0008 starts fre
 - [ ] Accessibility-permission prompt presented to the user — BLOCKED on the `.app` bundle (FEAT-VTT029); a raw binary cannot register the prompt
 - [ ] Verified typing into Safari, Notes, Terminal on a shipped build
 
-**🪟 Windows — ✅ works**
+**🪟 Windows — 🟡 partial**
 - [x] Text types at the cursor via batched `enigo.text()` SendInput per newline segment — `src/typing.rs:69-105`
-- [x] No dropped or reordered characters (regression fixed in TASK-VTT092)
+- [ ] CORRECTED (2026-09-05, TASK-VTT172): the batched-typing fix for dropped/reordered characters is implemented and TASK-VTT092 is closed, but that task's own acceptance criteria are still unchecked and its card says "Needs on-hardware verification" — this line previously claimed `[x]` done, overstating it. Unicode (£/é/ñ/emoji) on real Windows hardware has not been confirmed — TASK-VTT092 (AC unverified)
 
 ## Linked Tasks
 - TASK-VTT005, TASK-VTT018
