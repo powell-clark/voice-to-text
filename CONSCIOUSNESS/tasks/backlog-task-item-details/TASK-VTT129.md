@@ -84,5 +84,12 @@ identifiers, but that is unverified on this Linux dev box.
 ## Dependencies
 - TASK-VTT062 (wire-through) — done, provides the selection plumbing.
 - Hardware: a machine with 2+ input devices for acceptance.
-- An ADR deciding the Linux device-selection strategy (pactl default-source
-  vs. hw:CARD-only cpal picker) before implementation resumes.
+- ADR-0010 (Linux microphone device-selection strategy) — filed 2026-09-05,
+  Status: Proposed, pending operator sign-off. Recommends alternative (a)
+  (`pactl set-default-source`, reusing cpal's existing "default" device
+  path) over (b) (hw:CARD-only picker), because (b) cannot select the
+  measured RØDE USB mic at all on this PipeWire-managed machine. Blocks
+  implementation until the operator accepts (or rejects) the ADR's
+  recommendation — it carries a real system-wide side effect (changes the
+  OS default mic for every app, not just VTT) that is the operator's call,
+  not this session's to make unilaterally.
