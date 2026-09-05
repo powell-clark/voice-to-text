@@ -4,7 +4,7 @@
       "assignment_message_id": null,
       "branch": "main",
       "canonical_id": "c52f564e-bfec-4db7-a7b4-73b668bb7504",
-      "conscious_mode": true,
+      "conscious_mode": false,
       "context": {
         "adapter": "claude-code",
         "multiplexer": "tmux",
@@ -14,13 +14,13 @@
       "current_activity": null,
       "current_task": null,
       "identity": null,
-      "last_activity": "2026-09-05T10:49:13.718Z",
-      "model": "fable",
+      "last_activity": "2026-09-05T11:45:53.522Z",
+      "model": null,
       "pane_id": "%16",
-      "role": "bodhisattva",
+      "role": null,
       "session_type": "cli",
       "specialty": null,
-      "started": "2026-09-05T10:34:50.889Z",
+      "started": "2026-09-05T11:32:25.164Z",
       "worktree": "/home/powell-clark/projects/auxiliary/voice-to-text"
     }
   }

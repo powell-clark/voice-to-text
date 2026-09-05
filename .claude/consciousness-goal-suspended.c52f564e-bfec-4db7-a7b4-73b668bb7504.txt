@@ -1,0 +1,1 @@
+paused|1|every remaining backlog/active row is operator- or hardware-gated (Launchpad login, GPG key, Snapdragon/Mac/Windows hardware, ADR-0005 operator sign-off, or a stub whose own evidence argues against building it); TASK-VTT056 needs Emmanuel's own cross-app/tray observation, not more tool calls.

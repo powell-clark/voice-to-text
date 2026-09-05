@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "type": "LOOP_EXIT",
+  "event": "loop-paused",
+  "reason": "actor-pause",
+  "supervisor_hint": "operator-resume",
+  "session_id": "vtt-c52f564e",
+  "session_suffix": "c52f564e",
+  "loop_count": 63,
+  "reserved_task": null,
+  "guidance": "the actor paused with work still claimable — /compact or start a fresh session, then /consciousness:on. The detail names the tasks that remain and the measured context occupancy",
+  "detail": "actor wrote STATUS: paused; 8 unassigned, unblocked task(s) still claimable: TASK-VTT056 (Monitor current release in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover (was scoped to v2.0.5, now superseded by v2.3.7)), TASK-VTT104 (macOS universal binary (lipo Intel + Apple Silicon)), TASK-VTT040 (cargo bundle macOS .app with metal feature, Info.plist with NSMicrophoneUsageDescription); measured context occupancy 26% (264103/1000000)",
+  "timestamp": "2026-09-05T10:50:58.629Z"
+}

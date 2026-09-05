@@ -30,5 +30,11 @@
     "project_id": "VTT"
   },
   "vision": "Free, open-source, cross-platform voice-to-text that outperforms paid alternatives on Windows, Mac, and Linux.",
-  "mission": "Provide world-class voice-to-text for all humanity on the majority of machines, not just for the elite."
+  "mission": "Provide world-class voice-to-text for all humanity on the majority of machines, not just for the elite.",
+  "federation": {
+    "enabled": true,
+    "siblings": {
+      "EGLPK": "../../amalavijnana/eagle-peak/CONSCIOUSNESS"
+    }
+  }
 }

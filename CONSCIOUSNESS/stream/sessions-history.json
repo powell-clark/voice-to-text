@@ -2,33 +2,6 @@
   "sessions": [
     {
       "id": "vtt-90f95d6a",
-      "prev": "ccc-c3dc6a14",
-      "started": "2026-09-03 03:42:40.787 bst",
-      "ended": "2026-09-03 03:42:44.885 bst",
-      "metrics": {
-        "autonomous_loops": 0,
-        "tasks_completed": [],
-        "commits": 0,
-        "turns": 0,
-        "human_prompts": 0,
-        "errors": 0,
-        "compactions": 0,
-        "framing_checks_count": 0,
-        "framing_compliance_count": 0,
-        "hooks_latency_ms": {
-          "session-init": 435
-        },
-        "usage": {
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "cache_read_input_tokens": 0,
-          "cache_creation_input_tokens": 0,
-          "cache_creation_1h_input_tokens": 0
-        }
-      }
-    },
-    {
-      "id": "vtt-90f95d6a",
       "prev": "vtt-90f95d6a",
       "started": "2026-09-03 03:42:44.885 bst",
       "ended": "2026-09-03 03:42:44.922 bst",
@@ -1028,29 +1001,50 @@
       "id": "vtt-c52f564e",
       "prev": "vtt-690a6246",
       "started": "2026-09-05 11:34:50.890 bst",
-      "ended": null,
+      "ended": "2026-09-05 11:51:02.415 bst",
       "metrics": {
         "autonomous_loops": 0,
         "tasks_completed": [],
         "commits": 0,
-        "turns": 0,
+        "turns": 1,
         "human_prompts": 1,
         "errors": 0,
         "compactions": 0,
+        "framing_checks_count": 0,
+        "framing_compliance_count": 0,
         "hooks_latency_ms": {
-          "session-init": 327
+          "session-init": 327,
+          "message-end": 54
         },
+        "usage": {
+          "input_tokens": 154,
+          "output_tokens": 65999,
+          "cache_read_input_tokens": 15414817,
+          "cache_creation_input_tokens": 228826,
+          "cache_creation_1h_input_tokens": 228826
+        }
+      }
+    },
+    {
+      "id": "vtt-c52f564e",
+      "prev": "vtt-c52f564e",
+      "started": "2026-09-05 11:51:02.415 bst",
+      "ended": "2026-09-05 11:51:02.480 bst",
+      "metrics": {
+        "autonomous_loops": 0,
+        "tasks_completed": [],
+        "commits": 0,
         "usage": {
           "input_tokens": 0,
           "output_tokens": 0,
           "cache_read_input_tokens": 0,
           "cache_creation_input_tokens": 0,
           "cache_creation_1h_input_tokens": 0
-        },
-        "ralph_loops": null,
-        "framing_checks_count": 0,
-        "framing_compliance_count": 0
-      }
+        }
+      },
+      "commit_shas": [],
+      "commit_attributions": [],
+      "end_reason": "queue_empty"
     }
   ]
 }
