@@ -17,7 +17,7 @@ TASK-VTT128|p3|Unscoped validation stall — needs operator review||||TASK-VTT12
 TASK-VTT129|p2|Tray Microphone submenu — device picker UX — OPERATOR-DECISION-PENDING (Linux device-selection strategy needs an ADR; cpal's raw ALSA list buries the in-use USB mic behind an unused onboard card, see card)|STORY-VTT016|DIRECT-VTT005|FEAT-VTT033|TASK-VTT129.md||||bo
 TASK-VTT170|p3|Portable tray parity — Customize Transcription Settings dialog|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT170.md|TASK-VTT138||||b2t2||
 TASK-VTT140|p2|Agent-run cost tracking and seat selection for PGPS execution — OPERATOR-DECISION-PENDING (consciousness-plugin dispatch infra, not voice-to-text; acceptance criteria still unscoped)||DIRECT-VTT002||TASK-VTT140.md|||||b2u||
-TASK-VTT143|p4|Rule 63 maintained-directive false positive||DIRECT-VTT002||TASK-VTT143.md|||||b2v||
+TASK-VTT143|p4|Rule 63 maintained-directive false positive — OPERATOR-DECISION-PENDING (fix lives in the consciousness plugin repo's loadIdsByStatus, not voice-to-text; non-blocking, card confirms display/FK integrity unaffected)||DIRECT-VTT002||TASK-VTT143.md|||||b2v||
 TASK-VTT151|p3|Spectral subtraction if rumble filtering proves insufficient|STORY-VTT015|DIRECT-VTT002||TASK-VTT151.md|||||b2wGVx||
 TASK-VTT165|p3|Upstream: validator + VERIFICATION verdict for per-platform ACs|STORY-VTT018|DIRECT-VTT005||TASK-VTT165.md|||||b2znCT||
 TASK-VTT172|p3|Extend the platform-spec generator and retire docs/PLATFORM-PARITY.md|STORY-VTT018|DIRECT-VTT005||TASK-VTT172.md|||||b30hfs2||
