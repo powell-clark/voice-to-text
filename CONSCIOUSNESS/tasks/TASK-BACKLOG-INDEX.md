@@ -1,5 +1,4 @@
 id|priority|title|story_ids|directive_id|feature_ids|doc|blocked_by|blocks|assignee|parent_task_id|sequence|expected_duration|story_points
-TASK-VTT101|p3|Windows installer pre-provisions the default model — parity FEAT-VTT028|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT101.md|||||g1a
 TASK-VTT104|p4|macOS universal binary (lipo Intel + Apple Silicon)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT104.md|||||g1c
 TASK-VTT047|p1|Windows Authenticode code signing|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT047.md|TASK-VTT064||||b3
 TASK-VTT040|p4|cargo bundle macOS .app with metal feature, Info.plist with NSMicrophoneUsageDescription|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT040.md|||||b4
@@ -13,7 +12,7 @@ TASK-VTT076|p3|Telemetry opt-in should be default at install — 30-day retentio
 TASK-VTT120|p2|Review-gate kano override never resolves (getFeatureKano bug) — OPERATOR-DECISION-PENDING (fix lives in the consciousness plugin repo, not voice-to-text)||DIRECT-VTT002||TASK-VTT120.md|||||b2i||
 TASK-VTT125|p2|Re-register the macOS Intel self-hosted runner||DIRECT-VTT003||TASK-VTT125.md|||Emmanuel||b2m
 TASK-VTT128|p3|Unscoped validation stall — needs operator review||||TASK-VTT128.md|||||b2n||
-TASK-VTT129|p2|Tray Microphone submenu — device picker UX — OPERATOR-DECISION-PENDING (Linux device-selection strategy needs an ADR; cpal's raw ALSA list buries the in-use USB mic behind an unused onboard card, see card)|STORY-VTT016|DIRECT-VTT005|FEAT-VTT033|TASK-VTT129.md||||bo
+TASK-VTT129|p2|Tray Microphone submenu — device picker UX — OPERATOR-DECISION-PENDING (Linux device-selection strategy needs an ADR; cpal's raw ALSA list buries the in-use USB mic behind an unused onboard card, see card)|STORY-VTT016|DIRECT-VTT005|FEAT-VTT033|TASK-VTT129.md|||||bo
 TASK-VTT170|p3|Portable tray parity — Customize Transcription Settings dialog|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT170.md|TASK-VTT138||||b2t2||
 TASK-VTT140|p2|Agent-run cost tracking and seat selection for PGPS execution — OPERATOR-DECISION-PENDING (consciousness-plugin dispatch infra, not voice-to-text; acceptance criteria still unscoped)||DIRECT-VTT002||TASK-VTT140.md|||||b2u||
 TASK-VTT143|p4|Rule 63 maintained-directive false positive — OPERATOR-DECISION-PENDING (fix lives in the consciousness plugin repo's loadIdsByStatus, not voice-to-text; non-blocking, card confirms display/FK integrity unaffected)||DIRECT-VTT002||TASK-VTT143.md|||||b2v||
