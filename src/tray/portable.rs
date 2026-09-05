@@ -17,6 +17,10 @@ pub struct Tray {
     settings: Arc<RwLock<Settings>>,
     last_transcription: LastTranscription,
     work_tx: mpsc::Sender<crate::WorkItem>,
+    /// TASK-VTT095. Set when UiMessage::UpdateAvailable arrives; MenuCmd::OpenUpdate
+    /// reads it to know where to open. NOT independently verified on Windows/macOS —
+    /// see the `update` field comment below for why.
+    update_url: Option<String>,
 }
 
 struct MenuIds {
@@ -35,6 +39,11 @@ struct MenuIds {
     /// `.set_text()` update pattern), but this module only compiles on those
     /// two targets, neither of which this dev machine can build for.
     backend: MenuItem,
+    /// TASK-VTT095. Starts disabled ("Up to date") since muda::MenuItem has
+    /// no visibility toggle (unlike GTK's hide()/show() used on Linux);
+    /// UiMessage::UpdateAvailable re-labels it and enables it for a click.
+    /// NOT independently verified — see `backend` above for why.
+    update: MenuItem,
 }
 
 // Commands from the event-matching thread (Send-safe) to the main thread.
@@ -47,6 +56,7 @@ enum MenuCmd {
     RetranscribeLast,
     LanguageSel(String),
     ModelSel(String),
+    OpenUpdate,
 }
 
 impl Tray {
@@ -151,6 +161,11 @@ impl Tray {
         let retranscribe = MenuItem::new("Re-transcribe last recording", true, None);
         menu.append(&retranscribe)?;
 
+        // Update available (TASK-VTT095) — starts disabled; UpdateAvailable
+        // re-labels and enables it once a check finds a newer release.
+        let update = MenuItem::new("Up to date", false, None);
+        menu.append(&update)?;
+
         // About
         let about = MenuItem::new("About Voice to Text", true, None);
         menu.append(&about)?;
@@ -180,6 +195,7 @@ impl Tray {
             lang_en,
             lang_multi,
             backend,
+            update,
         };
 
         // muda::MenuId wraps String so it is Clone + Send.
@@ -194,6 +210,7 @@ impl Tray {
         let retranscribe_id = ids.retranscribe.id().clone();
         let lang_en_id = ids.lang_en.id().clone();
         let lang_multi_id = ids.lang_multi.id().clone();
+        let update_id = ids.update.id().clone();
         let model_ids: Vec<(muda::MenuId, String)> = ids
             .models
             .iter()
@@ -224,6 +241,8 @@ impl Tray {
                         Some(MenuCmd::LanguageSel("en".into()))
                     } else if id == lang_multi_id {
                         Some(MenuCmd::LanguageSel("auto".into()))
+                    } else if id == update_id {
+                        Some(MenuCmd::OpenUpdate)
                     } else {
                         model_ids
                             .iter()
@@ -253,6 +272,7 @@ impl Tray {
                 settings,
                 last_transcription,
                 work_tx,
+                update_url: None,
             },
             ui_tx,
         ))
@@ -283,6 +303,13 @@ impl Tray {
                 }
                 UiMessage::SetBackendLabel(label) => {
                     self.ids.backend.set_text(format!("Backend: {label}"));
+                }
+                UiMessage::UpdateAvailable(version, url) => {
+                    self.ids
+                        .update
+                        .set_text(format!("Update available: {version}"));
+                    self.ids.update.set_enabled(true);
+                    self.update_url = Some(url);
                 }
             }
         }
@@ -373,8 +400,33 @@ impl Tray {
                     self.settings.read().unwrap().save().ok();
                     crate::vtt_log!("Model changed to {}", name);
                 }
+                MenuCmd::OpenUpdate => {
+                    if let Some(url) = &self.update_url {
+                        open_url(url);
+                    }
+                }
             }
         }
+    }
+}
+
+/// Open the release page in the default browser (TASK-VTT095). NOT
+/// independently verified — this module only compiles on macOS/Windows,
+/// neither of which this dev machine can build for.
+fn open_url(url: &str) {
+    crate::vtt_log!("Opening URL: {}", url);
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open").arg(url).spawn().ok();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // An empty title argument before the URL: `start` otherwise treats a
+        // quoted first argument as the window title, not the target to open.
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", url])
+            .spawn()
+            .ok();
     }
 }
 

@@ -37,6 +37,21 @@ settings.
 
 ---
 
+## Updates
+
+- **Linux** — `sudo apt upgrade` picks up new releases from the PPA automatically.
+- **Windows** — download and run a newer `voice-to-text-installer.msi`; it
+  upgrades in place over the previous install (no manual uninstall needed).
+  Settings and downloaded models are preserved.
+- **macOS** — download a new binary and replace the old one (no installer yet).
+
+The app also checks GitHub Releases for a newer version at launch and, if one
+exists, adds an **"Update available: vX.Y.Z"** item to the tray menu linking to
+the release page. This is informational only — nothing downloads or installs
+automatically; you stay in control of when and how you update.
+
+---
+
 ## Usage
 
 Hold **Scroll Lock**, speak, release — the transcription types into the focused

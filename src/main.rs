@@ -22,6 +22,7 @@ mod settings;
 mod transcribe;
 mod tray;
 mod typing;
+mod update_check;
 mod whisper;
 
 use audio::RecordingResult;
@@ -461,6 +462,20 @@ fn main() -> anyhow::Result<()> {
     vtt_log!("All systems initialized");
     ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
     ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
+
+    // Update check (TASK-VTT095) — informational only, so it runs on its own
+    // thread rather than delaying startup on a slow or offline network.
+    let update_ui_tx = ui_tx.clone();
+    thread::Builder::new()
+        .name("update-check".into())
+        .spawn(move || {
+            if let Some(info) = update_check::check_for_update() {
+                vtt_log!("Update available: {}", info.version);
+                update_ui_tx
+                    .send(tray::UiMessage::UpdateAvailable(info.version, info.url))
+                    .ok();
+            }
+        })?;
 
     // Run platform event loop (blocks until quit)
     #[cfg(target_os = "linux")]
