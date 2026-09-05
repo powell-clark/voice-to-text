@@ -140,6 +140,12 @@ impl Tray {
 
         menu.append(&gtk::SeparatorMenuItem::new());
 
+        // --- Update available (TASK-VTT095, hidden until a check finds one) ---
+        let update_item = gtk::MenuItem::with_label("Update available");
+        update_item.set_no_show_all(true);
+        update_item.hide();
+        menu.append(&update_item);
+
         // --- About ---
         let about_item = gtk::MenuItem::with_label("About Voice to Text");
         menu.append(&about_item);
@@ -288,6 +294,19 @@ impl Tray {
             });
         }
 
+        // Update available (TASK-VTT095) — the URL arrives later over
+        // UiMessage::UpdateAvailable, so it's held in a cell shared with the
+        // poll closure below rather than captured at item-creation time.
+        let update_url: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
+        {
+            let update_url = update_url.clone();
+            update_item.connect_activate(move |_| {
+                if let Some(url) = update_url.borrow().clone() {
+                    open_file(&url);
+                }
+            });
+        }
+
         // About
         about_item.connect_activate(|_| {
             show_about_dialog();
@@ -320,6 +339,7 @@ impl Tray {
         let status_item_clone = status_item.clone();
         let indicator_clone = indicator.clone();
         let backend_item_clone = backend_item.clone();
+        let update_item_clone = update_item.clone();
         glib::timeout_add_local(std::time::Duration::from_millis(50), move || {
             while let Ok(msg) = ui_rx.try_recv() {
                 match msg {
@@ -339,6 +359,11 @@ impl Tray {
                     }
                     UiMessage::SetBackendLabel(label) => {
                         backend_item_clone.set_label(&format!("Backend: {}", label));
+                    }
+                    UiMessage::UpdateAvailable(version, url) => {
+                        update_item_clone.set_label(&format!("Update available: {}", version));
+                        *update_url.borrow_mut() = Some(url);
+                        update_item_clone.show();
                     }
                 }
             }

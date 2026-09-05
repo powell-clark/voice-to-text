@@ -12,6 +12,10 @@ pub enum UiMessage {
     /// read. Sent once at startup and again if the CT2 daemon dies
     /// mid-session (falls back to native without user intervention).
     SetBackendLabel(String),
+    /// A newer release exists on GitHub (TASK-VTT095). Carries the version
+    /// tag and the release page URL; the tray surfaces this as a menu item
+    /// that opens the URL. Informational only — nothing is downloaded.
+    UpdateAvailable(String, String),
 }
 
 /// Platform-agnostic UI sender (uses mpsc on all platforms)
