@@ -56,12 +56,24 @@ per platform, and ideally an in-app update check.
   hidden `update_item` (GTK `set_no_show_all` + `hide()`) is shown and
   relabelled "Update available: vX.Y.Z" on the message; clicking opens the
   release URL via the existing `xdg-open` helper.
-- Portable tray (`src/tray/portable.rs`, macOS/Windows, NOT independently
-  verified — cannot build for either target here): added by analogy to the
-  TASK-VTT054 `backend` item pattern already used in this file. muda's
+- Portable tray (`src/tray/portable.rs`, macOS/Windows): added by analogy to
+  the TASK-VTT054 `backend` item pattern already used in this file. muda's
   `MenuItem` has no visibility toggle, so it starts disabled ("Up to date")
   and is relabelled + enabled on the message; click opens the URL via `open`
   (macOS) / `cmd /C start` (Windows).
+  - Written by analogy because this Linux dev machine cannot build either
+    target — but subsequently BUILD-VERIFIED on real runners, so the usual
+    "unverified" caveat does NOT apply to this one. CI run 33936231818
+    (commit 9107512, which contains this code) shows `build (macos-latest,
+    arm64, Metal whisper)` and `build (windows-latest, x86_64-msvc, Vulkan
+    whisper)` both green, and each compiles `--all-targets`, which includes
+    `portable.rs`. Correctness of the *click behaviour* on those platforms is
+    still unverified — only that it compiles.
+  - Method note for future tasks touching `portable.rs`: CI is the cheap
+    verification surface for this file. It is `#[cfg]`-excluded on Linux, so
+    a local `cargo build` proves nothing about it, but the Windows and macOS
+    CI jobs compile it on every push. Read those jobs rather than declaring
+    the file unverifiable.
 - Full gate: `cargo build --release`, `cargo fmt --check`, `cargo clippy
   --all-targets -- -D warnings`, `cargo test --release` — all clean.
 
