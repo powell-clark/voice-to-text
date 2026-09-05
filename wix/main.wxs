@@ -25,6 +25,13 @@
 
     <MediaTemplate EmbedCab="yes" />
 
+    <!-- Branded icon (TASK-VTT108) — shown in Add/Remove Programs. The
+         Start-Menu shortcut below references the same file directly rather
+         than relying on Windows to extract it from vtt.exe's own embedded
+         resource (build.rs), so it renders even before the exe is indexed. -->
+    <Icon Id="VttIcon.ico" SourceFile="..\assets\vtt.ico" />
+    <Property Id="ARPPRODUCTICON" Value="VttIcon.ico" />
+
     <Feature Id="Complete" Title="Voice to Text" Level="1">
       <ComponentGroupRef Id="Binaries" />
       <ComponentGroupRef Id="Shortcuts" />
@@ -62,7 +69,8 @@
                   Name="Voice to Text"
                   Description="Push-to-talk offline voice transcription"
                   Target="[APPLICATIONFOLDER]vtt.exe"
-                  WorkingDirectory="APPLICATIONFOLDER" />
+                  WorkingDirectory="APPLICATIONFOLDER"
+                  Icon="VttIcon.ico" />
         <RemoveFolder Id="VttMenuFolderCleanup"
                       Directory="VttMenuFolder"
                       On="uninstall" />
