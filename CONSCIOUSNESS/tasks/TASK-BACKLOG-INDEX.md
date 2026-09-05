@@ -1,7 +1,6 @@
 id|priority|title|story_ids|directive_id|feature_ids|doc|blocked_by|blocks|assignee|parent_task_id|sequence|expected_duration|story_points
 TASK-VTT101|p3|Windows installer pre-provisions the default model — parity FEAT-VTT028|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT101.md|||||g1a
 TASK-VTT104|p4|macOS universal binary (lipo Intel + Apple Silicon)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT104.md|||||g1c
-TASK-VTT056|p3|Monitor current release in daily use for 3-5 days — confirm £/é transcriptions type fully in Claude Code TUI, Slack, browsers, terminals; confirm Logs submenu populates on first hover (was scoped to v2.0.5, now superseded by v2.3.7)|STORY-VTT018|DIRECT-VTT002|FEAT-VTT035|TASK-VTT056.md|||||b0
 TASK-VTT047|p1|Windows Authenticode code signing|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT047.md|TASK-VTT064||||b3
 TASK-VTT040|p4|cargo bundle macOS .app with metal feature, Info.plist with NSMicrophoneUsageDescription|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT040.md|||||b4
 TASK-VTT041|p4|Verify transcription on 2019 Intel i9 Mac with Radeon Pro 5500M via Metal|STORY-VTT012|DIRECT-VTT003|FEAT-VTT029|TASK-VTT041.md|TASK-VTT040||||b5
@@ -20,6 +19,5 @@ TASK-VTT140|p2|Agent-run cost tracking and seat selection for PGPS execution —
 TASK-VTT143|p4|Rule 63 maintained-directive false positive — OPERATOR-DECISION-PENDING (fix lives in the consciousness plugin repo's loadIdsByStatus, not voice-to-text; non-blocking, card confirms display/FK integrity unaffected)||DIRECT-VTT002||TASK-VTT143.md|||||b2v||
 TASK-VTT151|p3|Spectral subtraction if rumble filtering proves insufficient|STORY-VTT015|DIRECT-VTT002||TASK-VTT151.md|||||b2wGVx||
 TASK-VTT165|p3|Upstream: validator + VERIFICATION verdict for per-platform ACs|STORY-VTT018|DIRECT-VTT005||TASK-VTT165.md|||||b2znCT||
-TASK-VTT172|p3|Extend the platform-spec generator and retire docs/PLATFORM-PARITY.md|STORY-VTT018|DIRECT-VTT005||TASK-VTT172.md|||||b30hfs2||
 TASK-VTT171|p3|Package ct2-daemon into the Windows/macOS installs|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT171.md|TASK-VTT040||||b31FzH2||
 TASK-VTT168|p3|Verify Windows .msi in-place upgrade|STORY-VTT013|DIRECT-VTT004||TASK-VTT168.md|||||b32P6S||
