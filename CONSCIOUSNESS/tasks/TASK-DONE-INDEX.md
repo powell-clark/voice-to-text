@@ -136,3 +136,4 @@ TASK-VTT169|Fix red windows-11-arm CI job|STORY-VTT013|DIRECT-VTT002||TASK-VTT16
 TASK-VTT102|Rename binary — drop the misleading vtt-linux name|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT102.md||
 TASK-VTT098|Windows tray Logs submenu (parity with Linux FEAT-VTT004)|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT098.md||
 TASK-VTT108|Branded Windows app + installer icon and version info|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT108.md||
+TASK-VTT139|Portable tray About dialog parity|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT139.md||
