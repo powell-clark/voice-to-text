@@ -126,15 +126,6 @@ muda = "0.15"
 rdev = "0.5"
 whisper-rs = { version = "0.16", default-features = false, features = ["metal"] }
 
-# ─── Dev-only: TASK-VTT138 hotkey-capture spike ─────────────────
-# examples/hotkey_capture_spike.rs only. Never pulled into `cargo build
-# --release` or any shipped binary on any platform — dev-dependencies are
-# excluded from a crate's normal dependency graph by cargo itself, which is
-# what keeps this spike from skewing the Linux/Windows/macOS release build
-# (ADR-0005 build-isolation guarantee).
-[dev-dependencies]
-tao = "0.30"
-
 [profile.release]
 opt-level = 2
 strip = true

@@ -6,11 +6,13 @@ Required by ADR-0005 acceptance (alternative b now, a later gated on this spike)
 
 ## Acceptance criteria
 
-- [x] A `tao`-based prototype (`examples/hotkey_capture_spike.rs`) opens a
-      window and captures a single "press-a-key-now" keyboard event,
-      reporting the platform key code — `tao` added as a `[dev-dependencies]`
-      entry only, so the shipped Linux/Windows/macOS release binaries and
-      their dependency graphs are unaffected (build-isolation guarantee).
+- [x] A `tao`-based prototype (`examples/hotkey_capture_spike.rs`, commit
+      `327b756`) opened a window and captured a single "press-a-key-now"
+      keyboard event, reporting the platform key code — `tao` was added as a
+      `[dev-dependencies]` entry only, so the shipped Linux/Windows/macOS
+      release binaries and their dependency graphs were unaffected throughout
+      (build-isolation guarantee; confirmed via `cargo tree --edges
+      normal,build` and a green `cargo build --release`).
 - [x] Automated proof, not human judgement: `xdotool key <X>` synthesises a
       real keypress into the running example under this machine's X11
       session, and the captured code is confirmed against the expected key
@@ -82,6 +84,28 @@ alternative (a) lists as a pro ("Removes the `libappindicator`/`gtk`/`glib`
 build dependency from the Linux target entirely") — that pro does not hold.
 Recorded here as evidence for the operator to weigh when ADR-0005 is
 revisited; this task does not flip the ADR's Status itself.
+
+**Cleanup: the prototype was removed after its evidence was captured above.**
+`cargo audit` on commit `327b756` came back red: `tao` pulls in
+`gdkwayland-sys`/`gdkx11-sys` (RUSTSEC-2024-0411, -0414, both unmaintained
+gtk-rs GTK3 bindings) and `instant` (RUSTSEC-2024-0384, unmaintained) — none
+of which are in ci.yml's existing GTK-advisory ignore list, and CI's
+`--all-targets` step compiles every example on every platform (ubuntu,
+windows-latest, windows-11-arm, macos-latest), so the new dependency was not
+actually as contained as the "dev-dependency only" framing above implied —
+it became a standing per-push CI cost on 4 platforms plus a permanent
+security-gate widening, for a question this spike had already answered.
+Rather than expand the audit ignore-list to accommodate a one-shot spike
+(engineering-first-principles: delete first, don't let a temporary
+prototype become a permanent maintenance line), `examples/hotkey_capture_spike.rs`
+and the `tao` dev-dependency were removed in commit `<removal-commit>`
+(this task's closing commit) — confirmed via `grep` that `tao`,
+`gdkx11-sys`, `gdkwayland-sys`, and `instant` are all absent from `Cargo.lock`
+again. The evidence above (exact captured output, the scancode/keycode
+match, the UX comparison table, the GTK-still-linked finding) is the
+permanent record; the code was the means, not the deliverable. The full
+prototype source remains recoverable from commit `327b756` if a future task
+resumes this work.
 
 ## Dependencies
 
