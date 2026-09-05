@@ -62,6 +62,29 @@ pub fn resolve_daemon_script() -> Option<std::path::PathBuf> {
             }
         }
     }
+    // Linux .deb install (TASK-VTT167): debian/rules places the script here,
+    // matching the system model cache's FHS location (src/models.rs's
+    // system_cache()) rather than /usr/bin, which should hold executables only.
+    if let Some(system) = system_daemon_script() {
+        if system.is_file() {
+            return Some(system);
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "linux")]
+fn system_daemon_script() -> Option<std::path::PathBuf> {
+    Some(std::path::PathBuf::from(
+        "/usr/share/voice-to-text/ct2-daemon/transcribe_daemon.py",
+    ))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn system_daemon_script() -> Option<std::path::PathBuf> {
+    // No installer-time file-copy step ships ct2-daemon/ on Windows/macOS yet
+    // (TASK-VTT171, split off TASK-VTT167 — no WiX heat/harvest fragment nor
+    // macOS .app bundling pipeline exists in this repo to place it against).
     None
 }
 
