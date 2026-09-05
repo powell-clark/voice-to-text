@@ -26,3 +26,4 @@ TASK-VTT151|p3|Spectral subtraction if rumble filtering proves insufficient|STOR
 TASK-VTT165|p3|Upstream: validator + VERIFICATION verdict for per-platform ACs|STORY-VTT018|DIRECT-VTT005||TASK-VTT165.md|||||b2znCT||
 TASK-VTT166|p3|Migrate remaining parity cards, retire docs/PLATFORM-PARITY.md|STORY-VTT018|DIRECT-VTT005||TASK-VTT166.md|||||b30hfs||
 TASK-VTT167|p3|Package ct2-daemon into the shipped install (deb/msi)|STORY-VTT017|DIRECT-VTT002|FEAT-VTT034|TASK-VTT167.md|||||b31FzH||
+TASK-VTT168|p3|Verify Windows .msi in-place upgrade|STORY-VTT013|DIRECT-VTT004||TASK-VTT168.md|||||b32P6S||
