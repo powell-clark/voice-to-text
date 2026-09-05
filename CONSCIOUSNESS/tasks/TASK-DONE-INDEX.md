@@ -134,3 +134,4 @@ TASK-VTT130|--file multi-format decode + long-file chunking|STORY-VTT009|DIRECT-
 TASK-VTT095|Update mechanism — how Windows/macOS users get new versions|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT095.md||
 TASK-VTT169|Fix red windows-11-arm CI job|STORY-VTT013|DIRECT-VTT002||TASK-VTT169.md||
 TASK-VTT102|Rename binary — drop the misleading vtt-linux name|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT102.md||
+TASK-VTT098|Windows tray Logs submenu (parity with Linux FEAT-VTT004)|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT098.md||
