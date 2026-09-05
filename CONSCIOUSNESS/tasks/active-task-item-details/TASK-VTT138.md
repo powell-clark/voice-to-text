@@ -98,8 +98,7 @@ security-gate widening, for a question this spike had already answered.
 Rather than expand the audit ignore-list to accommodate a one-shot spike
 (engineering-first-principles: delete first, don't let a temporary
 prototype become a permanent maintenance line), `examples/hotkey_capture_spike.rs`
-and the `tao` dev-dependency were removed in commit `<removal-commit>`
-(this task's closing commit) — confirmed via `grep` that `tao`,
+and the `tao` dev-dependency were removed in commit `1cb2d03` — confirmed via `grep` that `tao`,
 `gdkx11-sys`, `gdkwayland-sys`, and `instant` are all absent from `Cargo.lock`
 again. The evidence above (exact captured output, the scancode/keycode
 match, the UX comparison table, the GTK-still-linked finding) is the
