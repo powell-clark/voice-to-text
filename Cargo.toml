@@ -93,6 +93,12 @@ windows-sys = { version = "0.59", features = ["Win32_UI_WindowsAndMessaging", "W
 # Start-at-login toggle via the HKCU Run key (TASK-VTT094, FEAT parity VTT015).
 winreg = "0.52"
 
+[target.'cfg(target_os = "windows")'.build-dependencies]
+# Embeds assets/vtt.ico + VERSIONINFO into vtt.exe (TASK-VTT108). Linux/macOS
+# builds never pull this in — it lives under the same windows-only cfg as the
+# rest of this dependency block.
+winresource = "0.1"
+
 # ─── Windows x86-64: Vulkan ─────────────────────────────────────
 # Vendor-neutral GPU acceleration (NVIDIA/AMD/Intel) so one build accelerates
 # every GPU without a CUDA Toolkit dependency (TASK-VTT088, FEAT-VTT024). Needs
