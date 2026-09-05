@@ -156,6 +156,12 @@ jobs:
       CMAKE_GENERATOR: Ninja
       CC_aarch64_pc_windows_msvc: clang-cl
       CXX_aarch64_pc_windows_msvc: clang-cl
+      # CMake normally injects /EHsc itself, but the cmake crate overwrites
+      # CMAKE_CXX_FLAGS wholesale with the cc-crate flags, so that default is
+      # lost and clang-cl compiles with exceptions disabled — ggml's gguf.cpp
+      # then fails with "cannot use 'try' with exceptions disabled". cc appends
+      # CXXFLAGS to the flags it hands over, which is how /EHsc gets back in.
+      CXXFLAGS_aarch64_pc_windows_msvc: /EHsc
     steps:
       - name: Checkout
         uses: actions/checkout@v4

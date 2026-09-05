@@ -30,6 +30,25 @@ CI on main is red on EVERY push and has been for at least several commits: the b
 - Blocks: TASK-VTT102 (Rename binary) and any other task whose acceptance
   requires green CI across all platforms
 
+## Progress log
+
+- **Attempt 1** (commit 9107512, run 33936231818): switched the ARM job to the
+  Ninja generator with `CC_aarch64_pc_windows_msvc=clang-cl`. This DID clear the
+  original blocker — `MSVC is not supported for ARM, use clang` is gone, CMake
+  configured, ran the ARM feature probes (SVE/SME/FP16) and began compiling.
+  The job still failed, but further along and for a different reason:
+  `ggml/src/gguf.cpp(420,13): error: cannot use 'try' with exceptions disabled`.
+  This is the pre-mortem's "fix works at configure time, build step then fails"
+  failure mode, arriving exactly as predicted.
+- **Diagnosis of that second failure**: CMake normally supplies `/EHsc` for MSVC-
+  family compilers, but the cmake crate overwrites `CMAKE_CXX_FLAGS` wholesale
+  with the flags it gets from the cc crate, so that default never reaches
+  clang-cl and C++ exceptions stay off. Verified in the crate sources rather than
+  guessed: cmake-0.1.58 `set_compiler` builds `-DCMAKE_CXX_FLAGS=` from
+  `compiler.args()` and its `skip_arg` filter drops only `-O*`/`/O*`/`-g`, while
+  cc-1.4.4 appends `CXXFLAGS` (target-scoped variants included) to those args.
+- **Attempt 2**: add `CXXFLAGS_aarch64_pc_windows_msvc=/EHsc`.
+
 ## Pre-mortem
 
 ### Failure modes
