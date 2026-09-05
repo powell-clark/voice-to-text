@@ -6,28 +6,82 @@ Required by ADR-0005 acceptance (alternative b now, a later gated on this spike)
 
 ## Acceptance criteria
 
-- [ ] A `tao`-based prototype (`examples/hotkey_capture_spike.rs`) opens a
+- [x] A `tao`-based prototype (`examples/hotkey_capture_spike.rs`) opens a
       window and captures a single "press-a-key-now" keyboard event,
       reporting the platform key code — `tao` added as a `[dev-dependencies]`
       entry only, so the shipped Linux/Windows/macOS release binaries and
       their dependency graphs are unaffected (build-isolation guarantee).
-- [ ] Automated proof, not human judgement: `xdotool key <X>` synthesises a
+- [x] Automated proof, not human judgement: `xdotool key <X>` synthesises a
       real keypress into the running example under this machine's X11
       session, and the captured code is confirmed against the expected key
       in real captured command output.
-- [ ] Written UX-fidelity comparison against `linux.rs`'s
+- [x] Written UX-fidelity comparison against `linux.rs`'s
       `show_hotkey_dialog` (GTK modal `connect_key_press_event` /
       `connect_key_release_event`, 8-255 X11 keycode validation,
       `HotkeyCmd::SetKeycode` push) covering: modal-vs-plain-window
       behaviour, keycode validation/range, and how directly the captured
       value maps onto `HotkeyCmd::SetKeycode`.
-- [ ] Verdict recorded on this card. This task does NOT itself flip
+- [x] Verdict recorded on this card. This task does NOT itself flip
       ADR-0005's Status — that file is an active ADR and editing it requires
       operator approval per the safety precept; flip is a follow-up left to
       the operator once this card's evidence is reviewed.
-- [ ] No GTK code touched or retired; production `Cargo.toml`/binary
+- [x] No GTK code touched or retired; production `Cargo.toml`/binary
       dependency graph unchanged — verified via `cargo build --release`
       dependency diff.
+
+## Findings (2026-09-05)
+
+**Correction to this card's Context.** `tao` is NOT actually a pre-existing
+transitive dependency of `tray-icon`/`muda` in this repo's `Cargo.lock` —
+checked directly (`grep -n -A3 '^name = "tao"' Cargo.lock` returned nothing
+before this spike). `tray-icon` 0.19.3 depends on `libappindicator` + `muda`
++ objc2/windows-sys; `muda` 0.15.3 depends on `gtk` directly for Linux menus,
+not `tao`. So adding `tao` for this spike is a genuinely new dependency, not
+a reuse of an existing one — added as `[dev-dependencies]` only, consumed
+solely by `examples/hotkey_capture_spike.rs`, confirmed absent from
+`cargo tree --edges normal,build` and from `cargo build --release`'s compile
+list.
+
+**Automated capture proof.** `examples/hotkey_capture_spike.rs` opens a
+`tao` window and matches `WindowEvent::KeyboardInput`'s
+`key_event.physical_key: tao::keyboard::KeyCode`. On this Linux/X11 session
+(`DISPLAY=:1`), a named key (e.g. `KeyCode::KeyB`) round-trips through
+`KeyCode::to_scancode()` to the exact X11 keycode. Deliberate, reproducible
+proof via `xdotool key --clearmodifiers b` (no human involved):
+```
+SPIKE RESULT: matched a named KeyCode::KeyB — to_scancode() = Some(56)
+SPIKE RESULT: captured raw keycode 56 (valid 8-255 range, ready for HotkeyCmd::SetKeycode)
+```
+X11 keycode 56 = evdev `KEY_B` (48) + 8 — correct. An earlier, undirected run
+also captured an incidental real keypress (`KeyT` → scancode 28 = evdev
+`KEY_T` (20) + 8) confirming the mechanism works on ordinary ambient input
+too, not just synthetic events.
+
+**UX-fidelity comparison vs. `linux.rs::show_hotkey_dialog`:**
+
+| Aspect | `linux.rs` (GTK) | `tao` prototype |
+|---|---|---|
+| Modality | Modal `gtk::Dialog`, blocks the rest of the tray until closed/cancelled | Plain top-level window; no modal/parent relationship to the tray icon without extra plumbing (`tao` has no dialog widget, only windows) |
+| Capture mechanism | `connect_key_press_event`/`connect_key_release_event` signal handlers on the dialog | `WindowEvent::KeyboardInput` matched in the app event loop — same event-driven shape, different framework |
+| Raw code exposed | X11 keycode directly (event.hardware_keycode) | `KeyCode::Unidentified(NativeKeyCode::Gtk(u16))` for unnamed keys, or `KeyCode::<Named>.to_scancode()` for named ones — both land on the same X11 keycode space, confirmed above |
+| Validation | 8-255 range check inline in the dialog | Identical 8-255 range check ported directly into the spike (`validate_x11_keycode`) — no logic change needed |
+| Push to hotkey thread | `HotkeyCmd::SetKeycode` sent directly from the dialog's handler | Same shape: the captured, validated `u8` is immediately ready for `HotkeyCmd::SetKeycode` — no adapter needed |
+| Linux windowing backend | GTK3 directly | **`tao`'s own Linux backend is ALSO GTK-based** (`NativeKeyCode::Gtk`, and `gdkx11-sys`/`gdkwayland-sys` pulled into the dev-dependency build) — using `tao` on Linux does not remove the GTK dependency, only moves which crate owns the GTK call |
+| Cancel/escape | GTK dialog has a Cancel button + window-close = abort | Prototype does not implement Escape-to-cancel (out of scope for this time-boxed spike, but trivial to add — matching a `KeyCode::Escape` arm before the general case) |
+
+**Verdict: acceptable equivalent for keycode capture, but with a load-bearing
+caveat for the wider unify decision.** The event-capture mechanism itself
+maps cleanly (same 8-255 X11 keycode space, same validation, same
+`HotkeyCmd::SetKeycode` handoff) — alternative (a)'s stated risk ("no dialog
+toolkit … needs prototyping before committing") is resolved for keycode
+capture specifically. However this spike also produces new evidence ADR-0005
+did not have: **`tao`'s Linux backend still links GTK** (`gdkx11-sys`,
+`gdkwayland-sys` in this build), so unifying onto `tao`/`tray-icon`/`muda`
+does not eliminate the `libappindicator`/`gtk` build dependency ADR-0005's
+alternative (a) lists as a pro ("Removes the `libappindicator`/`gtk`/`glib`
+build dependency from the Linux target entirely") — that pro does not hold.
+Recorded here as evidence for the operator to weigh when ADR-0005 is
+revisited; this task does not flip the ADR's Status itself.
 
 ## Dependencies
 
