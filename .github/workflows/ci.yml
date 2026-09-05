@@ -144,6 +144,18 @@ jobs:
     env:
       RUSTFLAGS: ""
       CARGO_TARGET_DIR: C:\t
+      # ggml refuses to configure for ARM under MSVC — ggml-cpu/CMakeLists.txt
+      # raises "MSVC is not supported for ARM, use clang" — so this job has to
+      # build whisper.cpp with clang-cl. Under the Visual Studio generator the
+      # compiler comes from the -T toolset, which the cmake crate only exposes
+      # through a builder call whisper-rs-sys never makes. Ninja is the way in:
+      # there the cmake crate forwards the cc-crate compiler through as
+      # CMAKE_C_COMPILER, so CC/CXX below actually reach CMake. Both clang-cl
+      # (LLVM 20.1.6) and ninja (1.13.2) ship on the windows-11-arm image
+      # (TASK-VTT169).
+      CMAKE_GENERATOR: Ninja
+      CC_aarch64_pc_windows_msvc: clang-cl
+      CXX_aarch64_pc_windows_msvc: clang-cl
     steps:
       - name: Checkout
         uses: actions/checkout@v4
