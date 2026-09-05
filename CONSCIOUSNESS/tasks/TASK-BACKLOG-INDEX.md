@@ -15,7 +15,6 @@ TASK-VTT120|p2|Review-gate kano override never resolves (getFeatureKano bug) —
 TASK-VTT125|p2|Re-register the macOS Intel self-hosted runner||DIRECT-VTT003||TASK-VTT125.md|||Emmanuel||b2m
 TASK-VTT128|p3|Unscoped validation stall — needs operator review||||TASK-VTT128.md|||||b2n||
 TASK-VTT129|p2|Tray Microphone submenu — device picker UX — OPERATOR-DECISION-PENDING (Linux device-selection strategy needs an ADR; cpal's raw ALSA list buries the in-use USB mic behind an unused onboard card, see card)|STORY-VTT016|DIRECT-VTT005|FEAT-VTT033|TASK-VTT129.md||||bo
-TASK-VTT138|p3|Spike hotkey dialog on portable tray|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT138.md|||||b2s||
 TASK-VTT170|p3|Portable tray parity — Customize Transcription Settings dialog|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT170.md|TASK-VTT138||||b2t2||
 TASK-VTT140|p2|Agent-run cost tracking and seat selection for PGPS execution — OPERATOR-DECISION-PENDING (consciousness-plugin dispatch infra, not voice-to-text; acceptance criteria still unscoped)||DIRECT-VTT002||TASK-VTT140.md|||||b2u||
 TASK-VTT143|p4|Rule 63 maintained-directive false positive||DIRECT-VTT002||TASK-VTT143.md|||||b2v||
