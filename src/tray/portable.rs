@@ -21,7 +21,19 @@ pub struct Tray {
     /// reads it to know where to open. NOT independently verified on Windows/macOS —
     /// see the `update` field comment below for why.
     update_url: Option<String>,
+    /// TASK-VTT098. The disabled explanatory row currently shown in the Logs
+    /// submenu ("(no logs yet)" / an unreadable-directory reason), or None when
+    /// the submenu is listing real files.
+    logs_placeholder: Option<String>,
+    /// When the log directory was last listed. poll_menu runs at ~10 Hz and
+    /// listing a directory that often would be pure waste, so the check is
+    /// throttled to LOGS_REFRESH_INTERVAL.
+    logs_checked_at: std::time::Instant,
 }
+
+/// How often poll_menu re-lists the log directory (TASK-VTT098). Matches the
+/// cadence the Linux tray uses for its own periodic menu refresh.
+const LOGS_REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(3);
 
 struct MenuIds {
     status: MenuItem,
@@ -44,6 +56,14 @@ struct MenuIds {
     /// UiMessage::UpdateAvailable re-labels it and enables it for a click.
     /// NOT independently verified — see `backend` above for why.
     update: MenuItem,
+    /// Logs submenu (TASK-VTT098, parity with the Linux tray's FEAT-VTT004
+    /// AC-4). Held so poll_menu can refresh its contents — muda has no
+    /// "menu about to open" callback, which is what the GTK side uses.
+    logs: Submenu,
+    /// The log files currently listed in `logs`, paired with the menu id of
+    /// the item that opens each. Rebuilt only when the file list actually
+    /// changes, so the tray is not rebuilding a menu at poll frequency.
+    log_items: Vec<(muda::MenuId, std::path::PathBuf)>,
 }
 
 // Commands from the event-matching thread (Send-safe) to the main thread.
@@ -57,6 +77,9 @@ enum MenuCmd {
     LanguageSel(String),
     ModelSel(String),
     OpenUpdate,
+    /// A menu id the event thread could not match — resolved on the main
+    /// thread, which owns the dynamically rebuilt Logs items (TASK-VTT098).
+    Unmatched(muda::MenuId),
 }
 
 impl Tray {
@@ -130,6 +153,13 @@ impl Tray {
         );
         menu.append(&backend)?;
 
+        // Logs submenu — parity with the Linux tray (TASK-VTT098, FEAT-VTT004
+        // AC-4). Contents are filled in by refresh_logs_submenu below and
+        // refreshed from poll_menu, because muda has no "menu about to open"
+        // callback of the kind the GTK side hangs its rebuild on.
+        let logs = Submenu::new("Logs", true);
+        menu.append(&logs)?;
+
         // Logging
         let logging = MenuItem::new(
             if logging_enabled {
@@ -196,6 +226,8 @@ impl Tray {
             lang_multi,
             backend,
             update,
+            logs,
+            log_items: Vec::new(),
         };
 
         // muda::MenuId wraps String so it is Clone + Send.
@@ -248,6 +280,12 @@ impl Tray {
                             .iter()
                             .find(|(mid, _)| *mid == id)
                             .map(|(_, name)| MenuCmd::ModelSel(name.clone()))
+                            // Log items are created after this thread captured
+                            // its id snapshot and are replaced whenever the file
+                            // list changes, so they cannot be matched here.
+                            // Forward the raw id; poll_menu owns that list and
+                            // resolves it on the main thread (TASK-VTT098).
+                            .or(Some(MenuCmd::Unmatched(id.clone())))
                     };
                     if let Some(cmd) = cmd {
                         if cmd_tx.send(cmd).is_err() {
@@ -273,13 +311,100 @@ impl Tray {
                 last_transcription,
                 work_tx,
                 update_url: None,
+                logs_placeholder: None,
+                // Zero-initialised so the first poll_menu populates the submenu
+                // immediately rather than showing an empty Logs menu for the
+                // first few seconds.
+                logs_checked_at: std::time::Instant::now() - LOGS_REFRESH_INTERVAL,
             },
             ui_tx,
         ))
     }
 
+    /// Rebuild the Logs submenu when the set of log files has changed.
+    ///
+    /// Cheap on the common path: it lists a small directory and returns
+    /// immediately unless the filenames differ from what is already shown, so
+    /// the menu is not reconstructed at poll frequency (TASK-VTT098).
+    fn refresh_logs_submenu(&mut self) {
+        if self.logs_checked_at.elapsed() < LOGS_REFRESH_INTERVAL {
+            return;
+        }
+        self.logs_checked_at = std::time::Instant::now();
+
+        let files = match logging::list_log_filenames() {
+            Ok(f) => f,
+            // An unreadable log directory is shown in the menu rather than
+            // logged, since the menu is where the user is looking.
+            Err(e) => {
+                let msg = format!("(log dir unreadable: {e})");
+                if self.logs_placeholder.as_deref() != Some(&msg) {
+                    self.set_logs_items(&[], Some(&msg));
+                    self.logs_placeholder = Some(msg);
+                }
+                return;
+            }
+        };
+
+        let log_dir = logging::get_dir();
+        let unchanged = files.len() == self.ids.log_items.len()
+            && files
+                .iter()
+                .zip(self.ids.log_items.iter())
+                .all(|(name, (_, p))| p.file_name().map(|f| f == name.as_str()).unwrap_or(false));
+        if unchanged && self.logs_placeholder.is_none() {
+            return;
+        }
+
+        if files.is_empty() {
+            self.set_logs_items(&[], Some("(no logs yet)"));
+            self.logs_placeholder = Some("(no logs yet)".into());
+            return;
+        }
+
+        let (today, yesterday) = logging::today_and_yesterday();
+        let entries: Vec<(String, std::path::PathBuf)> = files
+            .iter()
+            .map(|name| {
+                (
+                    logging::format_log_label(name, &today, &yesterday),
+                    log_dir.join(name),
+                )
+            })
+            .collect();
+        self.set_logs_items(&entries, None);
+        self.logs_placeholder = None;
+    }
+
+    /// Replace the Logs submenu's contents. `placeholder` renders a single
+    /// disabled explanatory row instead of file entries.
+    fn set_logs_items(
+        &mut self,
+        entries: &[(String, std::path::PathBuf)],
+        placeholder: Option<&str>,
+    ) {
+        while !self.ids.logs.items().is_empty() {
+            self.ids.logs.remove_at(0);
+        }
+        self.ids.log_items.clear();
+
+        if let Some(text) = placeholder {
+            let item = MenuItem::new(text, false, None);
+            let _ = self.ids.logs.append(&item);
+            return;
+        }
+
+        for (label, path) in entries {
+            let item = MenuItem::new(label, true, None);
+            if self.ids.logs.append(&item).is_ok() {
+                self.ids.log_items.push((item.id().clone(), path.clone()));
+            }
+        }
+    }
+
     /// Process pending menu commands. Call from the main event loop at ~10 Hz.
     pub fn poll_menu(&mut self) {
+        self.refresh_logs_submenu();
         // Apply queued UI updates on the main thread — tray-icon handles are
         // !Send so the worker cannot do this. Status → tooltip, state → icon
         // colour (idle green, recording red, processing amber).
@@ -405,8 +530,36 @@ impl Tray {
                         open_url(url);
                     }
                 }
+                MenuCmd::Unmatched(id) => {
+                    // Only the Logs items are unmatched by design; anything
+                    // else here is a menu id nothing claims, so ignore it
+                    // rather than guessing at an action.
+                    if let Some((_, path)) = self.ids.log_items.iter().find(|(mid, _)| *mid == id) {
+                        open_path(path);
+                    }
+                }
             }
         }
+    }
+}
+
+/// Open a log file in the platform's default handler (TASK-VTT098) — the
+/// portable equivalent of the Linux tray's `xdg-open` helper.
+fn open_path(path: &std::path::Path) {
+    crate::vtt_log!("Opening file: {}", path.display());
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open").arg(path).spawn().ok();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // Empty title argument first: `start` treats a lone quoted argument as
+        // the window title rather than the thing to open.
+        std::process::Command::new("cmd")
+            .args(["/C", "start", ""])
+            .arg(path)
+            .spawn()
+            .ok();
     }
 }
 
