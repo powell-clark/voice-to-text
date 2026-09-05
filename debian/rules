@@ -45,6 +45,17 @@ override_dh_auto_install:
 	install -D -m 0644 debian/voice-to-text.desktop \
 		debian/voice-to-text/usr/share/applications/voice-to-text.desktop
 	install -d debian/voice-to-text/usr/share/voice-to-text/models
+	# Optional CT2 daemon backend (TASK-VTT167, FEAT-VTT034). Ships the script
+	# so resolve_daemon_script() can find it on a real install, not just a dev
+	# checkout -- but never pulls in faster-whisper/ctranslate2 here, since the
+	# default backend is native whisper-rs and this package promises no Python
+	# is required. A user who opts into backend=ct2 installs the daemon's own
+	# Python deps manually: `pip install -r
+	# /usr/share/voice-to-text/ct2-daemon/requirements.txt`.
+	install -D -m 0644 ct2-daemon/transcribe_daemon.py \
+		debian/voice-to-text/usr/share/voice-to-text/ct2-daemon/transcribe_daemon.py
+	install -D -m 0644 ct2-daemon/requirements.txt \
+		debian/voice-to-text/usr/share/voice-to-text/ct2-daemon/requirements.txt
 
 override_dh_auto_clean:
 	# No cargo state to clean — binary is committed.
