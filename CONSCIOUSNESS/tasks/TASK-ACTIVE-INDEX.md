@@ -5,4 +5,3 @@ TASK-VTT135|upcoming|p1|Self-hosted signed apt repo on GitHub Pages — OPERATOR
 TASK-VTT064|upcoming|p1|Windows ARM64 Snapdragon CPU build — OPERATOR-DECISION-PENDING (needs the tester's Snapdragon; 3 of 5 criteria met)|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT064.md|TASK-VTT082||||b2a
 TASK-VTT079|upcoming|p2|Upstream — feature-index status column splits PGPS display but fails validator (dist build inconsistency) — OPERATOR-DECISION-PENDING (fix lives in the consciousness plugin repo, not voice-to-text)||DIRECT-VTT002||TASK-VTT079.md|||||b3
 TASK-VTT050|upcoming|p2|Integrate silero-rs VAD for auto-stop on silence and noise filtering — OPERATOR-DECISION-PENDING (which VAD crate / ONNX Runtime bundling tradeoff — see card's crate research)|STORY-VTT015|DIRECT-VTT002|FEAT-VTT032|TASK-VTT050.md|||||bb
-TASK-VTT169|in_progress|p2|Fix red windows-11-arm CI job|STORY-VTT013|DIRECT-VTT002||TASK-VTT169.md|||||b2rZTq||

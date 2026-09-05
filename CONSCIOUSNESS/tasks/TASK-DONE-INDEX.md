@@ -132,3 +132,4 @@ TASK-VTT164|accuracy-compare.sh --corpus override is neutralised by default-equa
 TASK-VTT103|Evaluate unifying Linux GTK tray onto the portable tray (ADR)|STORY-VTT013|DIRECT-VTT002|FEAT-VTT030|TASK-VTT103.md||
 TASK-VTT130|--file multi-format decode + long-file chunking|STORY-VTT009|DIRECT-VTT002|FEAT-VTT021|TASK-VTT130.md||
 TASK-VTT095|Update mechanism — how Windows/macOS users get new versions|STORY-VTT013|DIRECT-VTT004|FEAT-VTT030|TASK-VTT095.md||
+TASK-VTT169|Fix red windows-11-arm CI job|STORY-VTT013|DIRECT-VTT002||TASK-VTT169.md||
