@@ -20,7 +20,7 @@ Include:
 
 1. A description of the vulnerability
 2. Steps to reproduce
-3. Affected versions (`vtt-linux --version`)
+3. Affected versions (`vtt --version`)
 4. Your environment (distro, desktop environment, X11 vs Wayland)
 5. Any proof-of-concept exploit code (optional but helpful)
 

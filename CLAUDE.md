@@ -6,9 +6,9 @@ This is a public repository on GitHub. Keep it secure and professional.
 
 | Platform | Command | Output |
 |----------|---------|--------|
-| Linux    | `cargo build --release` | `target/release/vtt-linux` |
-| macOS    | `cargo build --release` | `target/release/vtt-linux` |
-| Windows  | `cargo build --release` | `target/release/vtt-linux.exe` |
+| Linux    | `cargo build --release` | `target/release/vtt` |
+| macOS    | `cargo build --release` | `target/release/vtt` |
+| Windows  | `cargo build --release` | `target/release/vtt.exe` |
 | All      | `cargo clean` | removes `target/` |
 
 ### Windows installer (.msi)
@@ -43,7 +43,7 @@ bash scripts/release-ppa.sh   # pbuilder hard-gate, then dput
 - Launchpad account: `powellclark` (no hyphen)
 - PPA target: `ppa:powellclark/voice-to-text`
 - dput target: `powellclark-voice-to-text`
-- Pre-built binary: `packaging/linux/vtt-linux.prebuilt`
+- Pre-built binary: `packaging/linux/vtt.prebuilt`
   (Ubuntu Noble ships Cargo 1.75, which cannot parse edition-2024 manifests;
   `release-ppa.sh` rebuilds and re-commits this file automatically on each release)
 
@@ -69,7 +69,7 @@ Tracked as FEAT-VTT036. No release automation updates the tap.
 ## Packaging layout
 
 ```
-packaging/linux/     — vtt-linux.prebuilt + vtt.service (Launchpad + systemd)
+packaging/linux/     — vtt.prebuilt + vtt.service (Launchpad + systemd)
 packaging/windows/   — notes; wix/ stays at root (cargo-wix tool convention)
 packaging/macos/     — placeholder for planned .app bundle
 debian/              — Debian package metadata (must stay at root for dpkg)

@@ -33,7 +33,7 @@ cargo build --release
 if ($LASTEXITCODE -ne 0) { Write-Host "BUILD FAILED" -ForegroundColor Red; exit 1 }
 
 # 3. Confirm binary
-$bin = "target\release\vtt-linux.exe"
+$bin = "target\release\vtt.exe"
 Write-Host "`n[3/4] checking $bin" -ForegroundColor Yellow
 if (-not (Test-Path $bin)) { Write-Host "MISSING: $bin" -ForegroundColor Red; exit 1 }
 $size = [math]::Round((Get-Item $bin).Length / 1MB, 1)

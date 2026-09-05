@@ -105,7 +105,7 @@ fn main() -> anyhow::Result<()> {
     if wants_help {
         println!(
             "voice-to-text {} — push-to-talk offline transcription\n\n\
-             Usage: vtt-linux [options]\n\n\
+             Usage: vtt [options]\n\n\
              Options:\n  \
              -V, --version      Print version and exit\n  \
              -h, --help         Print this help and exit\n  \
@@ -1217,7 +1217,7 @@ fn run_doctor() -> anyhow::Result<()> {
     // Which binary is actually answering the hotkey.
     #[cfg(target_os = "linux")]
     {
-        let installed = std::path::Path::new("/usr/bin/vtt-linux");
+        let installed = std::path::Path::new("/usr/bin/vtt");
         let mut seen = false;
         if let Ok(entries) = std::fs::read_dir("/proc") {
             for e in entries.flatten() {
@@ -1229,20 +1229,24 @@ fn run_doctor() -> anyhow::Result<()> {
                     continue;
                 };
                 let target = target.to_string_lossy().to_string();
-                if !target.contains("vtt-linux") {
+                let state = parse_exe_link(&target);
+                let exe_path = match &state {
+                    doctor::ExeState::Current(p) | doctor::ExeState::Replaced(p) => p.clone(),
+                };
+                if !doctor::is_our_binary(&exe_path) {
                     continue;
                 }
                 if pid == std::process::id() {
                     continue;
                 }
                 seen = true;
-                findings.push(diagnose_running(pid, &parse_exe_link(&target), installed));
+                findings.push(diagnose_running(pid, &state, installed));
             }
         }
         if !seen {
             findings.push(Finding::problem(
                 "running binary",
-                "no vtt-linux process found — nothing is listening for the hotkey. \
+                "no vtt process found — nothing is listening for the hotkey. \
                  Start it: `systemctl --user start vtt.service`",
             ));
         }
@@ -1322,6 +1326,11 @@ fn singleton_lock(data_dir: &std::path::Path) -> anyhow::Result<std::fs::File> {
     use std::io::Write;
     use std::os::unix::io::AsRawFd;
     std::fs::create_dir_all(data_dir)?;
+    // Deliberately still "vtt-linux.lock" after the binary rename (TASK-VTT102).
+    // The single-instance guard only works if both instances agree on the path,
+    // and during an upgrade the already-running process is the OLD build holding
+    // the OLD name. Renaming the lock would let both run at once, each grabbing
+    // the same global hotkey. The path is internal; no user ever types it.
     let lock_path = data_dir.join("vtt-linux.lock");
     let file = std::fs::OpenOptions::new()
         .create(true)
@@ -1339,14 +1348,14 @@ fn singleton_lock(data_dir: &std::path::Path) -> anyhow::Result<std::fs::File> {
             .and_then(|s| s.trim().parse::<u32>().ok());
         match existing_pid {
             Some(pid) => anyhow::bail!(
-                "Another instance of vtt-linux is already running (PID {}). \
+                "Another instance of vtt is already running (PID {}). \
                  Stop it with `kill {}` or `systemctl --user stop vtt.service`.",
                 pid,
                 pid
             ),
             None => anyhow::bail!(
-                "Another instance of vtt-linux is already running. \
-                 Find it with `pgrep -x vtt-linux` and stop it."
+                "Another instance of vtt is already running. \
+                 Find it with `pgrep -x vtt` and stop it."
             ),
         }
     }

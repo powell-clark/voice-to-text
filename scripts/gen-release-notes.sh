@@ -39,7 +39,7 @@ fi
   printf '| Platform | Download | Install |\n'
   printf '|----------|----------|---------|\n'
   printf '| **Windows 11** | [`voice-to-text-installer.msi`](https://github.com/%s/releases/download/%s/voice-to-text-installer.msi) | Run the installer. Push-to-talk = **Scroll Lock**. GPU-accelerated (Vulkan). |\n' "$REPO" "$TAG"
-  printf '| **Linux (Ubuntu)** | [`vtt-linux`](https://github.com/%s/releases/download/%s/vtt-linux) or PPA | `sudo add-apt-repository ppa:powellclark/voice-to-text && sudo apt install voice-to-text` |\n' "$REPO" "$TAG"
+  printf '| **Linux (Ubuntu)** | [`vtt`](https://github.com/%s/releases/download/%s/vtt) or PPA | `sudo add-apt-repository ppa:powellclark/voice-to-text && sudo apt install voice-to-text` |\n' "$REPO" "$TAG"
   printf '| **macOS (Intel)** | [`vtt-macos-intel`](https://github.com/%s/releases/download/%s/vtt-macos-intel) | Unsigned: `chmod +x vtt-macos-intel && xattr -d com.apple.quarantine vtt-macos-intel`, then run. |\n' "$REPO" "$TAG"
   printf '| **macOS (Apple Silicon)** | [`vtt-macos-arm64`](https://github.com/%s/releases/download/%s/vtt-macos-arm64) | Unsigned: `chmod +x vtt-macos-arm64 && xattr -d com.apple.quarantine vtt-macos-arm64`, then run. |\n' "$REPO" "$TAG"
   printf '\n**Full changelog:** [%s](https://github.com/%s/blob/main/CHANGELOG.md)\n' "$TAG" "$REPO"

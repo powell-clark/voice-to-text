@@ -56,9 +56,9 @@ Releases are CI-driven on tag push — there is no local multi-platform build st
    **origin is SSH** — workflow-file pushes need it (the gh HTTPS token lacks
    `workflow` scope).
 5. `.github/workflows/release.yml` fires and runs in parallel:
-   - **Linux** (`ubuntu-24.04`): builds `vtt-linux`, generates notes from the
+   - **Linux** (`ubuntu-24.04`): builds `vtt`, generates notes from the
      CHANGELOG via `scripts/gen-release-notes.sh`, creates the release **as a
-     draft**, attaches `vtt-linux`.
+     draft**, attaches `vtt`.
    - **Windows** (`windows-latest`): installs the Vulkan SDK, builds the GPU
      `.msi` via cargo-wix, attaches `voice-to-text-installer.msi`.
    - **macOS Intel** (`macos-13`): builds `vtt-macos-intel` (x86_64).
@@ -84,7 +84,7 @@ Releases are CI-driven on tag push — there is no local multi-platform build st
 
 | Platform | Artifact | Backend |
 |----------|----------|---------|
-| Linux (Ubuntu) | `vtt-linux` + PPA `.deb` | Vulkan |
+| Linux (Ubuntu) | `vtt` + PPA `.deb` | Vulkan |
 | Windows 11 | `voice-to-text-installer.msi` | Vulkan |
 | macOS Intel | `vtt-macos-intel` | Metal |
 | macOS Apple Silicon | `vtt-macos-arm64` | Metal |

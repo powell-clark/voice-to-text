@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Voice to Text
 Comment=Offline voice-to-text transcription with 99+ language support
-Exec=/usr/bin/vtt-linux
+Exec=/usr/bin/vtt
 Icon=audio-input-microphone
 Terminal=false
 Type=Application

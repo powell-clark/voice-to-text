@@ -46,12 +46,12 @@
     <ComponentGroup Id="Binaries" Directory="APPLICATIONFOLDER">
       <Component Id="VttBinary" Guid="{7B1E4F2A-8C9D-4E3B-A5F6-D1C7E2B89043}">
         <!--
-          The cargo binary is named vtt-linux.exe on all platforms (from [[bin]] name).
-          WiX renames it to vtt.exe on install — users see "vtt.exe" in Program Files.
+          The cargo binary is named vtt.exe on all platforms (from [[bin]] name).
+          It installs under the same name — users see "vtt.exe" in Program Files.
         -->
         <File Id="VttExe"
               Name="vtt.exe"
-              Source="$(var.CargoTargetBinDir)\vtt-linux.exe"
+              Source="$(var.CargoTargetBinDir)\vtt.exe"
               KeyPath="yes" />
       </Component>
     </ComponentGroup>

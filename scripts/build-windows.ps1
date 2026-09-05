@@ -115,7 +115,7 @@ Write-Host "`ncargo build --release" -ForegroundColor Yellow
 & cargo build --release
 if ($LASTEXITCODE -ne 0) { Write-Host "BUILD FAILED ($LASTEXITCODE)" -ForegroundColor Red; exit $LASTEXITCODE }
 
-$bin = "target\release\vtt-linux.exe"
+$bin = "target\release\vtt.exe"
 if (-not (Test-Path $bin)) { Write-Host "MISSING: $bin" -ForegroundColor Red; exit 1 }
 $size = [math]::Round((Get-Item $bin).Length / 1MB, 1)
 Write-Host "`nOK: $bin ($size MB)" -ForegroundColor Green

@@ -7,7 +7,7 @@ Distribution: Ubuntu/Debian via Launchpad PPA (`ppa:powellclark/voice-to-text`).
 ```bash
 # 1. Build the release binary locally
 cargo build --release
-cp target/release/vtt-linux packaging/linux/vtt-linux.prebuilt
+cp target/release/vtt packaging/linux/vtt.prebuilt
 
 # 2. Bump version in Cargo.toml and debian/changelog, then commit + push
 
@@ -15,7 +15,7 @@ cp target/release/vtt-linux packaging/linux/vtt-linux.prebuilt
 bash scripts/release-ppa.sh
 ```
 
-`packaging/linux/vtt-linux.prebuilt` is committed to the repo because Ubuntu
+`packaging/linux/vtt.prebuilt` is committed to the repo because Ubuntu
 Noble ships Cargo 1.75, which cannot parse edition 2024 manifests. The
 Launchpad build step installs the pre-built binary rather than building from
 source. This follows the Google Chrome / Zoom pattern for proprietary .debs.
@@ -32,7 +32,7 @@ This builds via `cargo build --release`, packages a `.deb`, and installs it.
 
 ## macOS
 
-`cargo build --release` produces `target/release/vtt-linux` (the binary name is cross-platform).
+`cargo build --release` produces `target/release/vtt` (the binary name is cross-platform).
 A signed `.app` bundle is planned in `packaging/macos/` — see the backlog.
 
 ## GitHub Actions CI runner (macOS, optional)

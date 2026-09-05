@@ -139,7 +139,7 @@ one-command release; updates picked up automatically.
 | Aspect | Linux | Windows | Status |
 |---|---|---|---|
 | Installer | `.deb` + Launchpad PPA (VTT008) | `.msi` via cargo-wix (VTT027 analogue) | ✅ both |
-| Cargo-built binary in package | ✅ (VTT027) | ✅ (MSI wraps `vtt-linux.exe`) | ✅ |
+| Cargo-built binary in package | ✅ (VTT027) | ✅ (MSI wraps `vtt.exe`) | ✅ |
 | Default model pre-provisioned | ✅ postinst (VTT028) | ❌ first-run download only | TASK-VTT101 |
 | One-command release | `release-ppa.sh` (VTT016) | CI on tag (release.yml) | ✅ both |
 | Update mechanism | `apt upgrade` | `.msi` in-place (MajorUpgrade); no in-app check | TASK-VTT095 |

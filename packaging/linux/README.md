@@ -2,7 +2,7 @@
 
 ## Files
 
-- `vtt-linux.prebuilt` — pre-built x86_64 ELF binary committed to the tree so
+- `vtt.prebuilt` — pre-built x86_64 ELF binary committed to the tree so
   Launchpad PPA builds can install it without re-compiling. Ubuntu Noble ships
   Cargo 1.75, which cannot parse edition-2024 manifests in the dependency tree.
   `scripts/release-ppa.sh` rebuilds and re-commits this file on each release.

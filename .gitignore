@@ -8,6 +8,7 @@ vtt.rb
 # Build artifacts
 build/
 vtt-linux
+/vtt
 debian/files
 
 # Archives and packages

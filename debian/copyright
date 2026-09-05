@@ -7,7 +7,7 @@ Files: *
 Copyright: 2025-2026 Emmanuel Powell-Clark
 License: Apache-2.0
 
-Files: packaging/linux/vtt-linux.prebuilt
+Files: packaging/linux/vtt.prebuilt
 Copyright: 2025-2026 Emmanuel Powell-Clark
  Includes statically-linked code from the following projects, vendored
  via the whisper-rs crate at build time:
