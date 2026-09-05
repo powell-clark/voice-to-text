@@ -448,6 +448,13 @@ impl Tray {
                     crate::vtt_log!(
                         "About: Voice to Text — https://github.com/powell-clark/voice-to-text"
                     );
+                    // A real, visible window with selectable text (TASK-VTT139),
+                    // parity with the Linux tray's show_about_dialog. Windows
+                    // only for now — macOS has no dialog toolkit wired up yet
+                    // (tray-icon/muda ships none) and stays parked per this
+                    // task's own scope note; the log line above is its fallback.
+                    #[cfg(target_os = "windows")]
+                    show_about_messagebox();
                 }
                 MenuCmd::LoggingToggle => {
                     let mut s = self.settings.write().unwrap();
@@ -580,6 +587,45 @@ fn open_url(url: &str) {
             .args(["/C", "start", "", url])
             .spawn()
             .ok();
+    }
+}
+
+/// A native modal About box (TASK-VTT139) — same text as the Linux tray's
+/// `show_about_dialog`, so both platforms tell the same story. Blocks the
+/// calling (menu-polling) thread until dismissed, same as Linux's
+/// `dialog.run()`; MessageBoxW runs its own internal message loop while
+/// shown, so this is the standard, expected behaviour for a native modal.
+/// Win32's default MessageBoxW text is user-selectable via right-click
+/// Copy / Ctrl+C, which is as close to "selectable text" as a message box
+/// gets without a real GUI toolkit — muda ships none (see TASK-VTT138, the
+/// spike that will decide whether one is worth adding for the fuller
+/// settings dialog).
+#[cfg(target_os = "windows")]
+fn show_about_messagebox() {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONINFORMATION, MB_OK};
+
+    fn wide(s: &str) -> Vec<u16> {
+        OsStr::new(s)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect()
+    }
+
+    let text = wide(&format!(
+        "Voice to Text\r\n\r\nVersion {}\r\nFree, open-source voice-to-text transcription\r\nhttps://github.com/powell-clark/voice-to-text\r\n\r\nHold your hotkey (see tray menu) and speak.\r\nRelease to transcribe.",
+        env!("CARGO_PKG_VERSION")
+    ));
+    let title = wide("About Voice to Text");
+
+    unsafe {
+        MessageBoxW(
+            std::ptr::null_mut(),
+            text.as_ptr(),
+            title.as_ptr(),
+            MB_OK | MB_ICONINFORMATION,
+        );
     }
 }
 
