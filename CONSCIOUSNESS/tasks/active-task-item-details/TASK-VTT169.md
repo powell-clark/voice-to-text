@@ -6,19 +6,54 @@ CI on main is red on EVERY push and has been for at least several commits: the b
 
 ## Acceptance criteria
 
-- [ ] _(to be filled in)_
+- [ ] The `build (windows-11-arm, aarch64-msvc, CPU whisper)` CI job reaches a
+      green conclusion on a real GitHub Actions run of a commit on `main` —
+      cited by run id and job id, not inferred from a local change
+- [ ] The other four jobs (ubuntu-24.04, macos-latest, windows-latest x86_64,
+      cargo audit) stay green in that same run — the fix must not trade one
+      red job for another
+- [ ] Whatever route is taken is recorded on this card with the reason: a real
+      toolchain fix (clang-cl) and a deliberate removal/allow-failure of the
+      job are both acceptable outcomes, but silently disabling a job while
+      claiming it "fixed" is not
+- [ ] If the ARM64 build proves unfixable from CI configuration alone, the job
+      is explicitly marked non-blocking (or removed) with a comment naming
+      TASK-VTT064 as the owner of the real ARM64 story, so main stops being
+      permanently red
 
 ## Dependencies
 
 - Directive: DIRECT-VTT002
 - Story: STORY-VTT013
+- Related: TASK-VTT064 (Windows ARM64 Snapdragon CPU build) — hardware/runtime
+  side of ARM64; this task is only the CI build-time failure
+- Blocks: TASK-VTT102 (Rename binary) and any other task whose acceptance
+  requires green CI across all platforms
 
 ## Pre-mortem
 
 ### Failure modes
 
-- _(to be filled in)_
+- Switching the generator toolset to ClangCL fixes ggml's refusal but breaks a
+  different dependency that assumes MSVC (windows-sys, rdev, or whisper-rs's
+  own bindgen), trading one red job for another.
+- clang-cl is not installed on the `windows-11-arm` runner image, so `-T
+  ClangCL` fails at configure time with a different error rather than fixing
+  anything.
+- The fix works at configure time but the ARM64 link step then fails, meaning
+  the job goes red later in the build and the loop repeats with slower
+  feedback each iteration (each CI round-trip is several minutes).
+- Every verification round-trip needs a push to `main`, so a wrong guess is
+  publicly visible red CI rather than a local failure.
 
 ### Weak assumptions
 
-- _(to be filled in)_
+- That the failure is purely toolchain selection. It may instead need a
+  whisper.cpp submodule bump, since the `MSVC is not supported for ARM` guard
+  is upstream code that may have been added or relaxed in a later revision.
+- That `windows-11-arm` is a GitHub-hosted runner that will keep existing —
+  if it is a preview label that gets withdrawn, the job breaks again for an
+  unrelated reason.
+- That ARM64 Windows is still wanted at all. TASK-VTT064 is
+  OPERATOR-DECISION-PENDING, so the honest outcome may be to stop building it
+  in CI rather than to fix it.
