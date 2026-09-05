@@ -1,6 +1,6 @@
 # Lintian overrides for voice-to-text source package
 #
-# voice-to-text ships a pre-built Rust binary (vtt-linux.prebuilt) because
+# voice-to-text ships a pre-built Rust binary (vtt.prebuilt) because
 # Ubuntu Noble LTS cargo 1.75 can't parse the edition-2024 manifests that
 # modern Rust crates use — building from source on Launchpad's Noble
 # builders is structurally impossible without bundling a newer toolchain.
@@ -15,5 +15,5 @@
 # committed Cargo.lock + vendored deps. Emmanuel rebuilds on release and
 # commits the prebuilt so git history matches every published PPA version.
 
-voice-to-text source: source-is-missing [packaging/linux/vtt-linux.prebuilt]
-voice-to-text source: source-is-missing [vtt-linux]
+voice-to-text source: source-is-missing [packaging/linux/vtt.prebuilt]
+voice-to-text source: source-is-missing [vtt]

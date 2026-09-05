@@ -10,7 +10,7 @@
 #
 # Pragmatic solution: Emmanuel builds the release binary locally with
 # rustup (currently Rust 1.91), commits it to the source tree as
-# packaging/linux/vtt-linux.prebuilt, and Launchpad's "build" step is
+# packaging/linux/vtt.prebuilt, and Launchpad's "build" step is
 # simply to install that binary. Google Chrome, Zoom, and many proprietary
 # .debs use this exact pattern. dh_shlibdeps still runs against the
 # installed libraries to generate correct Depends.
@@ -24,15 +24,22 @@
 
 override_dh_auto_build:
 	# Verify the pre-built binary is present and executable.
-	test -x packaging/linux/vtt-linux.prebuilt || (echo "ERROR: packaging/linux/vtt-linux.prebuilt missing. \
-Run 'cargo build --release' locally and 'cp target/release/vtt-linux packaging/linux/vtt-linux.prebuilt'." && exit 1)
+	test -x packaging/linux/vtt.prebuilt || (echo "ERROR: packaging/linux/vtt.prebuilt missing. \
+Run 'cargo build --release' locally and 'cp target/release/vtt packaging/linux/vtt.prebuilt'." && exit 1)
 	# Sanity: confirm it's an ELF x86_64 Linux binary.
-	file packaging/linux/vtt-linux.prebuilt | grep -q "ELF 64-bit LSB.*x86-64" || \
-		(echo "ERROR: packaging/linux/vtt-linux.prebuilt is not a valid x86_64 ELF." && exit 1)
+	file packaging/linux/vtt.prebuilt | grep -q "ELF 64-bit LSB.*x86-64" || \
+		(echo "ERROR: packaging/linux/vtt.prebuilt is not a valid x86_64 ELF." && exit 1)
 
 override_dh_auto_install:
-	install -D -m 0755 packaging/linux/vtt-linux.prebuilt \
-		debian/voice-to-text/usr/bin/vtt-linux
+	install -D -m 0755 packaging/linux/vtt.prebuilt \
+		debian/voice-to-text/usr/bin/vtt
+	# Compatibility symlink (TASK-VTT102). The binary was /usr/bin/vtt-linux in
+	# every release up to 2.4.0, so it is in users' shell history, scripts and
+	# muscle memory. Renaming without this would break all of that on upgrade
+	# for no user-facing benefit — the name was only ever confusing on Windows
+	# and macOS, which never saw this path. Drop the symlink only on a release
+	# that deliberately accepts that break.
+	ln -sf vtt debian/voice-to-text/usr/bin/vtt-linux
 	install -D -m 0644 packaging/linux/vtt.service \
 		debian/voice-to-text/usr/lib/systemd/user/vtt.service
 	install -D -m 0644 debian/voice-to-text.desktop \
@@ -44,7 +51,7 @@ override_dh_auto_clean:
 	true
 
 override_dh_clean:
-	dh_clean -Xvendor -Xpackaging/linux/vtt-linux.prebuilt
+	dh_clean -Xvendor -Xpackaging/linux/vtt.prebuilt
 
 override_dh_auto_test:
 	@echo "Tests deferred to STORY-VTT014 (GitHub Actions matrix build)"

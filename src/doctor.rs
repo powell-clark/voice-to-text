@@ -42,6 +42,21 @@ pub fn parse_exe_link(target: &str) -> ExeState {
     }
 }
 
+/// Whether a `/proc/<pid>/exe` target is one of our own processes.
+///
+/// Matches on the file name rather than a substring of the whole path, because
+/// a substring test for "vtt" also matches any unrelated binary living under a
+/// path like `~/vtt-experiments/`. `vtt-linux` is still accepted: that was the
+/// installed name up to 2.4.0 (TASK-VTT102), so an instance started before an
+/// upgrade is still ours and still holding the hotkey — which is exactly the
+/// case the doctor exists to explain.
+pub fn is_our_binary(exe_path: &Path) -> bool {
+    matches!(
+        exe_path.file_name().and_then(|n| n.to_str()),
+        Some("vtt") | Some("vtt-linux")
+    )
+}
+
 /// One line of the report: a check, its finding, and whether it is a problem.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Finding {
@@ -129,6 +144,24 @@ pub fn format_report(findings: &[Finding]) -> (String, bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn is_our_binary_accepts_both_the_new_and_the_pre_rename_name() {
+        assert!(is_our_binary(Path::new("/usr/bin/vtt")));
+        // Still ours: an instance started before the 2.4.0 rename is the one
+        // actually holding the hotkey, so the doctor must not skip it.
+        assert!(is_our_binary(Path::new("/usr/bin/vtt-linux")));
+        assert!(is_our_binary(Path::new("/home/u/repo/target/release/vtt")));
+    }
+
+    #[test]
+    fn is_our_binary_rejects_an_unrelated_binary_under_a_vtt_path() {
+        // The reason this is a file-name test and not a substring test.
+        assert!(!is_our_binary(Path::new("/home/u/vtt-experiments/python3")));
+        assert!(!is_our_binary(Path::new("/usr/bin/vttclient")));
+        assert!(!is_our_binary(Path::new("/usr/bin/other")));
+        assert!(!is_our_binary(Path::new("")));
+    }
 
     #[test]
     fn a_replaced_binary_is_detected_from_the_deleted_suffix() {

@@ -14,7 +14,11 @@ license = false
 eula = false
 
 [[bin]]
-name = "vtt-linux"
+# Platform-neutral (TASK-VTT102). This was "vtt-linux" on every platform for
+# historical reasons, which meant a Windows user's build output was literally
+# vtt-linux.exe. The Linux package keeps a vtt-linux symlink so existing
+# commands and scripts still work.
+name = "vtt"
 path = "src/main.rs"
 
 [dependencies]

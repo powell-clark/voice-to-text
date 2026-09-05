@@ -122,7 +122,7 @@ run_one() {  # run_one <binary> <settings-or-empty> <wav>
 }
 
 if [ -n "$SETTINGS_A" ] && [ -n "$SETTINGS_B" ]; then
-    BIN_A="${BASELINE:-./target/release/vtt-linux}"; BIN_B="$BIN_A"
+    BIN_A="${BASELINE:-./target/release/vtt}"; BIN_B="$BIN_A"
     LABEL_A="settings A"; LABEL_B="settings B"
     CONF_A="$SETTINGS_A"; CONF_B="$SETTINGS_B"
 elif [ -n "$BASELINE" ] && [ -n "$CANDIDATE" ]; then

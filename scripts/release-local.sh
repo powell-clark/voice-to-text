@@ -38,13 +38,13 @@ fi
 echo ""
 
 # Staleness gate. debian/rules deliberately does not compile — it installs the
-# committed packaging/linux/vtt-linux.prebuilt, because Launchpad builds on
+# committed packaging/linux/vtt.prebuilt, because Launchpad builds on
 # Noble whose cargo 1.75 cannot parse this crate's edition-2024 manifest. The
 # cost of that is a .deb which can silently ship a binary older than the source:
 # on 2026-09-03 this script ran four green stages and installed a two-week-old
 # build, after a sudo prompt, with no warning (TASK-VTT152). The pre-flight
 # below proves the SOURCE compiles and proves nothing about what gets PACKAGED.
-PREBUILT="packaging/linux/vtt-linux.prebuilt"
+PREBUILT="packaging/linux/vtt.prebuilt"
 if [ -f "$PREBUILT" ]; then
     PREBUILT_EPOCH=$(stat -c %Y "$PREBUILT")
     SRC_EPOCH=$(git log -1 --format=%ct -- src/ Cargo.toml Cargo.lock 2>/dev/null || echo 0)
@@ -55,7 +55,7 @@ if [ -f "$PREBUILT" ]; then
         echo ""
         echo "The .deb installs this file verbatim, so building now would ship stale code."
         echo "Refresh it:"
-        echo "  cargo build --release && cp target/release/vtt-linux $PREBUILT"
+        echo "  cargo build --release && cp target/release/vtt $PREBUILT"
         exit 1
     fi
     echo "[0/4] Prebuilt is current (built $(date -d "@$PREBUILT_EPOCH" '+%Y-%m-%d %H:%M')); it is what the .deb ships."
@@ -97,7 +97,7 @@ if [ "$INSTALL" = true ]; then
     # answers "already the newest version", exits 0, and installs nothing. On
     # 2026-09-03 that printed "Installed." over a no-op twice (TASK-VTT137).
     PACKAGED_SHA=$(dpkg-deb --fsys-tarfile "$STAGED_DEB" 2>/dev/null \
-        | tar -xO ./usr/bin/vtt-linux 2>/dev/null | sha256sum | cut -d' ' -f1)
+        | tar -xO ./usr/bin/vtt 2>/dev/null | sha256sum | cut -d' ' -f1)
     sudo dpkg -i "$STAGED_DEB"
     # dpkg does not resolve dependencies; this is the documented repair and a
     # no-op when nothing is broken.
@@ -106,16 +106,16 @@ if [ "$INSTALL" = true ]; then
     # Verify rather than trust the exit code. Compare content, never mtime:
     # dpkg preserves the packaged timestamp, which is exactly what made a
     # two-week-old binary look current this morning.
-    INSTALLED_SHA=$(sha256sum /usr/bin/vtt-linux 2>/dev/null | cut -d' ' -f1)
+    INSTALLED_SHA=$(sha256sum /usr/bin/vtt 2>/dev/null | cut -d' ' -f1)
     if [ -n "$PACKAGED_SHA" ] && [ "$PACKAGED_SHA" != "$INSTALLED_SHA" ]; then
         echo ""
-        echo "ERROR: /usr/bin/vtt-linux does not match the package just installed."
+        echo "ERROR: /usr/bin/vtt does not match the package just installed."
         echo "  packaged:  $PACKAGED_SHA"
         echo "  installed: $INSTALLED_SHA"
         echo "The install did not take. Do not trust a later 'it works'."
         exit 1
     fi
-    echo "  Verified: /usr/bin/vtt-linux matches the package."
+    echo "  Verified: /usr/bin/vtt matches the package."
     echo ""
 
     # A running process keeps executing the inode it started from, so the
@@ -126,12 +126,12 @@ if [ "$INSTALL" = true ]; then
     for exe in /proc/[0-9]*/exe; do
         target=$(readlink "$exe" 2>/dev/null) || continue
         case "$target" in
-            *vtt-linux*) STALE_PIDS="$STALE_PIDS ${exe#/proc/}" ;;
+            */vtt|*vtt-linux*) STALE_PIDS="$STALE_PIDS ${exe#/proc/}" ;;
         esac
     done
     STALE_PIDS=$(echo "$STALE_PIDS" | sed 's|/exe||g' | tr -s ' ')
     if [ -n "$(echo "$STALE_PIDS" | tr -d ' ')" ]; then
-        echo "NOTE: vtt-linux is running (pid$STALE_PIDS) and still holds the OLD binary."
+        echo "NOTE: vtt is running (pid$STALE_PIDS) and still holds the OLD binary."
         echo "      It keeps the replaced inode until it restarts."
     fi
 
@@ -139,7 +139,7 @@ if [ "$INSTALL" = true ]; then
     echo "  systemctl --user restart vtt.service"
     echo ""
     echo "Then confirm:"
-    echo "  vtt-linux --doctor      # 'Everything checks out' means it took"
+    echo "  vtt --doctor            # 'Everything checks out' means it took"
 else
     echo "Install with:"
     echo "  sudo dpkg -i \"$STAGED_DEB\"   # dpkg, not apt: same version installs over"

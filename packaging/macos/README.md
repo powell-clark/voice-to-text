@@ -9,7 +9,7 @@ is planned. Assets and `Info.plist` will live here when that work lands.
 
 ```bash
 cargo build --release
-./target/release/vtt-linux   # runs on macOS despite the name
+./target/release/vtt
 ```
 
 ## Planned

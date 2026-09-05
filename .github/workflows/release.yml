@@ -2,7 +2,7 @@ name: Release
 
 # Fires on version tags (v*) and manual dispatch.
 # Builds the Linux binary on ubuntu-24.04 (matching Launchpad Noble),
-# then creates a GitHub release with vtt-linux as the artifact.
+# then creates a GitHub release with vtt as the artifact.
 #
 # Smoothness invariants (TASK-VTT107):
 #   * The release build is "does it compile", NOT lint-clean. Lint (-D warnings
@@ -83,8 +83,8 @@ jobs:
 
       - name: Verify binary shape
         run: |
-          file target/release/vtt-linux | grep -q "ELF 64-bit LSB.*x86-64"
-          ldd target/release/vtt-linux | grep -q "libvulkan.so.1"
+          file target/release/vtt | grep -q "ELF 64-bit LSB.*x86-64"
+          ldd target/release/vtt | grep -q "libvulkan.so.1"
 
       - name: Generate release notes from CHANGELOG
         run: |
@@ -96,7 +96,7 @@ jobs:
       - name: Create GitHub release (draft until all assets are up)
         uses: softprops/action-gh-release@v2
         with:
-          files: target/release/vtt-linux
+          files: target/release/vtt
           body_path: release-notes.md
           # Keep the release hidden until the macOS + Windows jobs have uploaded
           # their assets — the publish-release job un-drafts it. Avoids a release
@@ -193,9 +193,9 @@ jobs:
       - name: Build release binary
         run: cargo build --release
 
-      # The [[bin]] name is vtt-linux on every platform; rename per-arch.
+      # The [[bin]] name is vtt on every platform; rename per-arch.
       - name: Rename artifact
-        run: cp target/release/vtt-linux vtt-macos-arm64
+        run: cp target/release/vtt vtt-macos-arm64
 
       - name: Upload macOS arm64 binary to GitHub release
         uses: softprops/action-gh-release@v2
@@ -239,7 +239,7 @@ jobs:
         run: cargo build --release
 
       - name: Rename artifact
-        run: cp target/release/vtt-linux vtt-macos-intel
+        run: cp target/release/vtt vtt-macos-intel
 
       # gh release upload (not action-gh-release) so this best-effort, possibly
       # late job only ADDS the asset and never touches draft/latest state.

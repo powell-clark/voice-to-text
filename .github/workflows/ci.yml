@@ -81,8 +81,8 @@ jobs:
       # against Vulkan. Launchpad's own builder does the equivalent check.
       - name: Verify binary shape
         run: |
-          file target/release/vtt-linux | grep -q "ELF 64-bit LSB.*x86-64"
-          ldd target/release/vtt-linux | grep -q "libvulkan.so.1"
+          file target/release/vtt | grep -q "ELF 64-bit LSB.*x86-64"
+          ldd target/release/vtt | grep -q "libvulkan.so.1"
 
   build-windows:
     name: build (windows-latest, x86_64-msvc, Vulkan whisper)

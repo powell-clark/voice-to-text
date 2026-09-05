@@ -170,7 +170,7 @@ cmake, and libclang (for whisper-rs bindgen).
 ```bash
 git clone https://github.com/powell-clark/voice-to-text.git
 cd voice-to-text
-cargo build --release      # output: target/release/vtt-linux[.exe]
+cargo build --release      # output: target/release/vtt[.exe]
 ```
 
 - **Windows** — needs the Vulkan SDK + VS Build Tools (C++); the helper
@@ -188,7 +188,7 @@ capability spec and [`CLAUDE.md`](CLAUDE.md) for build/packaging commands.
 
 ## Troubleshooting
 
-- **Confirm the version:** `vtt --version` (Windows: `vtt`, Linux: `vtt-linux`).
+- **Confirm the version:** `vtt --version` on every platform.
 - **No transcription / GPU not used:** enable logging from the tray, then check
   today's log (`%APPDATA%\voice-to-text\logs\` on Windows,
   `~/.local/share/voice-to-text/` on Linux). The log shows the GPU device and
