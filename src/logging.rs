@@ -114,6 +114,54 @@ fn is_daily_log_filename(name: &str) -> bool {
     name.starts_with("vtt-") && name.ends_with(".log")
 }
 
+/// Daily log filenames, newest first.
+///
+/// Shared by both tray implementations (TASK-VTT098) so the Logs menu is the
+/// same list on every platform rather than two drifting copies. Filenames carry
+/// an ISO date, so a reversed lexicographic sort is newest-first.
+/// `Err` carries a human-readable reason for the menu to display.
+pub fn list_log_filenames() -> Result<Vec<String>, String> {
+    let entries = fs::read_dir(get_dir()).map_err(|e| e.to_string())?;
+    let mut files: Vec<String> = entries
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            is_daily_log_filename(&name).then_some(name)
+        })
+        .collect();
+    files.sort_unstable();
+    files.reverse();
+    Ok(files)
+}
+
+/// Menu label for a daily log file: "Today (04-20)", "Yesterday (04-19)", or
+/// the bare ISO date. Pure so it is testable without touching the filesystem.
+pub fn format_log_label(filename: &str, today: &str, yesterday: &str) -> String {
+    let date = filename
+        .strip_prefix("vtt-")
+        .and_then(|s| s.strip_suffix(".log"))
+        .unwrap_or(filename);
+
+    if date == today && date.len() >= 7 {
+        format!("Today ({})", &date[5..])
+    } else if date == yesterday && date.len() >= 7 {
+        format!("Yesterday ({})", &date[5..])
+    } else {
+        date.to_string()
+    }
+}
+
+/// Today's and yesterday's ISO dates, the two `format_log_label` compares against.
+pub fn today_and_yesterday() -> (String, String) {
+    let now = Local::now();
+    (
+        now.format("%Y-%m-%d").to_string(),
+        (now - chrono::Duration::days(1))
+            .format("%Y-%m-%d")
+            .to_string(),
+    )
+}
+
 /// Convenience macro for formatted logging
 #[macro_export]
 macro_rules! vtt_log {
@@ -125,6 +173,50 @@ macro_rules! vtt_log {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn format_log_label_today_gives_friendly_label() {
+        let s = format_log_label("vtt-2026-04-20.log", "2026-04-20", "2026-04-19");
+        assert_eq!(s, "Today (04-20)");
+    }
+
+    #[test]
+    fn format_log_label_yesterday_gives_friendly_label() {
+        let s = format_log_label("vtt-2026-04-19.log", "2026-04-20", "2026-04-19");
+        assert_eq!(s, "Yesterday (04-19)");
+    }
+
+    #[test]
+    fn format_log_label_older_returns_full_iso_date() {
+        let s = format_log_label("vtt-2026-01-15.log", "2026-04-20", "2026-04-19");
+        assert_eq!(s, "2026-01-15");
+    }
+
+    #[test]
+    fn format_log_label_malformed_filename_returns_filename() {
+        let s = format_log_label("not-a-log-file.txt", "2026-04-20", "2026-04-19");
+        assert_eq!(s, "not-a-log-file.txt");
+    }
+
+    #[test]
+    fn format_log_label_wrong_prefix_returns_filename() {
+        let s = format_log_label("vtt2026-04-20.log", "2026-04-20", "2026-04-19");
+        assert_eq!(
+            s, "vtt2026-04-20.log",
+            "filename without proper vtt- prefix falls through"
+        );
+    }
+
+    #[test]
+    fn format_log_label_short_dates_dont_panic() {
+        // Sanity check the bounds guard — a "today" of "2026" (len 4) must not panic
+        // from string slicing at [5..].
+        let s = format_log_label("vtt-2026.log", "2026", "2025");
+        assert_eq!(
+            s, "2026",
+            "short dates bypass the friendly label and fall through"
+        );
+    }
 
     #[test]
     fn is_daily_log_filename_accepts_real_format() {
@@ -148,6 +240,34 @@ mod tests {
         // marker in the middle is fine. This matches the current purge logic.
         assert!(is_daily_log_filename("vtt-anything.log"));
         assert!(is_daily_log_filename("vtt-.log"));
+    }
+
+    #[test]
+    fn list_log_filenames_returns_only_daily_logs_newest_first() {
+        use tempfile::tempdir;
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+
+        fs::write(root.join("vtt-2026-01-15.log"), b"old").unwrap();
+        fs::write(root.join("vtt-2026-04-20.log"), b"newest").unwrap();
+        fs::write(root.join("vtt-2026-04-19.log"), b"middle").unwrap();
+        // Neither of these is a daily log and neither may appear in the menu.
+        fs::write(root.join("vtt.log"), b"legacy").unwrap();
+        fs::write(root.join("settings.conf"), b"unrelated").unwrap();
+
+        // list_log_filenames reads the process-wide log dir, so point it here.
+        init(root);
+
+        let files = list_log_filenames().unwrap();
+        assert_eq!(
+            files,
+            vec![
+                "vtt-2026-04-20.log".to_string(),
+                "vtt-2026-04-19.log".to_string(),
+                "vtt-2026-01-15.log".to_string(),
+            ],
+            "daily logs only, newest first — the order both tray menus render"
+        );
     }
 
     #[test]
