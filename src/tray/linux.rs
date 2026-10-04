@@ -7,7 +7,7 @@ use glib::clone;
 use gtk::prelude::*;
 use libappindicator::{AppIndicator, AppIndicatorStatus};
 use std::cell::RefCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
@@ -131,11 +131,15 @@ impl Tray {
         menu.append(&logging_item);
 
         // --- Logs submenu ---
-        // Rebuilt when the parent tray menu is shown (via menu.connect_show below),
-        // not on logs_item's connect_activate — that fires AFTER GTK has already
-        // revealed the submenu, so the first open sees stale content.
+        // Refilled in place by a poll below, not on a show signal: Ayatana
+        // AppIndicator exports the menu over D-Bus and never shows it as a GTK
+        // widget, so a show handler fires once at startup and the menu
+        // freezes at daemon start (TASK-VTT176).
         let logs_item = gtk::MenuItem::with_label("Logs");
-        logs_item.set_submenu(Some(&build_logs_menu()));
+        let logs_menu = gtk::Menu::new();
+        let shown_logs: RefCell<Vec<LogRow>> = RefCell::new(Vec::new());
+        refresh_logs_menu(&logs_menu, &shown_logs);
+        logs_item.set_submenu(Some(&logs_menu));
         menu.append(&logs_item);
 
         menu.append(&gtk::SeparatorMenuItem::new());
@@ -154,18 +158,6 @@ impl Tray {
         // --- Quit ---
         let quit_item = gtk::MenuItem::with_label("Quit");
         menu.append(&quit_item);
-
-        // Rebuild Logs submenu every time the tray menu is shown — catches new
-        // log files written since the last open. This fires before GTK reveals
-        // any child submenu, so first-hover already sees fresh contents.
-        {
-            let logs_item_ref = logs_item.clone();
-            menu.connect_show(move |_| {
-                let fresh = build_logs_menu();
-                fresh.show_all();
-                logs_item_ref.set_submenu(Some(&fresh));
-            });
-        }
 
         menu.show_all();
         indicator.borrow_mut().set_menu(&mut menu);
@@ -333,6 +325,16 @@ impl Tray {
             mic_item.set_label(&format!("Microphone: {}", desc));
         }
 
+        // Logs submenu auto-refresh — picks up a new day's log, a purge, and
+        // the Today/Yesterday labels rolling over at midnight.
+        glib::timeout_add_seconds_local(
+            3,
+            clone!(@weak logs_menu => @default-return glib::ControlFlow::Break, move || {
+                refresh_logs_menu(&logs_menu, &shown_logs);
+                glib::ControlFlow::Continue
+            }),
+        );
+
         // --- Cross-thread UI update channel (mpsc, polled via glib timeout) ---
         let (ui_tx, ui_rx) = std::sync::mpsc::channel::<UiMessage>();
 
@@ -490,42 +492,66 @@ fn save_settings(state: &Rc<RefCell<TrayState>>) {
 
 // ─── Logs submenu ───────────────────────────────────────────────
 
-fn build_logs_menu() -> gtk::Menu {
-    let menu = gtk::Menu::new();
-    let log_dir = logging::get_dir();
+/// One Logs submenu row: its label, and the log it opens. A row with no path
+/// is a disabled placeholder.
+type LogRow = (String, Option<PathBuf>);
 
-    let files = match logging::list_log_filenames() {
-        Ok(f) => f,
-        Err(e) => {
-            let msg = format!("(log dir unreadable: {})", e);
-            let item = gtk::MenuItem::with_label(&msg);
-            item.set_sensitive(false);
-            menu.append(&item);
-            return menu;
-        }
-    };
+/// The Logs submenu's rows, newest first. Pure so the change check that
+/// gates a refill is testable without GTK.
+fn logs_menu_rows(
+    files: Result<Vec<String>, String>,
+    log_dir: &Path,
+    today: &str,
+    yesterday: &str,
+) -> Vec<LogRow> {
+    match files {
+        Err(e) => vec![(format!("(log dir unreadable: {})", e), None)],
+        Ok(f) if f.is_empty() => vec![("(no logs yet)".to_string(), None)],
+        Ok(f) => f
+            .iter()
+            .map(|name| {
+                (
+                    logging::format_log_label(name, today, yesterday),
+                    Some(log_dir.join(name)),
+                )
+            })
+            .collect(),
+    }
+}
 
-    if files.is_empty() {
-        let empty = gtk::MenuItem::with_label("(no logs yet)");
-        empty.set_sensitive(false);
-        menu.append(&empty);
-        return menu;
+/// Refill the Logs submenu in place, only when its rows have changed — the
+/// same remove-and-append shape `rebuild_model_menu` uses, which the D-Bus
+/// menu export tracks.
+fn refresh_logs_menu(menu: &gtk::Menu, shown: &RefCell<Vec<LogRow>>) {
+    let (today, yesterday) = logging::today_and_yesterday();
+    let rows = logs_menu_rows(
+        logging::list_log_filenames(),
+        &logging::get_dir(),
+        &today,
+        &yesterday,
+    );
+    if *shown.borrow() == rows {
+        return;
     }
 
-    let (today, yesterday) = logging::today_and_yesterday();
-
-    for filename in &files {
-        let label = logging::format_log_label(filename, &today, &yesterday);
-
-        let item = gtk::MenuItem::with_label(&label);
-        let full_path = log_dir.join(filename).to_string_lossy().to_string();
-        item.connect_activate(move |_| {
-            open_file(&full_path);
-        });
+    for child in menu.children() {
+        menu.remove(&child);
+    }
+    for (label, path) in &rows {
+        let item = gtk::MenuItem::with_label(label);
+        match path {
+            Some(p) => {
+                let full_path = p.to_string_lossy().to_string();
+                item.connect_activate(move |_| {
+                    open_file(&full_path);
+                });
+            }
+            None => item.set_sensitive(false),
+        }
         menu.append(&item);
     }
-
-    menu
+    menu.show_all();
+    *shown.borrow_mut() = rows;
 }
 
 fn open_file(path: &str) {
@@ -1216,6 +1242,87 @@ fn display_name_for_model(name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn log_files(names: &[&str]) -> Result<Vec<String>, String> {
+        Ok(names.iter().map(|s| s.to_string()).collect())
+    }
+
+    #[test]
+    fn logs_menu_rows_label_newest_first_with_paths() {
+        let dir = Path::new("/logs");
+        let rows = logs_menu_rows(
+            log_files(&["vtt-2026-10-04.log", "vtt-2026-10-03.log"]),
+            dir,
+            "2026-10-04",
+            "2026-10-03",
+        );
+        assert_eq!(
+            rows,
+            vec![
+                (
+                    "Today (10-04)".to_string(),
+                    Some(dir.join("vtt-2026-10-04.log"))
+                ),
+                (
+                    "Yesterday (10-03)".to_string(),
+                    Some(dir.join("vtt-2026-10-03.log"))
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn logs_menu_rows_unchanged_inputs_skip_the_refill() {
+        let files = &["vtt-2026-10-04.log", "vtt-2026-10-03.log"];
+        let dir = Path::new("/logs");
+        let a = logs_menu_rows(log_files(files), dir, "2026-10-04", "2026-10-03");
+        let b = logs_menu_rows(log_files(files), dir, "2026-10-04", "2026-10-03");
+        assert_eq!(a, b, "same files and date must compare equal");
+    }
+
+    #[test]
+    fn logs_menu_rows_change_when_a_new_day_log_appears() {
+        let dir = Path::new("/logs");
+        let before = logs_menu_rows(
+            log_files(&["vtt-2026-10-01.log"]),
+            dir,
+            "2026-10-01",
+            "2026-09-30",
+        );
+        let after = logs_menu_rows(
+            log_files(&["vtt-2026-10-02.log", "vtt-2026-10-01.log"]),
+            dir,
+            "2026-10-02",
+            "2026-10-01",
+        );
+        assert_ne!(before, after);
+        assert_eq!(after[0].0, "Today (10-02)");
+    }
+
+    #[test]
+    fn logs_menu_rows_change_at_midnight_with_the_same_files() {
+        // Labels roll over before the new day's log is written; the refill
+        // must still fire so "Today" never points at yesterday's file.
+        let files = &["vtt-2026-10-01.log"];
+        let dir = Path::new("/logs");
+        let before = logs_menu_rows(log_files(files), dir, "2026-10-01", "2026-09-30");
+        let after = logs_menu_rows(log_files(files), dir, "2026-10-02", "2026-10-01");
+        assert_ne!(before, after);
+        assert_eq!(after[0].0, "Yesterday (10-01)");
+    }
+
+    #[test]
+    fn logs_menu_rows_placeholders_have_no_path() {
+        let dir = Path::new("/logs");
+        let empty = logs_menu_rows(log_files(&[]), dir, "2026-10-04", "2026-10-03");
+        assert_eq!(empty, vec![("(no logs yet)".to_string(), None)]);
+
+        let err = logs_menu_rows(Err("denied".into()), dir, "2026-10-04", "2026-10-03");
+        assert_eq!(
+            err,
+            vec![("(log dir unreadable: denied)".to_string(), None)]
+        );
+    }
 
     #[test]
     fn char_counter_markup_plain_below_200() {
