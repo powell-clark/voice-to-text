@@ -43,6 +43,12 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   then, not in the middle of a dictation.
 
 ### Fixed
+- **The app no longer needs the exact processor of the machine that built
+  it.** The speech engine was compiled for the build machine's own CPU, so a
+  release could stop with an "illegal instruction" crash on an older or
+  different processor. It now targets a fixed baseline any x86-64 CPU with
+  AVX2 meets (roughly 2013 onwards); measured speed is within 5% of before.
+- **Release binaries no longer contain the build machine's file paths.**
 - **A long dictation no longer turns into one sentence repeated to the end.**
   Whisper reads long audio in 30-second windows and feeds each window the text
   of the one before, so one bad window could repeat itself for the rest of the
