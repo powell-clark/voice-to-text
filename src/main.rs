@@ -91,8 +91,9 @@ fn main() -> anyhow::Result<()> {
     // Three deployment failures in one morning all looked like success
     // (TASK-VTT153); this makes the question answerable on purpose.
     let wants_doctor = args.iter().any(|a| a == "--doctor");
-    // Batch mode: `--file <PATH>` transcribes a 16 kHz WAV and prints the
-    // transcript to stdout, then exits — no tray, no hotkey (TASK-VTT023).
+    // Batch mode: `--file <PATH>` transcribes a WAV, MP3, M4A, AAC or FLAC
+    // file at any sample rate and prints the transcript to stdout, then
+    // exits — no tray, no hotkey (TASK-VTT023, TASK-VTT130).
     let wants_file = args.iter().any(|a| a == "--file" || a == "-f");
     let file_path = args
         .iter()
@@ -117,7 +118,8 @@ fn main() -> anyhow::Result<()> {
              Options:\n  \
              -V, --version      Print version and exit\n  \
              -h, --help         Print this help and exit\n  \
-             -f, --file <PATH>  Transcribe a 16 kHz WAV to stdout and exit\n  \
+             -f, --file <PATH>  Transcribe a WAV, MP3, M4A, AAC or FLAC file, at any\n                     \
+             sample rate, to stdout and exit\n  \
                  --doctor       Check the running app matches the installed one\n\n\
              With no options, launches the tray icon. Hold the configured\n\
              hotkey (default: Scroll Lock) and speak. Release to transcribe.\n\n\
@@ -1058,8 +1060,9 @@ fn load_engine(menu_name: &str, language: &str, ui_tx: &tray::UiSender) -> Optio
     }
 }
 
-/// Batch transcription: decode a 16 kHz WAV and print the transcript to stdout,
-/// reusing the tray app's model resolution + download (TASK-VTT023). Runs fully
+/// Batch transcription: decode a WAV, MP3, M4A, AAC or FLAC file at any sample
+/// rate and print the transcript to stdout, reusing the tray app's model
+/// resolution + download (TASK-VTT023, TASK-VTT130). Runs fully
 /// headless — no GTK, no singleton lock, no tray — so it composes in shell
 /// pipelines. Progress and diagnostics go to stderr/the log; only the transcript
 /// goes to stdout.
