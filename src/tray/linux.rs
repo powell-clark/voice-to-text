@@ -24,6 +24,9 @@ struct TrayState {
     hotkey_item: gtk::MenuItem,
     logging_item: gtk::MenuItem,
     hotkey_cmd_tx: Option<Sender<HotkeyCmd>>,
+    /// To the transcription worker: a model or language change asks it to
+    /// load the result now (WorkItem::Preload, ADR-0011).
+    work_tx: Sender<crate::WorkItem>,
     initializing: bool,
 }
 
@@ -171,6 +174,7 @@ impl Tray {
             hotkey_item: hotkey_item.clone(),
             logging_item: logging_item.clone(),
             hotkey_cmd_tx: None,
+            work_tx: work_tx.clone(),
             initializing: true,
         }));
 
@@ -408,15 +412,7 @@ fn rebuild_model_menu(state: &Rc<RefCell<TrayState>>) {
     let current = s.settings.read().unwrap().selected_model.clone();
     let current_base = current.replace(".en", "");
 
-    // Derive the menu from models::MODELS instead of a hardcoded list.
-    // Each multilingual entry becomes one menu row (with an English toggle
-    // swapping .en variants at transcription time via resolve_variant).
-    // Adding a model to MODELS now automatically adds it to the tray.
-    let model_entries: Vec<(String, &str)> = crate::models::MODELS
-        .iter()
-        .filter(|m| m.multilingual)
-        .map(|m| (display_name_for_model(m.name), m.name))
-        .collect();
+    let model_entries = model_menu_entries();
     let models: Vec<(&str, &str)> = model_entries
         .iter()
         .map(|(label, key)| (label.as_str(), *key))
@@ -481,6 +477,8 @@ fn update_language_label(state: &TrayState, lang: &str) {
         .set_label(&format!("Language: {}", display));
 }
 
+/// Persist a model or language change and have the worker load the model it
+/// resolves to now, rather than on the next key press.
 fn save_settings(state: &Rc<RefCell<TrayState>>) {
     let s = state.borrow();
     let settings = s.settings.read().unwrap();
@@ -488,6 +486,13 @@ fn save_settings(state: &Rc<RefCell<TrayState>>) {
         crate::vtt_log!("Failed to save settings: {}", e);
     }
     drop(settings);
+    request_preload(&s);
+}
+
+fn request_preload(state: &TrayState) {
+    if state.work_tx.send(crate::WorkItem::Preload).is_err() {
+        crate::vtt_log!("Model preload: worker channel closed");
+    }
 }
 
 // ─── Logs submenu ───────────────────────────────────────────────
@@ -619,8 +624,10 @@ fn show_about_dialog() {
          Free, open-source voice-to-text transcription\n\
          https://github.com/powell-clark/voice-to-text\n\n\
          Hold your hotkey (see tray menu) and speak.\n\
-         Release to transcribe.",
-        env!("CARGO_PKG_VERSION")
+         Release to transcribe.\n\n\
+         {}",
+        env!("CARGO_PKG_VERSION"),
+        engine_credits(crate::engine::version())
     );
     let label = gtk::Label::new(Some(&about_text));
     label.set_selectable(true);
@@ -725,11 +732,7 @@ fn show_settings_dialog(state: &Rc<RefCell<TrayState>>) {
     });
     let base_key = cleaned.trim_end_matches(".en");
 
-    let model_entries: Vec<(String, &str)> = crate::models::MODELS
-        .iter()
-        .filter(|m| m.multilingual)
-        .map(|m| (display_name_for_model(m.name), m.name))
-        .collect();
+    let model_entries = model_menu_entries();
     let mut dlg_model_group: Option<gtk::RadioButton> = None;
     let mut dlg_model_buttons: Vec<(gtk::RadioButton, String)> = Vec::new();
     for (label, key) in &model_entries {
@@ -1045,6 +1048,7 @@ fn show_settings_dialog(state: &Rc<RefCell<TrayState>>) {
             );
 
             drop(settings);
+            request_preload(&s);
             drop(s);
             rebuild_model_menu(&st);
             unsafe {
@@ -1224,6 +1228,31 @@ fn show_hotkey_dialog(state: &Rc<RefCell<TrayState>>) {
 
 // ─── Pure helpers (testable without GTK) ──────────────────────────
 
+/// The About dialog's engine and model credits. Parakeet's weights are
+/// CC-BY-4.0, which asks for attribution wherever they are used (ADR-0011).
+fn engine_credits(whisper_cpp_version: &str) -> String {
+    format!(
+        "Speech engines: whisper.cpp {whisper_cpp_version} (MIT)\n\
+         Whisper models by OpenAI (MIT)\n\
+         Parakeet TDT 0.6B v3 by NVIDIA, licensed CC-BY-4.0\n\
+         https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3"
+    )
+}
+
+/// The model menu's rows as `(label, settings key)`, shared by the tray
+/// submenu and the settings dialog so the two always list the same models.
+/// Derived from models::MODELS instead of a hardcoded list: each multilingual
+/// entry becomes one row (an English toggle swaps in .en variants at
+/// transcription time via resolve_variant), and a model added to MODELS —
+/// Parakeet included (ADR-0011) — appears in the tray with no change here.
+fn model_menu_entries() -> Vec<(String, &'static str)> {
+    crate::models::MODELS
+        .iter()
+        .filter(|m| m.multilingual)
+        .map(|m| (display_name_for_model(m.name), m.name))
+        .collect()
+}
+
 /// Turn a models::MODELS name like "small" or "large-v3-turbo" into the
 /// title-cased display label shown in the tray ("Small" / "Large-v3-turbo").
 ///
@@ -1374,6 +1403,33 @@ mod tests {
         assert_eq!(display_name_for_model("medium"), "Medium");
         assert_eq!(display_name_for_model("large-v3-turbo"), "Large-v3-turbo");
         assert_eq!(display_name_for_model("large-v3"), "Large-v3");
+    }
+
+    #[test]
+    fn about_credits_name_the_engine_and_parakeet_licence() {
+        let credits = engine_credits("1.9.5");
+        assert!(credits.contains("whisper.cpp 1.9.5"), "{credits}");
+        assert!(credits.contains("NVIDIA"), "{credits}");
+        assert!(credits.contains("CC-BY-4.0"), "{credits}");
+    }
+
+    #[test]
+    fn model_menu_lists_parakeet_beside_the_whisper_models() {
+        let rows = model_menu_entries();
+        assert!(
+            rows.contains(&("Parakeet-v3".to_string(), "parakeet-v3")),
+            "{rows:?}"
+        );
+        assert!(
+            rows.contains(&("Large-v3-turbo".to_string(), "large-v3-turbo")),
+            "{rows:?}"
+        );
+        // English-only variants are reached through the language toggle, not
+        // listed as rows of their own.
+        assert!(
+            rows.iter().all(|(_, key)| !key.ends_with(".en")),
+            "{rows:?}"
+        );
     }
 
     #[test]

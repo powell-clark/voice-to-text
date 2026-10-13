@@ -321,6 +321,14 @@ impl Tray {
         ))
     }
 
+    /// Have the worker load the model a model or language change resolves to
+    /// now, rather than on the next key press (WorkItem::Preload, ADR-0011).
+    fn request_preload(&self) {
+        if self.work_tx.send(crate::WorkItem::Preload).is_err() {
+            crate::vtt_log!("Model preload: worker channel closed");
+        }
+    }
+
     /// Rebuild the Logs submenu when the set of log files has changed.
     ///
     /// Cheap on the common path: it lists a small directory and returns
@@ -523,6 +531,7 @@ impl Tray {
                         "Language changed to {}",
                         if is_en { "English" } else { "Multilingual" }
                     );
+                    self.request_preload();
                 }
                 MenuCmd::ModelSel(name) => {
                     self.settings.write().unwrap().selected_model = name.clone();
@@ -531,6 +540,7 @@ impl Tray {
                     }
                     self.settings.read().unwrap().save().ok();
                     crate::vtt_log!("Model changed to {}", name);
+                    self.request_preload();
                 }
                 MenuCmd::OpenUpdate => {
                     if let Some(url) = &self.update_url {

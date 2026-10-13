@@ -82,7 +82,7 @@ Click the tray icon to adjust:
 
 | Setting | Options | Default |
 |---------|---------|---------|
-| **Model** | small / medium / large-v3-turbo / large-v3 | small |
+| **Model** | small / medium / large-v3-turbo / large-v3 / parakeet-v3 | small |
 | **Language** | English-only / Multilingual | English-only |
 | **Hotkey** | Customisable recording key | Scroll Lock |
 | **Initial prompt** | Free text (≤240 chars) to prime custom vocab | (empty) |
@@ -94,9 +94,19 @@ Click the tray icon to adjust:
 | **medium.en / medium** | 1.4 GB | ⚡⚡⚡ | Higher accuracy, slower |
 | **large-v3-turbo** | 1.5 GB | ⚡⚡⚡⚡ | Large accuracy at small speed (multilingual) |
 | **large-v3** | 2.9 GB | ⚡⚡ | Maximum accuracy (multilingual) |
+| **parakeet-v3** | 638 MB | ⚡⚡⚡⚡ | NVIDIA Parakeet, a second engine: 25 European languages, detected automatically |
 
-Models download on first selection from `ggerganov/whisper.cpp`. Start with
-**small** in **English-only** mode.
+Whisper models download on first selection from `ggerganov/whisper.cpp`.
+Start with **small** in **English-only** mode.
+
+**Parakeet** is a different kind of model from Whisper, run by the same
+whisper.cpp library. Choosing **parakeet-v3** switches engine; choosing any
+other model switches back. It ignores the initial prompt and the language
+setting (it detects the language itself); your corrections still apply. The
+model is [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)
+by NVIDIA, licensed [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/),
+downloaded on first selection as the
+[ggml-org conversion](https://huggingface.co/ggml-org/parakeet-GGUF).
 
 ---
 
@@ -168,10 +178,16 @@ One Rust crate, built with `cargo` on every platform. You need Rust (rustup),
 cmake, and libclang (for whisper-rs bindgen).
 
 ```bash
-git clone https://github.com/powell-clark/voice-to-text.git
+git clone --recurse-submodules https://github.com/powell-clark/voice-to-text.git
 cd voice-to-text
 cargo build --release      # output: target/release/vtt[.exe]
 ```
+
+The speech engine, whisper.cpp, is pinned as a submodule
+(`third_party/whisper.cpp`) and built by a patched `whisper-rs-sys`
+(`third_party/whisper-rs-sys`). In a checkout made without
+`--recurse-submodules`, run `git submodule update --init` first.
+`vtt --version` prints the whisper.cpp release the binary was built from.
 
 - **Windows** — needs the Vulkan SDK + VS Build Tools (C++); the helper
   `scripts/build-windows.ps1` auto-discovers cmake/libclang and builds.
@@ -225,7 +241,10 @@ fmt/clippy/test/build checks as CI before pushing.
 [whisper-rs](https://github.com/tazz4843/whisper-rs) ·
 [cpal](https://github.com/RustAudio/cpal) ·
 [enigo](https://github.com/enigo-rs/enigo) ·
-[OpenAI Whisper](https://github.com/openai/whisper)
+[OpenAI Whisper](https://github.com/openai/whisper) ·
+[NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)
+(CC-BY-4.0) ·
+[SPIRV-Headers](https://github.com/KhronosGroup/SPIRV-Headers)
 
 ## License
 

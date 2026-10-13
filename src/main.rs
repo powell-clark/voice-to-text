@@ -11,6 +11,7 @@ mod corrections;
 mod ct2_client;
 mod denoise;
 mod doctor;
+mod engine;
 // autostart is only consumed by the portable tray (Windows + macOS); compiling
 // it on Linux makes it dead code, which fails the -D warnings release build.
 #[cfg(any(target_os = "windows", target_os = "macos"))]
@@ -18,6 +19,7 @@ mod autostart;
 mod hotkey;
 mod logging;
 mod models;
+mod parakeet;
 mod settings;
 mod transcribe;
 mod tray;
@@ -55,6 +57,11 @@ pub(crate) enum WorkItem {
     /// audio: the worker locates and decodes the WAV itself, so the tray stays
     /// decoupled from decode/whisper and no file I/O lands on the UI thread.
     RetranscribeLast,
+    /// Load the model the settings now name, before the next key press. Sent
+    /// by the tray when the model or language changes, so a switch — Parakeet's
+    /// first GPU warm-up included — happens behind the "Loading" status rather
+    /// than on the first dictation (ADR-0011). A no-op when it is loaded already.
+    Preload,
 }
 
 /// Re-attach the (windowed) process to its launching console so `--version` /
@@ -100,6 +107,7 @@ fn main() -> anyhow::Result<()> {
     }
     if wants_version {
         println!("voice-to-text {}", env!("CARGO_PKG_VERSION"));
+        println!("whisper.cpp {} (Whisper, Parakeet)", engine::version());
         return Ok(());
     }
     if wants_help {
@@ -157,6 +165,7 @@ fn main() -> anyhow::Result<()> {
         "Voice to Text {} — Starting (Rust)",
         env!("CARGO_PKG_VERSION")
     );
+    vtt_log!("Speech engines: whisper.cpp {}", engine::version());
     vtt_log!("===========================================");
 
     // Silence whisper.cpp and ggml internal C-level stdout/stderr chatter.
@@ -796,24 +805,24 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
                     }
                 }
             }
+            // A tray change: load and warm up the new model now, while the
+            // operator is not waiting on a dictation (ADR-0011).
+            WorkItem::Preload => {
+                reload_if_changed(&mut engine, &settings, &ui_tx);
+                let status = if engine.is_some() {
+                    "Ready"
+                } else {
+                    "No model loaded"
+                };
+                ui_tx.send(tray::UiMessage::SetStatus(status.into())).ok();
+                ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
+                continue;
+            }
         };
 
-        // Detect tray-driven settings changes: if the selected model or language
-        // no longer matches the loaded engine, reload transparently.
-        let (want_model_raw, want_lang) = {
-            let s = settings.read().unwrap();
-            (s.selected_model.clone(), s.selected_language.clone())
-        };
-        let want_model =
-            models::resolve_variant(&migrate_legacy_model_name(&want_model_raw), &want_lang);
-        let needs_reload = engine
-            .as_ref()
-            .map(|e| e.model_name() != want_model)
-            .unwrap_or(true);
-        if needs_reload {
-            drop(engine.take()); // free old engine before loading replacement
-            engine = load_engine(&want_model_raw, &want_lang, &ui_tx);
-        }
+        // Detect tray-driven settings changes a Preload has not already
+        // caught: reload transparently before transcribing.
+        reload_if_changed(&mut engine, &settings, &ui_tx);
 
         let engine_ref = match engine.as_ref() {
             Some(e) => e,
@@ -968,14 +977,34 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
     vtt_log!("Transcription worker stopped");
 }
 
-/// Load the GGML model identified by `menu_name` + `language`. Downloads the
-/// file on first use and emits progress to the tray. Returns None on failure so
-/// the caller can surface an explanatory status.
-fn load_engine(
-    menu_name: &str,
-    language: &str,
+/// Reload when the selected model or language no longer matches the loaded
+/// engine, dropping the old engine first so two models never share the GPU.
+fn reload_if_changed(
+    engine: &mut Option<engine::Engine>,
+    settings: &RwLock<settings::Settings>,
     ui_tx: &tray::UiSender,
-) -> Option<whisper::WhisperEngine> {
+) {
+    let (want_model_raw, want_lang) = {
+        let s = settings.read().unwrap();
+        (s.selected_model.clone(), s.selected_language.clone())
+    };
+    let want_model =
+        models::resolve_variant(&migrate_legacy_model_name(&want_model_raw), &want_lang);
+    let needs_reload = engine
+        .as_ref()
+        .map(|e| e.model_name() != want_model)
+        .unwrap_or(true);
+    if needs_reload {
+        drop(engine.take()); // free old engine before loading replacement
+        *engine = load_engine(&want_model_raw, &want_lang, ui_tx);
+    }
+}
+
+/// Load the GGML model identified by `menu_name` + `language` on the engine
+/// its catalogue entry names (ADR-0011). Downloads the file on first use and
+/// emits progress to the tray. Returns None on failure so the caller can
+/// surface an explanatory status.
+fn load_engine(menu_name: &str, language: &str, ui_tx: &tray::UiSender) -> Option<engine::Engine> {
     let migrated = migrate_legacy_model_name(menu_name);
     let resolved = models::resolve_variant(&migrated, language);
     let info = match models::find(&resolved).or_else(|| models::find(&migrated)) {
@@ -1017,7 +1046,7 @@ fn load_engine(
         }
     };
 
-    match whisper::WhisperEngine::new(&path, info.name) {
+    match engine::Engine::load(info, &path) {
         Ok(engine) => Some(engine),
         Err(e) => {
             vtt_log!("Engine load failed: {}", e);
@@ -1080,7 +1109,7 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
     })?;
     eprintln!();
 
-    let engine = whisper::WhisperEngine::new(&model_path, info.name)?;
+    let engine = engine::Engine::load(info, &model_path)?;
     // Pass the initial prompt and apply corrections, exactly as the live path
     // does. Batch mode exists to reproduce what the hotkey produces; dropping
     // the prompt made it silently disagree with the app it is meant to debug,
@@ -1098,6 +1127,7 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
     // covering the whole buffer when it fits under the threshold.
     let ranges = chunk_ranges(samples.len(), FILE_CHUNK_SAMPLES);
     let mut text = String::new();
+    let t0 = Instant::now();
     for (i, (start, end)) in ranges.iter().enumerate() {
         if ranges.len() > 1 {
             eprintln!("chunk {}/{}...", i + 1, ranges.len());
@@ -1111,6 +1141,14 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
             text.push_str(chunk_text.trim());
         }
     }
+    // Transcription time alone, model load excluded, so engines can be
+    // compared from the command line (ADR-0011). Counts only, on stderr.
+    eprintln!(
+        "Transcribed {:.1}s of audio in {:.2}s ({})",
+        samples.len() as f32 / whisper::WHISPER_INPUT_RATE as f32,
+        t0.elapsed().as_secs_f32(),
+        engine.model_name()
+    );
     let text = corrections::apply(text.trim(), &settings.corrections);
     println!("{text}");
     Ok(())

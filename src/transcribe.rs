@@ -1,12 +1,13 @@
-//! Thin bridge between the worker and the WhisperEngine. No subprocess, no Python.
+//! Thin bridge between the worker and the loaded engine. No subprocess, no Python.
 //! v2.0.0 replaces the pre-2.0 transcribe_ct2 / transcribe_whisper_cpp subprocess
-//! paths with in-process whisper-rs inference via WhisperEngine.
+//! paths with in-process inference; since ADR-0011 the engine is Whisper or
+//! Parakeet, whichever the selected model runs on.
 
-use crate::whisper::WhisperEngine;
+use crate::engine::Engine;
 
 /// Transcribe f32 PCM samples using the engine. Returns None on empty/error.
 pub fn transcribe_samples(
-    engine: &WhisperEngine,
+    engine: &Engine,
     samples: &[f32],
     language: &str,
     prompt: &str,

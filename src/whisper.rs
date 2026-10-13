@@ -24,14 +24,33 @@ const QUIET_WINDOW_MS: usize = 300;
 /// Piece length when a chunk loops on its own and is decoded once more.
 const PIECE_SECS: usize = 10;
 const PIECE_SLACK_SECS: usize = 3;
+/// Recordings longer than this decode with whisper.cpp's voice activity
+/// detection, which drops the silences a long dictation loops on; shorter
+/// ones decode without it, where it changed words in 14 of 30 clips and
+/// removed no loops (TASK-VTT182, ADR-0011).
+const VAD_OVER_SECS: usize = 30;
+/// How far whisper.cpp's VAD extends every speech segment but the last, and
+/// the silence it puts between segments: its defaults, the ones TASK-VTT182
+/// measured.
+const VAD_OVERLAP_MS: usize = 100;
+const VAD_GAP_MS: usize = 100;
 
 use std::path::Path;
+use std::sync::Mutex;
 use std::time::Instant;
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+use whisper_rs::{
+    FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperVadContext,
+    WhisperVadContextParams, WhisperVadParams,
+};
 
 pub struct WhisperEngine {
     ctx: WhisperContext,
     model_name: String,
+    /// Silero voice activity detection, once its model is loaded; without
+    /// it every recording decodes whole and the repetition guard is the only
+    /// defence against loops. Behind a Mutex because finding segments needs
+    /// `&mut` and `transcribe` takes `&self`.
+    vad: Option<Mutex<WhisperVadContext>>,
 }
 
 impl WhisperEngine {
@@ -56,18 +75,45 @@ impl WhisperEngine {
         Ok(Self {
             ctx,
             model_name: name,
+            vad: None,
         })
     }
 
-    /// Transcribe raw 16kHz mono f32 PCM samples in one `full` call. A
-    /// transcript that loops goes to the repetition guard (TASK-VTT179).
+    /// Load the Silero VAD model at `path` (CPU, as whisper.cpp's own VAD
+    /// path runs it) so recordings over `VAD_OVER_SECS` decode speech only.
+    pub fn set_vad_model(&mut self, path: &Path) -> anyhow::Result<()> {
+        let path = path
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("VAD model path is not valid UTF-8"))?;
+        if path.contains('\0') {
+            anyhow::bail!("VAD model path contains a NUL byte");
+        }
+        let vad = WhisperVadContext::new(path, WhisperVadContextParams::default())
+            .map_err(|e| anyhow::anyhow!("load VAD model: {e:?}"))?;
+        self.vad = Some(Mutex::new(vad));
+        Ok(())
+    }
+
+    /// Transcribe raw 16kHz mono f32 PCM samples in one `full` call; a
+    /// recording over `VAD_OVER_SECS` is first cut down to its speech. A
+    /// transcript that still loops goes to the repetition guard
+    /// (TASK-VTT179), which works from the whole recording.
     pub fn transcribe(
         &self,
         samples: &[f32],
         language: &str,
         prompt: Option<&str>,
     ) -> anyhow::Result<String> {
-        let text = self.decode(samples, language, prompt, true)?;
+        let speech = if samples.len() > VAD_OVER_SECS * WHISPER_INPUT_RATE as usize {
+            self.speech_only(samples)
+        } else {
+            None
+        };
+        let text = match &speech {
+            Some(speech) if speech.is_empty() => return Ok(String::new()),
+            Some(speech) => self.decode(speech, language, prompt, true)?,
+            None => self.decode(samples, language, prompt, true)?,
+        };
         let repeats = longest_loop(&text);
         if repeats < LOOP_REPEATS {
             return Ok(text);
@@ -200,13 +246,84 @@ impl WhisperEngine {
         Ok(join_trimmed(&segments))
     }
 
+    /// The speech in `samples`, as Silero VAD finds it with whisper.cpp's
+    /// default parameters, joined the way whisper.cpp's own VAD path joins
+    /// it. That path only runs inside `whisper_full`, and whisper-rs decodes
+    /// through `whisper_full_with_state`, so the same filtering is done here
+    /// before the decode. None — decode the whole recording — when there is
+    /// no VAD model or it fails; logs one line of counts either way.
+    fn speech_only(&self, samples: &[f32]) -> Option<Vec<f32>> {
+        let vad = self.vad.as_ref()?;
+        let rate = WHISPER_INPUT_RATE as usize;
+        let secs = samples.len() as f32 / rate as f32;
+        let segments = vad
+            .lock()
+            .map_err(|_| "VAD lock poisoned".to_string())
+            .and_then(|mut vad| {
+                vad.segments_from_samples(WhisperVadParams::default(), samples)
+                    .map(|found| found.map(|s| (s.start, s.end)).collect::<Vec<_>>())
+                    .map_err(|e| format!("{e:?}"))
+            });
+        match segments {
+            Ok(segments) => {
+                let speech = join_speech(
+                    samples,
+                    &segments,
+                    VAD_OVERLAP_MS * rate / 1000,
+                    VAD_GAP_MS * rate / 1000,
+                );
+                note(&format!(
+                    "VAD: {secs:.1}s recording, {} speech segments, {:.1}s decoded",
+                    segments.len(),
+                    speech.len() as f32 / rate as f32
+                ));
+                Some(speech)
+            }
+            Err(e) => {
+                note(&format!("VAD failed ({e}); decoding the whole {secs:.1}s"));
+                None
+            }
+        }
+    }
+
     pub fn model_name(&self) -> &str {
         &self.model_name
     }
 }
 
+/// Pure: the `segments` of `samples` (start and end in centiseconds, as
+/// whisper.cpp's VAD reports them) joined exactly as whisper.cpp's
+/// `whisper_vad` joins them: every segment but the last runs `overlap`
+/// samples past its end, `gap` samples of silence separate segments, and
+/// every bound is clamped to the buffer. No segments, no audio.
+fn join_speech(samples: &[f32], segments: &[(f32, f32)], overlap: usize, gap: usize) -> Vec<f32> {
+    let Some(last_sample) = samples.len().checked_sub(1) else {
+        return Vec::new();
+    };
+    // whisper.cpp truncates the float centiseconds to an integer, then
+    // rounds to the nearest sample.
+    let to_sample =
+        |cs: f32| ((cs as i64) as f64 / 100.0 * WHISPER_INPUT_RATE as f64 + 0.5) as usize;
+    let mut out = Vec::new();
+    for (i, &(start, end)) in segments.iter().enumerate() {
+        let is_last = i + 1 == segments.len();
+        let start = to_sample(start).min(last_sample);
+        let mut end = to_sample(end).min(last_sample);
+        if !is_last {
+            end = (end + overlap).min(last_sample);
+        }
+        if end > start {
+            out.extend_from_slice(&samples[start..end]);
+            if !is_last {
+                out.resize(out.len() + gap, 0.0);
+            }
+        }
+    }
+    out
+}
+
 /// Join trimmed, non-empty pieces of text with single spaces.
-fn join_trimmed(parts: &[String]) -> String {
+pub(crate) fn join_trimmed(parts: &[String]) -> String {
     parts
         .iter()
         .map(|p| p.trim())
@@ -217,7 +334,7 @@ fn join_trimmed(parts: &[String]) -> String {
 
 /// Diagnostics go to the log file, or to stderr when no log file is open
 /// (`--file` mode leaves the logger uninitialised to keep stdout clean).
-fn note(msg: &str) {
+pub(crate) fn note(msg: &str) {
     if crate::logging::get_dir().as_os_str().is_empty() {
         eprintln!("{msg}");
     } else {
@@ -854,6 +971,37 @@ mod tests {
             (doubled.to_string(), 0)
         );
         assert_eq!(collapse_loops("", LOOP_REPEATS), (String::new(), 0));
+    }
+
+    // ── Speech-only audio for long recordings (TASK-VTT183) ─────────────────
+
+    #[test]
+    fn join_speech_keeps_segments_with_overlap_and_gaps_like_whisper_cpp() {
+        // 3 s ramp so every sample is identifiable by its value.
+        let samples: Vec<f32> = (0..3 * RATE).map(|i| i as f32).collect();
+        // 0.10-0.50 s and 1.00-1.20 s, in centiseconds.
+        let joined = join_speech(&samples, &[(10.0, 50.0), (100.0, 120.0)], 1600, 1600);
+        let first = 1600..8000 + 1600; // extended by the overlap
+        let second = 16000..19200; // the last segment is not extended
+        assert_eq!(joined.len(), first.len() + 1600 + second.len());
+        assert_eq!(joined[0], 1600.0);
+        assert_eq!(joined[first.len() - 1], (first.end - 1) as f32);
+        assert!(joined[first.len()..first.len() + 1600]
+            .iter()
+            .all(|&s| s == 0.0));
+        assert_eq!(joined[first.len() + 1600], 16000.0);
+        assert_eq!(*joined.last().unwrap_or(&-1.0), 19199.0);
+    }
+
+    #[test]
+    fn join_speech_truncates_centiseconds_and_clamps_to_the_buffer() {
+        let samples = vec![0.5f32; RATE];
+        // 10.9 cs truncates to 10 cs = 1600 samples; an end past the buffer
+        // clamps to its last sample.
+        let joined = join_speech(&samples, &[(10.9, 500.0)], 1600, 1600);
+        assert_eq!(joined.len(), RATE - 1 - 1600);
+        assert!(join_speech(&samples, &[], 1600, 1600).is_empty());
+        assert!(join_speech(&[], &[(0.0, 10.0)], 1600, 1600).is_empty());
     }
 
     #[test]

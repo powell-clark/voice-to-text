@@ -11,6 +11,37 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **A second speech engine: NVIDIA Parakeet.** Pick **parakeet-v3** from the
+  tray's model menu (or `model=parakeet-v3` in `settings.conf`) and dictation
+  runs on Parakeet TDT 0.6B v3 instead of Whisper; pick any Whisper model to
+  switch back. Parakeet is a different kind of model, trained separately, and
+  it does not feed each stretch of audio the text of the one before, which is
+  how Whisper's repeating-sentence loop starts. It covers 25
+  European languages and detects which one you are speaking, so it ignores the
+  language setting and the initial prompt; your corrections still apply. The
+  638 MB model downloads on first use, with progress, and is checked against
+  its published checksum. Model by NVIDIA, licensed CC-BY-4.0 (credited in
+  About). Whisper large-v3-turbo stays the recommended model: without a
+  prompt Parakeet misses some names Whisper gets.
+
+### Changed
+- **The speech engine is whisper.cpp 1.9.5** (was 1.8.3), pinned in the
+  repository so every build uses the same release. `vtt --version` and the
+  start of each day's log now name it. On short dictation it writes the same
+  words as before. `vtt --file` also prints, on stderr, how long the
+  transcription itself took, so engines can be compared from the command line.
+- **Recordings over 30 seconds skip their silences before Whisper reads
+  them.** Long pauses are where Whisper's repeating-sentence loops start; on
+  both recordings that had looped, this keeps every sentence once without
+  needing the loop repair, and long dictation transcribes faster. Shorter
+  recordings are untouched. The small voice-detection model (under 1 MB)
+  downloads with the first Whisper model load.
+- **Picking a model in the tray loads it straight away**, behind the
+  "Loading" status, instead of on your next key press. Parakeet's first-ever
+  start on a machine prepares the GPU for about 25 seconds; that now happens
+  then, not in the middle of a dictation.
+
 ### Fixed
 - **A long dictation no longer turns into one sentence repeated to the end.**
   Whisper reads long audio in 30-second windows and feeds each window the text

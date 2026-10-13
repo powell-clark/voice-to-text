@@ -24,6 +24,8 @@ pub enum NewlineType {
 pub struct Settings {
     /// Menu-facing model name, e.g. "small", "large-v3-turbo". May include
     /// an ".en" suffix for English-only variants. See `models::MODELS`.
+    /// It also chooses the engine: "parakeet-v3" runs on Parakeet, every
+    /// other name on Whisper (ADR-0011) — there is no separate engine key.
     pub selected_model: String,
     /// BCP-47-ish language code ("en" or "auto" in practice). "auto" means
     /// "let whisper detect" and selects the multilingual model variant.
