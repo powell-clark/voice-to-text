@@ -34,6 +34,7 @@ bash scripts/release-ppa.sh   # pbuilder hard-gate, then dput
 | Script | Purpose |
 |--------|---------|
 | `scripts/vendor_whisper.sh` | Vendor `whisper.cpp` into `third_party/` |
+| `scripts/build-release.sh` | Release build with this machine's paths remapped out of the binary; every shipped binary comes from it |
 | `scripts/install-dev.sh` | Install a local `VTT.app` build into /Applications (macOS) |
 | `scripts/git-hooks/` | Git hooks, including the pre-push personal-data gate (install via `bash scripts/git-hooks/install.sh`) |
 

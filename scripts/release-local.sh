@@ -55,7 +55,15 @@ if [ -f "$PREBUILT" ]; then
         echo ""
         echo "The .deb installs this file verbatim, so building now would ship stale code."
         echo "Refresh it:"
-        echo "  cargo build --release && cp target/release/vtt $PREBUILT"
+        echo "  bash scripts/build-release.sh && cp target/release/vtt $PREBUILT"
+        exit 1
+    fi
+    # A binary built without scripts/build-release.sh carries this machine's
+    # home path in its panic and assert locations; the .deb would publish it.
+    if grep -q -a -F -- "$HOME" "$PREBUILT"; then
+        echo "ERROR: $PREBUILT holds this machine's home directory path."
+        echo "Rebuild it with the build paths remapped:"
+        echo "  bash scripts/build-release.sh && cp target/release/vtt $PREBUILT"
         exit 1
     fi
     echo "[0/4] Prebuilt is current (built $(date -d "@$PREBUILT_EPOCH" '+%Y-%m-%d %H:%M')); it is what the .deb ships."
@@ -63,7 +71,7 @@ if [ -f "$PREBUILT" ]; then
 fi
 
 echo "[2/4] Pre-flight: cargo build --offline --locked (mirrors Launchpad)..."
-if ! cargo build --release --offline --locked 2>&1 | tail -5 | grep -q "Finished\|up to date"; then
+if ! bash scripts/build-release.sh --offline --locked 2>&1 | tail -5 | grep -q "Finished\|up to date"; then
     echo "  WARN — offline locked build may have issues. Continuing with debuild anyway."
 else
     echo "  OK — offline locked build succeeds. Launchpad would build too."

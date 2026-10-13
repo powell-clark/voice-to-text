@@ -127,8 +127,8 @@ echo ""
 # locally with rustup 1.91 and copy it to packaging/linux/vtt.prebuilt
 # which debian/rules will install verbatim.
 
-echo "[1/${STEP_TOTAL:-?}] Building release binary with local rustup..."
-cargo build --release --offline 2>&1 | tail -5
+echo "[1/${STEP_TOTAL:-?}] Building release binary with local rustup, build paths remapped..."
+bash scripts/build-release.sh --offline 2>&1 | tail -5
 if [ ! -x target/release/vtt ]; then
     echo "  FAIL — build did not produce target/release/vtt"
     exit 1

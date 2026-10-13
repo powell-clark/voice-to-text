@@ -19,13 +19,21 @@
 # 2024 (expected in 25.04+), this file can be reverted to the cargo-build
 # path at git history commit efa5d75.
 
+# Nothing below compiles today. A source build must still not embed the build
+# path in the binary, so the compilers get the remapping that
+# scripts/build-release.sh applies to the pre-built binary. Last match wins:
+# the broad $(HOME) first, then the build directory.
+export RUSTFLAGS += --remap-path-prefix=$(HOME)=~ --remap-path-prefix=$(CURDIR)=/build/voice-to-text
+export DEB_CFLAGS_MAINT_APPEND = -ffile-prefix-map=$(HOME)=~ -ffile-prefix-map=$(CURDIR)=/build/voice-to-text
+export DEB_CXXFLAGS_MAINT_APPEND = -ffile-prefix-map=$(HOME)=~ -ffile-prefix-map=$(CURDIR)=/build/voice-to-text
+
 %:
 	dh $@
 
 override_dh_auto_build:
 	# Verify the pre-built binary is present and executable.
 	test -x packaging/linux/vtt.prebuilt || (echo "ERROR: packaging/linux/vtt.prebuilt missing. \
-Run 'cargo build --release' locally and 'cp target/release/vtt packaging/linux/vtt.prebuilt'." && exit 1)
+Run 'bash scripts/build-release.sh' locally and 'cp target/release/vtt packaging/linux/vtt.prebuilt'." && exit 1)
 	# Sanity: confirm it's an ELF x86_64 Linux binary.
 	file packaging/linux/vtt.prebuilt | grep -q "ELF 64-bit LSB.*x86-64" || \
 		(echo "ERROR: packaging/linux/vtt.prebuilt is not a valid x86_64 ELF." && exit 1)
