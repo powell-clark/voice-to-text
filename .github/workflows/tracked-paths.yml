@@ -1,0 +1,25 @@
+name: Tracked paths
+
+# Agent state stays local. This repo is public, and CONSCIOUSNESS/, .claude/ and
+# chats/ hold machine paths, roadmap state and transcripts, so none of them may be
+# tracked at any depth. The job carries no values and needs no secrets.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  agent-state-untracked:
+    name: Agent state is not tracked
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Refuse tracked CONSCIOUSNESS/, .claude/ or chats/
+        run: bash scripts/ci/check-tracked-paths.sh

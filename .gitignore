@@ -105,3 +105,12 @@ debian/voice-to-text.substvars
 .claude/last-claim.md
 chats/
 .gstack/
+
+# Agent state stays local and is never published (TASK-EGLPK1548). CI's
+# tracked-paths job fails if any of these is tracked, at any depth.
+CONSCIOUSNESS/
+.claude/
+chats/
+**/CONSCIOUSNESS/
+**/.claude/
+**/chats/
