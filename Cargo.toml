@@ -1,9 +1,9 @@
 [package]
 name = "voice-to-text"
-version = "2.4.0"
+version = "2.5.0"
 edition = "2021"
 authors = ["Emmanuel Powell-Clark <emmanuel@powellclark.com>"]
-description = "Free, world-class voice-to-text for Ubuntu, macOS and Windows"
+description = "Free, offline voice-to-text for Ubuntu, macOS and Windows"
 license = "Apache-2.0"
 repository = "https://github.com/powell-clark/voice-to-text"
 

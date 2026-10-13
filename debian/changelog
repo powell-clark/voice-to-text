@@ -1,3 +1,33 @@
+voice-to-text (2.5.0) noble; urgency=medium
+
+  * feat(engine): a second speech engine, NVIDIA Parakeet TDT 0.6B v3. Pick
+    parakeet-v3 from the tray's model menu (or model=parakeet-v3 in
+    settings.conf); pick any Whisper model to switch back. It covers 25
+    European languages, detects which one you speak, and ignores the
+    language setting and initial prompt; your corrections still apply. The
+    638 MB model downloads on first use and is checked against its
+    published checksum. Model by NVIDIA, licensed CC-BY-4.0.
+  * feat(engine): the speech engine is whisper.cpp 1.9.5 (was 1.8.3),
+    pinned in the repository so every build uses the same release.
+    `vtt --version` and the start of each day's log name it.
+  * fix(whisper): a long dictation no longer turns into one sentence
+    repeated to the end. Recordings over 30 seconds skip their silences
+    before Whisper reads them, and a transcript that still repeats a
+    sentence three or more times in a row is transcribed again in
+    pause-aligned pieces, keeping every sentence once.
+  * fix(engine): the speech engine targets a fixed x86-64 baseline that any
+    CPU with AVX2 meets, so a release no longer stops with an "illegal
+    instruction" crash on a processor older than the build machine's.
+  * fix(release): release binaries no longer contain the build machine's
+    file paths; the release build refuses a binary that still holds one.
+  * security(deps): rustls 0.23.45 for model downloads clears
+    RUSTSEC-2026-0285.
+  * security(hooks): a pre-push gate refuses commits carrying personal data
+    or a compiled binary; the packaged binary is built at release time and
+    never committed.
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Tue, 13 Oct 2026 20:13:55 +0100
+
 voice-to-text (2.4.0) noble; urgency=medium
 
   * feat(archive): dictation can be archived as training-grade audio with

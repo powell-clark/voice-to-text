@@ -9,7 +9,7 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [Unreleased]
+## [2.5.0] — 2026-10-13
 
 ### Added
 - **A second speech engine: NVIDIA Parakeet.** Pick **parakeet-v3** from the
@@ -49,6 +49,10 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   different processor. It now targets a fixed baseline any x86-64 CPU with
   AVX2 meets (roughly 2013 onwards); measured speed is within 5% of before.
 - **Release binaries no longer contain the build machine's file paths.**
+  Panic locations and the speech engine's own diagnostics used to carry the
+  absolute paths of the machine that built the release. Every shipped binary
+  is now built with those paths remapped, and the release build refuses a
+  binary that still holds one.
 - **A long dictation no longer turns into one sentence repeated to the end.**
   Whisper reads long audio in 30-second windows and feeds each window the text
   of the one before, so one bad window could repeat itself for the rest of the
@@ -59,6 +63,16 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   recording that had lost its second half, the full text came back. Ordinary
   dictation is untouched: the extra pass runs only when a loop is detected, and
   the log records one line with counts, never your words.
+
+### Security
+- **Changes are checked for personal data before they leave the machine.**
+  The repository's pre-push hook refuses a push whose commits carry the
+  committer's home path, hostname or private repository names, a value from a
+  local replacement list, or a compiled ELF, PE or Mach-O file. It prints
+  counts and file names only, never the matched value. The packaged binary is
+  built at release time and is never committed.
+- **The TLS library used for model downloads is updated** to rustls 0.23.45,
+  clearing RUSTSEC-2026-0285.
 
 ---
 
@@ -309,7 +323,7 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 ### Added
 - **GPU acceleration on Windows (Vulkan)**: Whisper inference now runs on the
   GPU via Vulkan — vendor-neutral, so one build accelerates NVIDIA, AMD, and
-[redacted-device]
+  Intel without a CUDA Toolkit dependency. Verified on an NVIDIA GPU
   (`using Vulkan0 backend`, NV_coopmat2 tensor cores). Falls back to CPU
   automatically when no Vulkan device is present. Completes the Windows half of
   GPU acceleration; Linux already shipped Vulkan, macOS uses Metal.
