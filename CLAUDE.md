@@ -34,9 +34,11 @@ bash scripts/release-ppa.sh   # pbuilder hard-gate, then dput
 | Script | Purpose |
 |--------|---------|
 | `scripts/vendor_whisper.sh` | Vendor `whisper.cpp` into `third_party/` |
-| `scripts/setup-runner.sh` | Set up the macOS GitHub Actions self-hosted runner |
-| `scripts/install-dev.sh` | Set up the local dev environment |
-| `scripts/git-hooks/` | Git hooks (install via `install-dev.sh`) |
+| `scripts/install-dev.sh` | Install a local `VTT.app` build into /Applications (macOS) |
+| `scripts/git-hooks/` | Git hooks, including the pre-push personal-data gate (install via `bash scripts/git-hooks/install.sh`) |
+
+Never register a self-hosted runner on this repository: it is public, and a
+fork pull request could run code on the runner's machine.
 
 ## PPA information (Linux only)
 

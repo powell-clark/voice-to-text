@@ -34,13 +34,3 @@ This builds via `cargo build --release`, packages a `.deb`, and installs it.
 
 `cargo build --release` produces `target/release/vtt` (the binary name is cross-platform).
 A signed `.app` bundle is planned in `packaging/macos/` — see the backlog.
-
-## GitHub Actions CI runner (macOS, optional)
-
-To run macOS CI jobs locally without paying GitHub's $0.08/min:
-
-```bash
-# Get a runner token from:
-# https://github.com/powell-clark/voice-to-text/settings/actions/runners
-bash scripts/setup-runner.sh YOUR_TOKEN_HERE
-```
