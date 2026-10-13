@@ -15,11 +15,11 @@
 #      never written here), a GitHub noreply address, a bot or noreply address,
 #      or on a reserved example domain; in added lines of CHANGELOG.md or docs/
 #      it warns instead.
-#   3. A replacement list, when one exists (PII_LIST, default
-#      ~/.local/share/pii-review/replacements.txt), through scrub.py's count
-#      subcommand (PII_SCRUB_PY, else git config pii.scrubPath, else scrub.py
-#      beside the list). If the list exists and its check cannot run, the push
-#      is refused.
+#   3. A replacement list, when one exists (PII_LIST, else git config
+#      pii.listPath, else ~/.local/share/pii-review/replacements.txt), through
+#      scrub.py's count subcommand (PII_SCRUB_PY, else git config pii.scrubPath,
+#      else scrub.py beside the list). If the list exists and its check cannot
+#      run, the push is refused.
 # Output is counts and file names only. A matched value is never printed, and a
 # file name that itself holds one is withheld.
 #
@@ -317,7 +317,9 @@ derived_hits=$(cat "$T/total")
 
 # ---------------------------------------------------------------- layer 3: replacement list
 
-LIST=${PII_LIST:-$HOME/.local/share/pii-review/replacements.txt}
+LIST=${PII_LIST:-}
+[ -n "$LIST" ] || LIST=$(git config --type=path --get pii.listPath 2>/dev/null || true)
+[ -n "$LIST" ] || LIST=$HOME/.local/share/pii-review/replacements.txt
 list_hits=0
 list_note="list: none at $(tildify "$LIST"), list layer skipped"
 if [ -e "$LIST" ]; then

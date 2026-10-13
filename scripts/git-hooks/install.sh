@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Install the git hooks from scripts/git-hooks/ into .git/hooks/.
-# Run once per fresh clone. Idempotent — overwrites existing hooks.
+# Install the git hooks from scripts/git-hooks/ into the repository's hooks
+# directory. Run once per fresh clone, from the main checkout or any linked
+# worktree. Idempotent — overwrites existing hooks.
 
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
 HOOKS_SRC="scripts/git-hooks"
-HOOKS_DST=".git/hooks"
+# The common git directory, absolute: a linked worktree's .git is a file, and a
+# relative hooks path would resolve inside that worktree and find no hooks.
+HOOKS_DST="$(git rev-parse --path-format=absolute --git-common-dir)/hooks"
 
 if [ ! -d "$HOOKS_DST" ]; then
     echo "ERROR: $HOOKS_DST does not exist — is this a git repo?"
@@ -18,7 +21,7 @@ fi
 # our local copy for this repo only — preserves the user's global default
 # for other repos. We chain the global hooks into each local hook so things
 # like git-lfs still run.
-GLOBAL_HOOKS_PATH=$(git config --get core.hooksPath || true)
+GLOBAL_HOOKS_PATH=$(git config --global --get core.hooksPath || true)
 LOCAL_HOOKS_PATH=$(git config --local --get core.hooksPath || true)
 
 # pii-gate.sh is not a git hook name; pre-push calls it from beside itself.
@@ -34,18 +37,18 @@ for hook in pre-push commit-msg pii-gate.sh; do
     echo "installed: $dst"
 done
 
-# If global hooksPath overrides us, switch this repo to use .git/hooks so
-# the install actually takes effect. The global hooks (if any) are preserved
-# by dispatching to them from within each local hook — but for now we just
-# document that users with global hooks need to integrate manually.
-if [ -n "$GLOBAL_HOOKS_PATH" ] && [ "$GLOBAL_HOOKS_PATH" != ".git/hooks" ] \
-    && [ "$LOCAL_HOOKS_PATH" != ".git/hooks" ]; then
+# If a global hooksPath overrides us, or an earlier install left the relative
+# .git/hooks (which linked worktrees cannot resolve), point this repo at the
+# absolute hooks directory so the install takes effect everywhere. The global
+# hooks (if any) are not chained: users with global hooks integrate manually.
+if [ "$LOCAL_HOOKS_PATH" = ".git/hooks" ] || { [ -n "$GLOBAL_HOOKS_PATH" ] \
+    && [ "$GLOBAL_HOOKS_PATH" != "$HOOKS_DST" ] && [ "$LOCAL_HOOKS_PATH" != "$HOOKS_DST" ]; }; then
     echo ""
-    echo "NOTE: detected global 'core.hooksPath = $GLOBAL_HOOKS_PATH'."
-    echo "      Setting 'core.hooksPath = .git/hooks' for this repo only so"
-    echo "      the installed hooks take effect. Your global setting stays"
-    echo "      untouched for every other repo on this machine."
-    git config --local core.hooksPath .git/hooks
+    [ -n "$GLOBAL_HOOKS_PATH" ] && echo "NOTE: detected global 'core.hooksPath = $GLOBAL_HOOKS_PATH'."
+    echo "NOTE: setting 'core.hooksPath = $HOOKS_DST' for this repo only so"
+    echo "      the installed hooks take effect in every worktree. Your global"
+    echo "      setting stays untouched for every other repo on this machine."
+    git config --local core.hooksPath "$HOOKS_DST"
 fi
 
 echo ""
