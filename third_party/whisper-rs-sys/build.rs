@@ -14,6 +14,8 @@
 //      find_package(SPIRV-Headers CONFIG REQUIRED).
 //   5. A bindgen failure is an error; there is no stale bundled bindings.rs
 //      to fall back on.
+//   6. x86-64 builds target a fixed x86-64-v3 baseline instead of the build
+//      machine's CPU (GGML_NATIVE=OFF), so the binary runs where it ships.
 
 extern crate bindgen;
 
@@ -319,6 +321,28 @@ fn main() {
         // we're in release mode, explicitly set to release mode
         // see also https://codeberg.org/tazz4843/whisper-rs/issues/226
         config.define("CMAKE_BUILD_TYPE", "Release");
+    }
+
+    // patch: a portable CPU baseline (TASK-VTT184). ggml's default,
+    // GGML_NATIVE=ON, compiles for the build machine (-march=native), so a
+    // binary built on one machine (a CI runner with AVX-512, say) can stop
+    // with an illegal instruction on a user's older CPU. x86-64 builds target
+    // x86-64-v3 instead: AVX2, FMA, F16C and BMI2, never AVX-512. A GGML_*
+    // variable in the environment still wins (the loop below), e.g.
+    // GGML_NATIVE=ON for a build that never leaves its machine.
+    if env::var("CARGO_CFG_TARGET_ARCH").as_deref() == Ok("x86_64") {
+        config.define("GGML_NATIVE", "OFF");
+        for isa in [
+            "GGML_SSE42",
+            "GGML_AVX",
+            "GGML_AVX2",
+            "GGML_BMI2",
+            "GGML_FMA",
+            "GGML_F16C",
+        ] {
+            config.define(isa, "ON");
+        }
+        config.define("GGML_AVX512", "OFF");
     }
 
     // Allow passing any WHISPER or CMAKE compile flags

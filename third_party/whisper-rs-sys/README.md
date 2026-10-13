@@ -21,6 +21,11 @@ What differs from upstream, all in `build.rs` and `wrapper.h`:
    from ggml 0.26.
 5. bindgen failing is an error. Upstream falls back to a bundled `bindings.rs`
    that matches an older whisper.cpp; this copy has none.
+6. On x86-64 it builds ggml for a fixed x86-64-v3 baseline (AVX2, FMA, F16C,
+   BMI2; never AVX-512) with `GGML_NATIVE=OFF`, instead of ggml's default of
+   the build machine's own CPU, so a release binary runs on the users' CPUs
+   and not only on the one that built it. `GGML_NATIVE=ON` in the environment
+   restores the old behaviour for a local-only build.
 
 To move the engine: check out the new whisper.cpp tag in `../whisper.cpp`,
 rebuild, run the tests and `vtt --version`, and record the move in the
