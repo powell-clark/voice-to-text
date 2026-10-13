@@ -8,16 +8,17 @@
 # source on Launchpad's Noble builders is therefore structurally broken
 # without bundling a newer Rust toolchain, which adds its own brittleness.
 #
-# Pragmatic solution: Emmanuel builds the release binary locally with
-# rustup (currently Rust 1.91), commits it to the source tree as
-# packaging/linux/vtt.prebuilt, and Launchpad's "build" step is
+# Pragmatic solution: the release scripts build the binary locally with
+# rustup through scripts/build-release.sh and stage it in the source tree
+# as packaging/linux/vtt.prebuilt (gitignored, never committed; debuild -S
+# packs it into the source tarball), and Launchpad's "build" step is
 # simply to install that binary. Google Chrome, Zoom, and many proprietary
 # .debs use this exact pattern. dh_shlibdeps still runs against the
 # installed libraries to generate correct Depends.
 #
 # When Ubuntu eventually ships a Rust toolchain that can parse edition
 # 2024 (expected in 25.04+), this file can be reverted to the cargo-build
-# path at git history commit efa5d75.
+# path: git show 376d6e0:debian/rules is the last cargo-build version.
 
 # Nothing below compiles today. A source build must still not embed the build
 # path in the binary, so the compilers get the remapping that
@@ -66,7 +67,7 @@ override_dh_auto_install:
 		debian/voice-to-text/usr/share/voice-to-text/ct2-daemon/requirements.txt
 
 override_dh_auto_clean:
-	# No cargo state to clean — binary is committed.
+	# No cargo state to clean — the binary is staged by the release scripts.
 	true
 
 override_dh_clean:

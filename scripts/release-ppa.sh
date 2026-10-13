@@ -43,7 +43,7 @@ done
 
 echo "=== Pre-flight checks ==="
 
-DIRTY=$(git diff --name-only HEAD -- src/ debian/ Cargo.toml packaging/linux/vtt.service packaging/linux/vtt.prebuilt scripts/ | head -20)
+DIRTY=$(git diff --name-only HEAD -- src/ debian/ Cargo.toml packaging/linux/vtt.service scripts/ | head -20)
 if [ -n "$DIRTY" ] && [ "$FORCE" = false ]; then
     echo "ERROR: Uncommitted source changes:"
     echo "$DIRTY"
@@ -124,8 +124,10 @@ echo ""
 #
 # Since 2.0.2, PPA releases ship the pre-built binary (Ubuntu LTS
 # cargo 1.75 cannot build the modern Rust dep tree). Build the binary
-# locally with rustup 1.91 and copy it to packaging/linux/vtt.prebuilt
-# which debian/rules will install verbatim.
+# locally with rustup and copy it to packaging/linux/vtt.prebuilt, which
+# debian/rules installs verbatim. The file is gitignored and never
+# committed: debuild -S packs it from the working tree into the 3.0
+# (native) source tarball, which is all Launchpad needs.
 
 echo "[1/${STEP_TOTAL:-?}] Building release binary with local rustup, build paths remapped..."
 bash scripts/build-release.sh --offline 2>&1 | tail -5
@@ -146,15 +148,6 @@ if grep -q '^version = 4$' Cargo.lock; then
     echo "  NOTE: downgraded Cargo.lock v4 -> v3 for Noble compat"
 fi
 
-# Commit the prebuilt if it changed so git reflects what ships on PPA.
-# Without this, every release leaves the working tree dirty and the tracked
-# binary drifts behind the published one by a release. Use --allow-empty in
-# case the binary is byte-identical (unlikely but possible with SOURCE_DATE_EPOCH).
-if ! git diff --quiet packaging/linux/vtt.prebuilt; then
-    git add packaging/linux/vtt.prebuilt
-    git commit -m "build: refresh packaging/linux/vtt.prebuilt for v${VERSION} release" 2>&1 | tail -2
-    git push origin main 2>&1 | tail -2
-fi
 echo ""
 
 # ═══════════════════════════════════════════════════════════════

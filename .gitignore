@@ -10,6 +10,9 @@ build/
 vtt-linux
 /vtt
 debian/files
+# Built at release time by scripts/release-ppa.sh and scripts/release-local.sh,
+# packed into the source package from the working tree, never committed.
+packaging/linux/vtt.prebuilt
 
 # Archives and packages
 *.tar.gz

@@ -2,10 +2,12 @@
 
 ## Files
 
-- `vtt.prebuilt` — pre-built x86_64 ELF binary committed to the tree so
-  Launchpad PPA builds can install it without re-compiling. Ubuntu Noble ships
-  Cargo 1.75, which cannot parse edition-2024 manifests in the dependency tree.
-  `scripts/release-ppa.sh` rebuilds and re-commits this file on each release.
+- `vtt.prebuilt` — pre-built x86_64 ELF binary, built at release time and never
+  committed (it is gitignored). `scripts/release-ppa.sh` and
+  `scripts/release-local.sh` build it with `scripts/build-release.sh` and stage
+  it here; `debuild -S` packs it into the source tarball so Launchpad PPA builds
+  install it without re-compiling. Ubuntu Noble ships Cargo 1.75, which cannot
+  parse edition-2024 manifests in the dependency tree.
 - `vtt.service` — systemd user service unit installed to
   `/usr/lib/systemd/user/vtt.service` by the Debian package.
 
@@ -22,7 +24,7 @@
 bash scripts/release-ppa.sh
 ```
 
-Builds a fresh binary, commits it here, runs pbuilder, and dput to
+Builds a fresh binary, stages it here (untracked), runs pbuilder, and dput to
 `ppa:powellclark/voice-to-text`.
 
 ## Local .deb

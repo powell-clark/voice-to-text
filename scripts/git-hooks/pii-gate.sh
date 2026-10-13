@@ -20,11 +20,14 @@
 #      scrub.py's count subcommand (PII_SCRUB_PY, else git config pii.scrubPath,
 #      else scrub.py beside the list). If the list exists and its check cannot
 #      run, the push is refused.
+#   4. Executables: an added or changed ELF, PE or Mach-O file refuses, whatever
+#      its name. A built binary carries the build machine's paths and strings;
+#      the release scripts build it at release time and never commit it.
 # Output is counts and file names only. A matched value is never printed, and a
 # file name that itself holds one is withheld.
 #
 # Portable to bash 3.2 (macOS), Linux and Git Bash on Windows: no associative
-# arrays or mapfile, and only POSIX awk, sed, tr, sort and find.
+# arrays or mapfile, and only POSIX awk, sed, tr, od, sort and find.
 
 set -u
 set -o pipefail
@@ -407,11 +410,51 @@ if [ -e "$LIST" ]; then
     list_note="list: checked $(wc -l < "$T/map" | tr -d ' ') object(s) against $(tildify "$LIST")"
 fi
 
+# ---------------------------------------------------------------- layer 4: executables
+
+# Every regular file each pushed commit adds or changes, once per blob.
+: > "$T/changed"
+while IFS= read -r c; do
+    git diff-tree -r --root -m --no-commit-id --no-renames --diff-filter=AMT "$c" < /dev/null \
+        | LC_ALL=C awk -F '\t' -v c="$(printf '%s' "$c" | cut -c1-7)" '
+            { split($1, f, " "); if (f[2] == "100644" || f[2] == "100755") printf "%s\t%s\t%s\n", c, f[4], $2 }' \
+        >> "$T/changed" || refuse "cannot list the files being pushed"
+done < "$T/commits"
+LC_ALL=C awk -F '\t' '!seen[$2]++' "$T/changed" > "$T/blobs"
+# The first bytes of a file, as hex, name its format: ELF, Mach-O (thin, or fat
+# with a small arch count, which a Java class file's version never is), or PE
+# (MZ with "PE\0\0" at the offset stored at 0x3c).
+CLASSIFY='
+function hv(s,   i, v) { v = 0; for (i = 1; i <= length(s); i++) v = v * 16 + index("0123456789abcdef", substr(s, i, 1)) - 1; return v }
+{ for (i = 1; i <= NF; i++) b[++n] = $i }
+END {
+    m = b[1] b[2] b[3] b[4]
+    if (m == "7f454c46") { print "elf"; exit }
+    if (m == "feedface" || m == "feedfacf" || m == "cefaedfe" || m == "cffaedfe") { print "mach-o"; exit }
+    if ((m == "cafebabe" || m == "cafebabf") && n >= 8) { k = hv(b[5] b[6] b[7] b[8]); if (k > 0 && k < 45) { print "mach-o"; exit } }
+    if (b[1] == "4d" && b[2] == "5a" && n >= 64) {
+        o = hv(b[64] b[63] b[62] b[61])
+        if (o + 4 <= n && b[o + 1] == "50" && b[o + 2] == "45" && b[o + 3] == "00" && b[o + 4] == "00") print "pe"
+    }
+}'
+: > "$T/exe"
+while IFS=$'\t' read -r c sha path; do
+    git cat-file blob "$sha" < /dev/null > "$T/blob" || refuse "cannot read a pushed file"
+    kind=$(od -An -v -tx1 -N 1024 "$T/blob" | LC_ALL=C awk "$CLASSIFY") || refuse "cannot read a pushed file"
+    [ -n "$kind" ] && printf '%s\t%s\t%s\n' "$c" "$kind" "$path" >> "$T/exe"
+done < "$T/blobs"
+rm -f "$T/blob"
+LC_ALL=C awk -F '\t' -v DIRTY="$T/dirty" '
+    BEGIN { while ((getline ln < DIRTY) > 0) dirty[ln] = 1 }
+    NR <= 200 { printf "[pii-gate] EXECUTABLE %s %s: %s\n", $1, ($3 in dirty) ? "<file name withheld: it holds an identifier>" : $3, $2 }' "$T/exe"
+exe_hits=$(wc -l < "$T/exe" | tr -d ' ')
+exe_note="executables: checked $(wc -l < "$T/blobs" | tr -d ' ') file(s)"
+
 # ---------------------------------------------------------------- verdict
 
-say "checked $ncommits commit(s) on $nref ref(s); derived: $(cut -f1 "$IDS" | sort | uniq -c | awk '{printf "%s%s=%s", (NR > 1 ? " " : ""), $2, $1}'); $repo_note; $list_note"
-if [ "$derived_hits" -gt 0 ] || [ "$list_hits" -gt 0 ]; then
-    refuse "$derived_hits identifier hit(s), $list_hits list hit(s). Remove them from the commits (amend or rebase) and push again. No matched value is printed."
+say "checked $ncommits commit(s) on $nref ref(s); derived: $(cut -f1 "$IDS" | sort | uniq -c | awk '{printf "%s%s=%s", (NR > 1 ? " " : ""), $2, $1}'); $repo_note; $list_note; $exe_note"
+if [ "$derived_hits" -gt 0 ] || [ "$list_hits" -gt 0 ] || [ "$exe_hits" -gt 0 ]; then
+    refuse "$derived_hits identifier hit(s), $list_hits list hit(s), $exe_hits executable(s). Remove them from the commits (amend or rebase) and push again; release binaries are built at release time, never committed. No matched value is printed."
 fi
 say "clean"
 exit 0

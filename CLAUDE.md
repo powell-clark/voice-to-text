@@ -46,9 +46,12 @@ fork pull request could run code on the runner's machine.
 - Launchpad account: `powellclark` (no hyphen)
 - PPA target: `ppa:powellclark/voice-to-text`
 - dput target: `powellclark-voice-to-text`
-- Pre-built binary: `packaging/linux/vtt.prebuilt`
-  (Ubuntu Noble ships Cargo 1.75, which cannot parse edition-2024 manifests;
-  `release-ppa.sh` rebuilds and re-commits this file automatically on each release)
+- Pre-built binary: `packaging/linux/vtt.prebuilt`, built at release time and
+  never committed (gitignored). Ubuntu Noble ships Cargo 1.75, which cannot
+  parse edition-2024 manifests, so `release-ppa.sh` and `release-local.sh`
+  build it with `build-release.sh` and stage it; `debuild -S` packs it into
+  the source tarball. The pre-push gate refuses any committed ELF, PE or
+  Mach-O file.
 
 ## Homebrew tap (macOS) — SEPARATE REPO
 
@@ -72,7 +75,7 @@ Tracked as FEAT-VTT036. No release automation updates the tap.
 ## Packaging layout
 
 ```
-packaging/linux/     — vtt.prebuilt + vtt.service (Launchpad + systemd)
+packaging/linux/     — vtt.service (systemd); vtt.prebuilt is staged here at release time
 packaging/windows/   — notes; wix/ stays at root (cargo-wix tool convention)
 packaging/macos/     — placeholder for planned .app bundle
 debian/              — Debian package metadata (must stay at root for dpkg)

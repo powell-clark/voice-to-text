@@ -11,9 +11,10 @@
 # The lintian "source-is-missing" complaint is expected and documented.
 #
 # The binary IS auditable — the full Rust source is in src/ alongside
-# the prebuilt, built reproducibly with `cargo build --release` from the
-# committed Cargo.lock + vendored deps. Emmanuel rebuilds on release and
-# commits the prebuilt so git history matches every published PPA version.
+# the prebuilt, built with scripts/build-release.sh from the committed
+# Cargo.lock. The release scripts build the prebuilt at release time from
+# the tagged source and pack it into the source package; it is never
+# committed to git.
 
 voice-to-text source: source-is-missing [packaging/linux/vtt.prebuilt]
 voice-to-text source: source-is-missing [vtt]
