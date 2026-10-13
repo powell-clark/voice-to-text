@@ -16,9 +16,12 @@ on:
 
 jobs:
   solve-issue:
+    # Only solve issues a trusted person wrote: a stranger's issue text would
+    # otherwise drive a run with write permissions.
     if: |
       github.event_name == 'workflow_dispatch' ||
-      github.event.label.name == 'claude-fix'
+      (github.event.label.name == 'claude-fix' &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     concurrency:
@@ -30,6 +33,21 @@ jobs:
       issues: write
       id-token: write
     steps:
+      # The label path is gated by the job's if:; a dispatch names any issue
+      # number, so the same author check runs here. Fails closed.
+      - name: Refuse issues a stranger wrote
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ inputs.issue_number }}
+        run: |
+          case "$ISSUE" in ''|*[!0-9]*) echo "::error::issue_number must be a number"; exit 1 ;; esac
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE" --jq .author_association)"
+          case "$assoc" in
+            OWNER|MEMBER|COLLABORATOR) ;;
+            *) echo "::error::solve-issue runs only on issues written by an owner, member or collaborator"; exit 1 ;;
+          esac
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -72,8 +90,6 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Already label-gated (claude-fix); allow bot-authored labeled issues too
-          allowed_bots: "dependabot[bot],github-actions[bot]"
           prompt: "/solve-issue ${{ github.repository }}/issues/${{ env.ISSUE_NUMBER }}"
           # Tier alias `opus` resolves to the latest Opus at run time — never goes
           # stale. cargo/git pre-approved so the fixer can build, test, and push a

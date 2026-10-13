@@ -26,6 +26,21 @@ jobs:
       issues: read
       id-token: write
     steps:
+      # Fork PRs get no secrets on pull_request, but a dispatch on a fork PR's
+      # number would run with the token over the fork's text. Fails closed.
+      - name: Refuse fork pull requests
+        id: refuse-fork
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr_number }}
+        run: |
+          case "$PR" in ''|*[!0-9]*) echo "::error::pr_number must be a number"; exit 1 ;; esac
+          cross="$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json isCrossRepository --jq .isCrossRepository)"
+          if [ "$cross" != "false" ]; then
+            echo "::error::PR triage does not run on fork pull requests"; exit 1
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -60,7 +75,9 @@ jobs:
 
       - name: Find duplicate PRs
         id: find-dupes
-        if: always()
+        # always() keeps this step running after a find-issues failure; the
+        # refusal outcome is checked explicitly because always() ignores it.
+        if: always() && steps.refuse-fork.outcome != 'failure'
         uses: anthropics/claude-code-action@v1
         env:
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}

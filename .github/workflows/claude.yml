@@ -41,6 +41,21 @@ jobs:
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
     steps:
+      # issue_comment runs privileged (base-branch context, token present) and
+      # the action then works on the PR head, so a trusted @claude on a
+      # stranger's fork PR would hand the fork's text and build.rs the token.
+      # Fails closed: anything but an explicit "false" refuses.
+      - name: Refuse fork pull requests
+        if: github.event.issue.pull_request || github.event.pull_request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          cross="$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json isCrossRepository --jq .isCrossRepository)"
+          if [ "$cross" != "false" ]; then
+            echo "::error::@claude does not run on fork pull requests"; exit 1
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -103,8 +118,6 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Respond to @claude mentions relayed by bots too (e.g. Dependabot)
-          allowed_bots: "dependabot[bot],github-actions[bot]"
 
           # Allow Claude to read CI results on PRs
           additional_permissions: |
@@ -113,10 +126,11 @@ jobs:
           # Model driven by the `@claude [opus|haiku]` trigger above (controlled
           # alias from the step, never untrusted comment text — no injection
           # path). --allowedTools pre-approves the build/test commands so
-          # /iterate can run the suite non-interactively; scoped to cargo/git/gh,
-          # not a blanket Bash(*). --append-system-prompt self-reports the model
+          # /iterate can run the suite non-interactively; each entry is a named
+          # subcommand, never bare cargo/git/gh, whose aliases and -c options
+          # run arbitrary shell. --append-system-prompt self-reports the model
           # so the operator sees which tier answered at a glance.
-          claude_args: '--model ${{ steps.model.outputs.model }} --fallback-model haiku --max-turns 120 --allowedTools "Bash(cargo:*),Bash(git:*),Bash(gh:*)" --append-system-prompt "Start your reply with this exact line, nothing before it: 🤖 model=${{ steps.model.outputs.model }}"'
+          claude_args: '--model ${{ steps.model.outputs.model }} --fallback-model haiku --max-turns 120 --allowedTools "Bash(cargo build:*),Bash(cargo test:*),Bash(cargo clippy:*),Bash(cargo fmt:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh run view:*),Bash(gh issue view:*)" --append-system-prompt "Start your reply with this exact line, nothing before it: 🤖 model=${{ steps.model.outputs.model }}"'
 
       - name: Upload Claude transcript (claude)
         if: ${{ always() && steps.claude.outputs.execution_file != '' }}
