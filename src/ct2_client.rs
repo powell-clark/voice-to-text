@@ -29,47 +29,55 @@ const CALL_TIMEOUT: Duration = Duration::from_secs(30);
 /// inference and need their own, much longer, budget.
 const LOAD_MODEL_TIMEOUT: Duration = Duration::from_secs(600);
 
-/// Locate `transcribe_daemon.py`. There is no packaged install location yet
-/// (tracked as a follow-up — this feature has never shipped in a .deb/.msi),
-/// so today this only resolves for a binary built and run from this repo
-/// checkout (`cargo build --release` per this project's own documented
-/// build step), via an explicit override, or a copy placed next to the
-/// running executable. Returns `None` rather than a guessed path — the
-/// caller then skips CT2 spawning and falls back to native, exactly as if
-/// the user had not opted in.
+/// Locate `transcribe_daemon.py`: the first candidate from
+/// `daemon_script_candidates` that exists. Returns `None` rather than a
+/// guessed path — the caller then skips CT2 spawning and falls back to
+/// native, exactly as if the user had not opted in.
 pub fn resolve_daemon_script() -> Option<std::path::PathBuf> {
-    if let Ok(over) = std::env::var("VTT_CT2_DAEMON_SCRIPT") {
-        let p = std::path::PathBuf::from(over);
-        if p.is_file() {
-            return Some(p);
-        }
-    }
-    // Dev/self-built checkout: compiled in at build time, so this only
-    // resolves on the machine that built the binary, which matches how
-    // every current build of this app is run (CLAUDE.md's build table).
-    let dev_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("ct2-daemon")
-        .join("transcribe_daemon.py");
-    if dev_path.is_file() {
-        return Some(dev_path);
-    }
-    // A future packaged install could place a copy next to the executable.
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            let sibling = dir.join("ct2-daemon").join("transcribe_daemon.py");
-            if sibling.is_file() {
-                return Some(sibling);
-            }
-        }
+    let exe = std::env::current_exe().ok();
+    daemon_script_candidates(
+        std::env::var_os("VTT_CT2_DAEMON_SCRIPT").map(std::path::PathBuf::from),
+        exe.as_deref(),
+    )
+    .into_iter()
+    .find(|p| p.is_file())
+}
+
+/// Where the daemon script may be, in the order they are tried: the
+/// user's `VTT_CT2_DAEMON_SCRIPT` override; the build checkout, in debug
+/// builds only; a copy next to the executable; the packaged system path.
+fn daemon_script_candidates(
+    user_override: Option<std::path::PathBuf>,
+    exe: Option<&std::path::Path>,
+) -> Vec<std::path::PathBuf> {
+    let mut candidates: Vec<std::path::PathBuf> = user_override.into_iter().collect();
+    candidates.extend(checkout_daemon_script());
+    if let Some(dir) = exe.and_then(std::path::Path::parent) {
+        candidates.push(dir.join("ct2-daemon").join("transcribe_daemon.py"));
     }
     // Linux .deb install (TASK-VTT167): debian/rules places the script here,
     // matching the system model cache's FHS location (src/models.rs's
     // system_cache()) rather than /usr/bin, which should hold executables only.
-    if let Some(system) = system_daemon_script() {
-        if system.is_file() {
-            return Some(system);
-        }
-    }
+    candidates.extend(system_daemon_script());
+    candidates
+}
+
+/// The script in the checkout the binary was built from, for `cargo run`
+/// during development. Debug builds only: `env!("CARGO_MANIFEST_DIR")` is the
+/// builder's absolute checkout path, and rustc's path remapping cannot reach
+/// an `env!` string, so a release build that named it would ship the
+/// builder's home directory (TASK-VTT187).
+#[cfg(debug_assertions)]
+fn checkout_daemon_script() -> Option<std::path::PathBuf> {
+    Some(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("ct2-daemon")
+            .join("transcribe_daemon.py"),
+    )
+}
+
+#[cfg(not(debug_assertions))]
+fn checkout_daemon_script() -> Option<std::path::PathBuf> {
     None
 }
 
@@ -310,6 +318,38 @@ impl Drop for Ct2Client {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn daemon_script_lookup_tries_the_override_first_and_the_system_path_last() {
+        let user = PathBuf::from("/opt/custom/transcribe_daemon.py");
+        let exe = Path::new("/opt/vtt/bin/vtt");
+        let found = daemon_script_candidates(Some(user.clone()), Some(exe));
+        assert_eq!(found.first(), Some(&user), "{found:?}");
+        let sibling = Path::new("/opt/vtt/bin/ct2-daemon/transcribe_daemon.py");
+        assert!(found.iter().any(|p| p == sibling), "{found:?}");
+        if let Some(system) = system_daemon_script() {
+            assert_eq!(found.last(), Some(&system), "{found:?}");
+        }
+        assert!(daemon_script_candidates(None, None)
+            .iter()
+            .all(|p| p != &user));
+    }
+
+    #[test]
+    fn checkout_path_is_a_candidate_in_debug_builds_only() {
+        // Release binaries must not carry the builder's checkout path
+        // (TASK-VTT187); `cargo test --release` checks that half.
+        let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("ct2-daemon")
+            .join("transcribe_daemon.py");
+        let found = daemon_script_candidates(None, None);
+        assert_eq!(
+            found.contains(&checkout),
+            cfg!(debug_assertions),
+            "{found:?}"
+        );
+    }
 
     #[test]
     fn build_request_shape_matches_the_protocol() {
