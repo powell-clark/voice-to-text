@@ -8,6 +8,23 @@
 /// Defined here because this module is what rejects anything else.
 pub const WHISPER_INPUT_RATE: u32 = 16_000;
 
+/// A sentence, or a block of up to `MAX_LOOP_PERIOD` sentences, repeated
+/// this many times back to back is a decoder loop (TASK-VTT179).
+const LOOP_REPEATS: usize = 3;
+/// whisper.cpp loops a whole segment, and one segment can hold more than
+/// one sentence, so a loop's repeating unit may be a short block.
+const MAX_LOOP_PERIOD: usize = 3;
+/// Chunk length when the repetition guard re-decodes: under one 30 s
+/// window, so a chunk has no earlier window whose text it could inherit.
+const MAX_CHUNK_SECS: usize = 28;
+/// How far either side of an even split to look for a pause to cut at.
+const CUT_SLACK_SECS: usize = 4;
+/// Length of the quietest stretch a cut is centred on.
+const QUIET_WINDOW_MS: usize = 300;
+/// Piece length when a chunk loops on its own and is decoded once more.
+const PIECE_SECS: usize = 10;
+const PIECE_SLACK_SECS: usize = 3;
+
 use std::path::Path;
 use std::time::Instant;
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
@@ -42,13 +59,119 @@ impl WhisperEngine {
         })
     }
 
-    /// Transcribe raw 16kHz mono f32 PCM samples. Creates a fresh WhisperState each
-    /// call (whisper-rs states are single-use) but reuses the owned WhisperContext.
+    /// Transcribe raw 16kHz mono f32 PCM samples in one `full` call. A
+    /// transcript that loops goes to the repetition guard (TASK-VTT179).
     pub fn transcribe(
         &self,
         samples: &[f32],
         language: &str,
         prompt: Option<&str>,
+    ) -> anyhow::Result<String> {
+        let text = self.decode(samples, language, prompt, true)?;
+        let repeats = longest_loop(&text);
+        if repeats < LOOP_REPEATS {
+            return Ok(text);
+        }
+        Ok(self.repetition_guard(samples, language, prompt, text, repeats))
+    }
+
+    /// Repetition guard (TASK-VTT179). Within one `full` call whisper.cpp
+    /// walks the buffer in 30 s windows and prompts each window with the
+    /// text decoded for the windows before it, so one bad window can repeat
+    /// itself to the end: a 178 s dictation lost its second half that way.
+    /// The guard re-decodes the audio as pause-aligned chunks of at most
+    /// `MAX_CHUNK_SECS`, each its own call carrying only the initial prompt,
+    /// so no decoded text crosses from one chunk to the next. A chunk that
+    /// loops on its own is decoded again in shorter pieces with no context
+    /// at all, and whatever still repeats is collapsed, so the operator never
+    /// sees the loop. Logs one line of counts, never text.
+    ///
+    /// Decoding without carried text is not the default because it drops
+    /// words context would have recovered: up to 12% on long dictations
+    /// that never looped.
+    fn repetition_guard(
+        &self,
+        samples: &[f32],
+        language: &str,
+        prompt: Option<&str>,
+        looped: String,
+        repeats: usize,
+    ) -> String {
+        let rate = WHISPER_INPUT_RATE as usize;
+        let secs = samples.len() as f32 / rate as f32;
+        let ranges = pause_aligned_ranges(
+            samples,
+            MAX_CHUNK_SECS * rate,
+            CUT_SLACK_SECS * rate,
+            QUIET_WINDOW_MS * rate / 1000,
+        );
+        let mut redone = 0;
+        let redecoded: anyhow::Result<Vec<String>> = ranges
+            .iter()
+            .map(|&(start, end)| {
+                let chunk = &samples[start..end];
+                // A buffer that is already one chunk would decode the same
+                // again; go straight to pieces.
+                let text = if ranges.len() == 1 {
+                    looped.clone()
+                } else {
+                    self.decode(chunk, language, prompt, true)?
+                };
+                if longest_loop(&text) < LOOP_REPEATS {
+                    return Ok(text);
+                }
+                redone += 1;
+                self.decode_pieces(chunk, language)
+            })
+            .collect();
+        let (text, outcome) = match redecoded {
+            Ok(parts) => (
+                join_trimmed(&parts),
+                format!(
+                    "re-decoded as {} pause-aligned chunks without carried text, \
+                     {redone} decoded again in pieces",
+                    ranges.len()
+                ),
+            ),
+            Err(e) => (looped, format!("re-decode failed ({e}), kept first decode")),
+        };
+        let after = longest_loop(&text);
+        let (text, removed) = collapse_loops(&text, LOOP_REPEATS);
+        note(&format!(
+            "Repetition guard: {secs:.1}s decode looped {repeats}x; {outcome}; \
+             longest loop now {after}x, {removed} repeated sentences collapsed"
+        ));
+        text
+    }
+
+    /// Decode `chunk` as pieces of at most `PIECE_SECS` with no context at
+    /// all — neither earlier decoded text nor the initial prompt, since a
+    /// chunk that loops inside one window may be looping on either.
+    fn decode_pieces(&self, chunk: &[f32], language: &str) -> anyhow::Result<String> {
+        let rate = WHISPER_INPUT_RATE as usize;
+        let pieces: anyhow::Result<Vec<String>> = pause_aligned_ranges(
+            chunk,
+            PIECE_SECS * rate,
+            PIECE_SLACK_SECS * rate,
+            QUIET_WINDOW_MS * rate / 1000,
+        )
+        .iter()
+        .map(|&(s, e)| self.decode(&chunk[s..e], language, None, false))
+        .collect();
+        Ok(join_trimmed(&pieces?))
+    }
+
+    /// One `full` call over `samples`. Creates a fresh WhisperState each call
+    /// (whisper-rs states are single-use) but reuses the owned WhisperContext.
+    /// `carry_context` false sets n_max_text_ctx to 0, which whisper.cpp
+    /// reads as "prompt no window with anything": no decoded text from an
+    /// earlier window and no initial prompt either.
+    fn decode(
+        &self,
+        samples: &[f32],
+        language: &str,
+        prompt: Option<&str>,
+        carry_context: bool,
     ) -> anyhow::Result<String> {
         let mut state = self.ctx.create_state()?;
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
@@ -61,6 +184,9 @@ impl WhisperEngine {
         params.set_suppress_blank(true);
         params.set_single_segment(false);
         params.set_n_threads(4);
+        if !carry_context {
+            params.set_n_max_text_ctx(0);
+        }
 
         if let Some(p) = prompt {
             if !p.is_empty() {
@@ -70,24 +196,194 @@ impl WhisperEngine {
 
         state.full(params, samples)?;
 
-        let mut text = String::new();
-        for segment in state.as_iter() {
-            let seg_text = segment.to_string();
-            let trimmed = seg_text.trim();
-            if trimmed.is_empty() {
-                continue;
-            }
-            if !text.is_empty() {
-                text.push(' ');
-            }
-            text.push_str(trimmed);
-        }
-        Ok(text)
+        let segments: Vec<String> = state.as_iter().map(|s| s.to_string()).collect();
+        Ok(join_trimmed(&segments))
     }
 
     pub fn model_name(&self) -> &str {
         &self.model_name
     }
+}
+
+/// Join trimmed, non-empty pieces of text with single spaces.
+fn join_trimmed(parts: &[String]) -> String {
+    parts
+        .iter()
+        .map(|p| p.trim())
+        .filter(|p| !p.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Diagnostics go to the log file, or to stderr when no log file is open
+/// (`--file` mode leaves the logger uninitialised to keep stdout clean).
+fn note(msg: &str) {
+    if crate::logging::get_dir().as_os_str().is_empty() {
+        eprintln!("{msg}");
+    } else {
+        crate::vtt_log!("{msg}");
+    }
+}
+
+/// Pure: split `samples` into contiguous ranges of at most `max_len` samples
+/// covering the whole buffer. Each cut lands at the centre of the quietest
+/// `quiet`-sample stretch within `slack` of an even split of what remains,
+/// so chunks break in pauses rather than mid-word. A buffer that already
+/// fits (empty included) is returned as one range.
+fn pause_aligned_ranges(
+    samples: &[f32],
+    max_len: usize,
+    slack: usize,
+    quiet: usize,
+) -> Vec<(usize, usize)> {
+    let total = samples.len();
+    let max_len = max_len.max(1);
+    if total <= max_len {
+        return vec![(0, total)];
+    }
+    // An even split of what remains is at least max_len/2 ahead, so capping
+    // the slack at max_len/4 moves every cut at least max_len/4 forward.
+    let slack = slack.min(max_len / 4);
+    let half = (quiet / 2).max(1);
+    let hop = (quiet / 30).max(1);
+
+    // Prefix sums of squared samples: the energy of any stretch in O(1).
+    let mut energy = Vec::with_capacity(total + 1);
+    let mut acc = 0.0f64;
+    energy.push(acc);
+    for &s in samples {
+        acc += f64::from(s) * f64::from(s);
+        energy.push(acc);
+    }
+
+    let mut ranges = Vec::new();
+    let mut start = 0;
+    let max_steps = total / (max_len / 4).max(1) + 2;
+    for _ in 0..max_steps {
+        let remaining = total - start;
+        if remaining <= max_len {
+            break;
+        }
+        let target = start + remaining / remaining.div_ceil(max_len);
+        let lo = target.saturating_sub(slack).max(start + 1);
+        let hi = (target + slack).min(start + max_len);
+        let cut = quietest_point(&energy, lo, hi, half, hop);
+        ranges.push((start, cut));
+        start = cut;
+    }
+    // Always the tail, so no audio is ever dropped.
+    ranges.push((start, total));
+    ranges
+}
+
+/// The point in `lo..=hi` (stepping by `hop`) whose `±half` neighbourhood
+/// has the least energy; the earliest wins a tie.
+fn quietest_point(energy: &[f64], lo: usize, hi: usize, half: usize, hop: usize) -> usize {
+    let last = energy.len().saturating_sub(1);
+    let mut best = (lo, f64::INFINITY);
+    for at in (lo..=hi).step_by(hop) {
+        let e = energy[(at + half).min(last)] - energy[at.saturating_sub(half).min(last)];
+        if e < best.1 {
+            best = (at, e);
+        }
+    }
+    best.0
+}
+
+/// Pure: split `text` into sentences, each ending at `.`, `!`, `?` or `…`
+/// followed by whitespace or the end, paired with a comparison key — its
+/// words lowercased, punctuation dropped — so "Okay." and "okay!" match.
+fn sentences(text: &str) -> Vec<(&str, String)> {
+    let mut out = Vec::new();
+    let mut start = 0;
+    let mut chars = text.char_indices().peekable();
+    while let Some((i, c)) = chars.next() {
+        let ends = matches!(c, '.' | '!' | '?' | '…')
+            && chars.peek().is_none_or(|&(_, next)| next.is_whitespace());
+        if ends {
+            let end = i + c.len_utf8();
+            push_sentence(&mut out, &text[start..end]);
+            start = end;
+        }
+    }
+    push_sentence(&mut out, &text[start..]);
+    out
+}
+
+fn push_sentence<'a>(out: &mut Vec<(&'a str, String)>, raw: &'a str) {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return;
+    }
+    let key = raw
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(str::to_lowercase)
+        .collect::<Vec<_>>()
+        .join(" ");
+    out.push((raw, key));
+}
+
+/// The repeating block that starts at sentence `at`: `(period, repeats)` —
+/// how many sentences the block holds (up to `MAX_LOOP_PERIOD`) and how many
+/// times it occurs back to back. The block with the most repeats wins, the
+/// shorter block on a tie. A punctuation-only sentence (empty key) is never
+/// part of a repeating block.
+fn loop_at(sents: &[(&str, String)], at: usize) -> (usize, usize) {
+    let mut best = (1, 1);
+    for period in 1..=MAX_LOOP_PERIOD {
+        let Some(block) = sents.get(at..at + period) else {
+            break;
+        };
+        if block.iter().any(|s| s.1.is_empty()) {
+            continue;
+        }
+        let repeats = sents[at..]
+            .chunks_exact(period)
+            .take_while(|next| next.iter().zip(block).all(|(a, b)| a.1 == b.1))
+            .count();
+        if repeats > best.1 {
+            best = (period, repeats);
+        }
+    }
+    best
+}
+
+/// Pure: the most times one sentence, or one block of up to
+/// `MAX_LOOP_PERIOD` sentences, repeats back to back in `text`.
+fn longest_loop(text: &str) -> usize {
+    let sents = sentences(text);
+    (0..sents.len())
+        .map(|at| loop_at(&sents, at).1)
+        .max()
+        .unwrap_or(0)
+}
+
+/// Pure: collapse every block repeated `min_repeats` or more times back to
+/// back to its first occurrence; fewer repeats ("Thanks. Thanks.") stay.
+/// Returns the text, byte for byte unchanged when nothing collapsed, and how
+/// many repeated sentences were removed.
+fn collapse_loops(text: &str, min_repeats: usize) -> (String, usize) {
+    let sents = sentences(text);
+    let mut kept: Vec<&str> = Vec::with_capacity(sents.len());
+    let mut removed = 0;
+    let mut at = 0;
+    // Bounded: `at` moves forward by at least one sentence every pass.
+    while at < sents.len() {
+        let (period, repeats) = loop_at(&sents, at);
+        if repeats >= min_repeats {
+            kept.extend(sents[at..at + period].iter().map(|s| s.0));
+            removed += period * (repeats - 1);
+            at += period * repeats;
+        } else {
+            kept.push(sents[at].0);
+            at += 1;
+        }
+    }
+    if removed == 0 {
+        return (text.to_string(), 0);
+    }
+    (kept.join(" "), removed)
 }
 
 /// Down-mix interleaved multi-channel f32 samples to mono by channel
@@ -386,6 +682,189 @@ mod tests {
             err.to_string().contains("16 kHz"),
             "error should name the required rate: {err}"
         );
+    }
+
+    // ── Long-dictation chunking and the repetition guard (TASK-VTT179) ───────
+
+    const RATE: usize = WHISPER_INPUT_RATE as usize;
+
+    /// `secs` of a steady 220 Hz tone with silent half-second gaps starting
+    /// at each of `gaps_at` seconds.
+    fn tone_with_gaps(secs: usize, gaps_at: &[f32]) -> Vec<f32> {
+        (0..secs * RATE)
+            .map(|i| {
+                let t = i as f32 / RATE as f32;
+                if gaps_at.iter().any(|&g| t >= g && t < g + 0.5) {
+                    0.0
+                } else {
+                    0.5 * (2.0 * std::f32::consts::PI * 220.0 * t).sin()
+                }
+            })
+            .collect()
+    }
+
+    fn production_ranges(samples: &[f32]) -> Vec<(usize, usize)> {
+        pause_aligned_ranges(
+            samples,
+            MAX_CHUNK_SECS * RATE,
+            CUT_SLACK_SECS * RATE,
+            QUIET_WINDOW_MS * RATE / 1000,
+        )
+    }
+
+    fn assert_contiguous_cover(ranges: &[(usize, usize)], total: usize, max_len: usize) {
+        assert_eq!(ranges.first().map(|r| r.0), Some(0), "starts at 0");
+        assert_eq!(
+            ranges.last().map(|r| r.1),
+            Some(total),
+            "ends at the last sample"
+        );
+        for pair in ranges.windows(2) {
+            assert_eq!(pair[0].1, pair[1].0, "ranges are contiguous: {ranges:?}");
+        }
+        for &(s, e) in ranges {
+            assert!(e > s, "no empty range: {ranges:?}");
+            assert!(e - s <= max_len, "range {s}..{e} longer than {max_len}");
+        }
+    }
+
+    #[test]
+    fn short_and_empty_audio_stay_one_range() {
+        assert_eq!(production_ranges(&[]), vec![(0, 0)]);
+        let ten_secs = tone_with_gaps(10, &[]);
+        assert_eq!(production_ranges(&ten_secs), vec![(0, 10 * RATE)]);
+        let exactly_max = tone_with_gaps(MAX_CHUNK_SECS, &[]);
+        assert_eq!(
+            production_ranges(&exactly_max).len(),
+            1,
+            "a full chunk is not split"
+        );
+    }
+
+    #[test]
+    fn long_audio_is_cut_inside_the_pauses() {
+        let gaps = [23.0f32, 47.0, 71.0, 86.0];
+        let samples = tone_with_gaps(100, &gaps);
+        let ranges = production_ranges(&samples);
+        assert_contiguous_cover(&ranges, samples.len(), MAX_CHUNK_SECS * RATE);
+        assert_eq!(
+            ranges.len(),
+            gaps.len() + 1,
+            "one cut per pause: {ranges:?}"
+        );
+        for (&(_, cut), &gap) in ranges.iter().zip(gaps.iter()) {
+            let at = cut as f32 / RATE as f32;
+            assert!(
+                at >= gap && at <= gap + 0.5,
+                "cut at {at:.2}s is outside the pause at {gap}s"
+            );
+        }
+    }
+
+    #[test]
+    fn audio_without_pauses_is_still_bounded_and_covered() {
+        let samples = tone_with_gaps(61, &[]);
+        let ranges = production_ranges(&samples);
+        assert_contiguous_cover(&ranges, samples.len(), MAX_CHUNK_SECS * RATE);
+        assert_eq!(ranges.len(), 3, "61 s needs three chunks of at most 28 s");
+    }
+
+    #[test]
+    fn looping_chunk_pieces_fit_the_piece_length() {
+        let samples = tone_with_gaps(MAX_CHUNK_SECS, &[9.0, 19.0]);
+        let ranges = pause_aligned_ranges(
+            &samples,
+            PIECE_SECS * RATE,
+            PIECE_SLACK_SECS * RATE,
+            QUIET_WINDOW_MS * RATE / 1000,
+        );
+        assert_contiguous_cover(&ranges, samples.len(), PIECE_SECS * RATE);
+        assert_eq!(ranges.len(), 3, "{ranges:?}");
+    }
+
+    #[test]
+    fn loop_counts_consecutive_repeats_ignoring_case_and_punctuation() {
+        assert_eq!(longest_loop(""), 0);
+        assert_eq!(longest_loop("One. Two. Three."), 1);
+        assert_eq!(longest_loop("The cat sat. The cat sat. The cat sat."), 3);
+        assert_eq!(
+            longest_loop("Hello there. hello there! HELLO, THERE? Something else."),
+            3
+        );
+        assert_eq!(longest_loop("Thanks. Thanks. Next thing."), 2);
+        assert_eq!(
+            longest_loop("A b. C d. E f. A b. G h."),
+            1,
+            "only back-to-back repeats count"
+        );
+        assert_eq!(longest_loop("no punctuation at all"), 1);
+        assert_eq!(
+            longest_loop("It costs 3.5 pounds. It costs 3.5 pounds."),
+            2,
+            "a decimal point does not end a sentence"
+        );
+        assert_eq!(
+            longest_loop("... ... ... ..."),
+            1,
+            "punctuation-only never matches"
+        );
+    }
+
+    #[test]
+    fn loop_counts_a_repeating_block_of_sentences() {
+        // whisper repeats whole segments, and a segment can hold two sentences.
+        assert_eq!(
+            longest_loop("Red one. Blue two. Red one. Blue two. Red one. Blue two."),
+            3
+        );
+        assert_eq!(
+            longest_loop("A x. B y. C z. A x. B y. C z. A x. B y. C z. End."),
+            3
+        );
+        assert_eq!(
+            longest_loop("Red one. Blue two. Red one. Blue two. Red one."),
+            2
+        );
+        assert_eq!(
+            longest_loop("P q. R s. T u. V w. P q. R s. T u. V w. P q. R s. T u. V w."),
+            1,
+            "blocks longer than MAX_LOOP_PERIOD are not looked for"
+        );
+    }
+
+    #[test]
+    fn collapse_keeps_one_copy_of_a_loop_and_leaves_the_rest() {
+        let looped = "Start here. Loop line. Loop line. Loop line. Loop line. End here.";
+        let (text, removed) = collapse_loops(looped, LOOP_REPEATS);
+        assert_eq!(text, "Start here. Loop line. End here.");
+        assert_eq!(removed, 3);
+        assert_eq!(longest_loop(&text), 1);
+
+        let block = "Start. Red one. Blue two. Red one. Blue two. Red one. Blue two. End.";
+        let (text, removed) = collapse_loops(block, LOOP_REPEATS);
+        assert_eq!(text, "Start. Red one. Blue two. End.");
+        assert_eq!(removed, 4);
+    }
+
+    #[test]
+    fn collapse_leaves_short_runs_and_clean_text_byte_for_byte() {
+        let doubled = "Thanks.  Thanks.\nNext thing";
+        assert_eq!(
+            collapse_loops(doubled, LOOP_REPEATS),
+            (doubled.to_string(), 0)
+        );
+        assert_eq!(collapse_loops("", LOOP_REPEATS), (String::new(), 0));
+    }
+
+    #[test]
+    fn join_trimmed_skips_blank_pieces() {
+        let parts = vec![
+            " a ".to_string(),
+            "  ".to_string(),
+            String::new(),
+            "b".to_string(),
+        ];
+        assert_eq!(join_trimmed(&parts), "a b");
     }
 
     #[test]

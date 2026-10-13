@@ -11,6 +11,18 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **A long dictation no longer turns into one sentence repeated to the end.**
+  Whisper reads long audio in 30-second windows and feeds each window the text
+  of the one before, so one bad window could repeat itself for the rest of the
+  recording and lose everything after it. When a transcript repeats a sentence
+  (or a short run of sentences) three or more times in a row, the app now
+  transcribes that recording again in pause-aligned pieces under 30 seconds,
+  each one fresh, and removes any repeat that survives. On a 3-minute
+  recording that had lost its second half, the full text came back. Ordinary
+  dictation is untouched: the extra pass runs only when a loop is detected, and
+  the log records one line with counts, never your words.
+
 ---
 
 ## [2.4.0] — 2026-09-04
