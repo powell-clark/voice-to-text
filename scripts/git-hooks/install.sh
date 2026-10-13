@@ -21,7 +21,8 @@ fi
 GLOBAL_HOOKS_PATH=$(git config --get core.hooksPath || true)
 LOCAL_HOOKS_PATH=$(git config --local --get core.hooksPath || true)
 
-for hook in pre-push commit-msg; do
+# pii-gate.sh is not a git hook name; pre-push calls it from beside itself.
+for hook in pre-push commit-msg pii-gate.sh; do
     src="$HOOKS_SRC/$hook"
     dst="$HOOKS_DST/$hook"
     if [ ! -f "$src" ]; then
@@ -49,4 +50,4 @@ fi
 
 echo ""
 echo "Hooks installed. To bypass the pre-push hook in a one-off emergency:"
-echo "  git push --no-verify"
+echo "  git push --no-verify   (this also skips the personal-data gate in pii-gate.sh)"

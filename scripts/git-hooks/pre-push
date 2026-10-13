@@ -2,7 +2,7 @@
 # Git pre-push hook — mirrors .github/workflows/ci.yml.
 #
 # Install via:   bash scripts/git-hooks/install.sh
-# Skip once via: git push --no-verify   (use sparingly)
+# Skip once via: git push --no-verify   (use sparingly; it also skips the personal-data gate)
 #
 # Rationale: CI on GitHub will fail the same way if fmt/clippy/test/build
 # fails. Failing locally first is cheaper and stops you from turning main
@@ -15,7 +15,24 @@
 # markdown-heavy sessions.
 
 set -e
+
+# Personal-data gate first: if the commits carry this machine's identifiers
+# (home path, hostname, private repo names) or a listed value, nothing else
+# runs and nothing is pushed. install.sh puts pii-gate.sh beside this hook; a
+# missing gate refuses the push.
+push_info=$(cat)
+hook_dir=$(cd "$(dirname "$0")" && pwd)
 cd "$(git rev-parse --show-toplevel)"
+if [ ! -f "$hook_dir/pii-gate.sh" ]; then
+    echo "[pre-push] REFUSED: pii-gate.sh is missing beside this hook; run: bash scripts/git-hooks/install.sh"
+    exit 1
+fi
+for f in pre-push pii-gate.sh; do
+    if [ -f "scripts/git-hooks/$f" ] && ! cmp -s "scripts/git-hooks/$f" "$hook_dir/$f"; then
+        echo "[pre-push] WARN: the installed $f differs from scripts/git-hooks/$f; run: bash scripts/git-hooks/install.sh"
+    fi
+done
+printf '%s\n' "$push_info" | bash "$hook_dir/pii-gate.sh" "$@"
 
 echo "[pre-push] validate regression gates"
 bash scripts/ci/check-regression-gates.sh
