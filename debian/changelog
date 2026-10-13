@@ -25,8 +25,32 @@ voice-to-text (2.5.0) noble; urgency=medium
   * security(hooks): a pre-push gate refuses commits carrying personal data
     or a compiled binary; the packaged binary is built at release time and
     never committed.
+  * refactor: the command is now `vtt`. /usr/bin/vtt-linux stays as a link
+    to it, so existing scripts keep working, and `vtt --doctor` recognises a
+    running instance under either name.
+  * feat(tray): one Settings window. "Settings..." in the tray (formerly
+    "Customize Transcription Settings") also sets the hotkey, language,
+    model and input device; a new input device takes effect after a restart.
+  * feat(update): once at startup the app asks GitHub's public Releases API
+    for the latest version; when it is newer, the tray shows "Update
+    available: <version>", which opens the release page. Nothing is
+    downloaded or installed, and an offline check stays silent.
+  * feat(file): `vtt --file` reads MP3, M4A, AAC and FLAC as well as WAV, at
+    any sample rate; files over five minutes are transcribed in pieces, with
+    progress on stderr.
+  * feat(ct2): an optional CTranslate2 (faster-whisper) backend, off by
+    default: set backend=ct2 in settings.conf. The tray shows the backend in
+    use, and the app falls back to the built-in engine if the daemon fails.
+    The package ships the daemon in /usr/share/voice-to-text/ct2-daemon/
+    with no new dependency; install its Python requirements yourself to use
+    it.
+  * fix(tray): the Logs submenu no longer keeps the list it had at startup;
+    it checks the log folder every three seconds.
+  * Windows and macOS: the tray gains a Logs submenu; on Windows, About opens
+    a window, and vtt.exe and its installer carry an app icon and version
+    information.
 
- -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Tue, 13 Oct 2026 20:13:55 +0100
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Tue, 13 Oct 2026 20:38:16 +0100
 
 voice-to-text (2.4.0) noble; urgency=medium
 

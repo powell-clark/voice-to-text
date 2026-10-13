@@ -2,7 +2,7 @@
 
 All user-facing changes are documented here. Installed versions on
 Debian/Ubuntu can also be inspected via `apt changelog voice-to-text`
-or `vtt-linux --version`.
+or `vtt --version`.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
@@ -24,8 +24,39 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   its published checksum. Model by NVIDIA, licensed CC-BY-4.0 (credited in
   About). Whisper large-v3-turbo stays the recommended model: without a
   prompt Parakeet misses some names Whisper gets.
+- **One Settings window (Linux).** The tray's "Customize Transcription
+  Settings" dialog is now **Settings...**, and it also sets the hotkey, the
+  language, the model and the input device. A new input device takes effect
+  after a restart.
+- **The tray says when a newer release is out.** Once at startup the app asks
+  GitHub's public Releases API for the latest version; when it is newer, the
+  tray shows "Update available: <version>", which opens the release page.
+  Nothing is downloaded or installed, and an offline or failed check stays
+  silent.
+- **`vtt --file` reads MP3, M4A, AAC and FLAC as well as WAV, at any sample
+  rate.** Files over five minutes are transcribed in pieces, with progress on
+  stderr; stdout carries only the transcript.
+- **A Logs submenu on Windows and macOS.** The tray lists the daily log files,
+  newest first, and opens the one you pick, as the Linux tray already did.
+- **An About window on Windows.** About in the tray opens a window with the
+  version and the project link, instead of only writing a log line.
+- **A Windows app icon and version information.** `vtt.exe` carries an icon
+  and its version, and the installer uses the same icon for its Start Menu
+  shortcut and its Add/Remove Programs entry.
+- **An optional CTranslate2 (faster-whisper) backend.** Set `backend=ct2` in
+  `settings.conf` to transcribe through a persistent Python daemon instead of
+  the built-in engine. The tray shows which backend is in use, and the app
+  falls back to the built-in engine if the daemon fails to start or stops.
+  The Linux package ships the daemon script in
+  `/usr/share/voice-to-text/ct2-daemon/` but adds no Python dependency:
+  install its `requirements.txt` yourself to use it. The default stays the
+  built-in engine, with no Python.
 
 ### Changed
+- **The command is now `vtt` on every platform.** On Linux it was
+  `vtt-linux`; the package keeps `/usr/bin/vtt-linux` as a link to `vtt`, so
+  existing scripts and shortcuts keep working, and `vtt --doctor` recognises a
+  running instance under either name.
 - **The speech engine is whisper.cpp 1.9.5** (was 1.8.3), pinned in the
   repository so every build uses the same release. `vtt --version` and the
   start of each day's log now name it. On short dictation it writes the same
@@ -63,6 +94,9 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   recording that had lost its second half, the full text came back. Ordinary
   dictation is untouched: the extra pass runs only when a loop is detected, and
   the log records one line with counts, never your words.
+- **The Linux tray's Logs submenu stays current.** It used to keep the list it
+  had when the app started; it now checks the log folder every three seconds
+  and picks up a new day's log.
 
 ### Security
 - **Changes are checked for personal data before they leave the machine.**
