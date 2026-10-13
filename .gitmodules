@@ -1,3 +1,8 @@
 [submodule "third_party/whisper.cpp"]
 	path = third_party/whisper.cpp
-	url = https://github.com/ggerganov/whisper.cpp
+	url = https://github.com/ggml-org/whisper.cpp
+	shallow = true
+[submodule "third_party/SPIRV-Headers"]
+	path = third_party/SPIRV-Headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers
+	shallow = true

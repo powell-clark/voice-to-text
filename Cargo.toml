@@ -64,6 +64,11 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 # CT2 daemon IPC wire format (ADR-0009, docs/CT2-DAEMON-PROTOCOL.md)
 serde_json = "1"
 
+# Raw bindings for the Parakeet engine (ADR-0011). Resolves to the patched
+# copy in third_party/ through [patch.crates-io] below; whisper-rs's GPU
+# features (vulkan/metal) unify onto it per target.
+whisper-rs-sys = "0.15"
+
 # ─── Linux-specific ─────────────────────────────────────────────
 [target.'cfg(target_os = "linux")'.dependencies]
 enigo = { version = "0.6", features = ["x11rb"] }
@@ -125,6 +130,13 @@ tray-icon = "0.19"
 muda = "0.15"
 rdev = "0.5"
 whisper-rs = { version = "0.16", default-features = false, features = ["metal"] }
+
+# ─── Speech engine pin (ADR-0011) ───────────────────────────────
+# whisper-rs 0.16 builds on a patched whisper-rs-sys that compiles the
+# whisper.cpp submodule (third_party/whisper.cpp, v1.9.5) and links its
+# Parakeet library. `git submodule update --init` before the first build.
+[patch.crates-io]
+whisper-rs-sys = { path = "third_party/whisper-rs-sys" }
 
 [profile.release]
 opt-level = 2

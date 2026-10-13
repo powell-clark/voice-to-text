@@ -9,10 +9,12 @@ License: Apache-2.0
 
 Files: packaging/linux/vtt.prebuilt
 Copyright: 2025-2026 Emmanuel Powell-Clark
- Includes statically-linked code from the following projects, vendored
- via the whisper-rs crate at build time:
-   whisper.cpp — Copyright 2022-2026 Georgi Gerganov and contributors (MIT)
-   ggml        — Copyright 2022-2026 Georgi Gerganov and contributors (MIT)
+ Includes statically-linked code from the following projects, built from
+ the third_party/whisper.cpp submodule (v1.9.5) at build time:
+   whisper.cpp — Copyright 2023-2026 The ggml authors (MIT)
+   ggml        — Copyright 2023-2026 The ggml authors (MIT)
+   Parakeet engine (whisper.cpp libparakeet) — same authors and licence
+ Model weights are not included; they download on first use.
 License: Apache-2.0 and MIT
 
 License: Apache-2.0

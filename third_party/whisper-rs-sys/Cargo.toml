@@ -1,0 +1,36 @@
+# Patched copy of whisper-rs-sys 0.15.0 (ADR-0011). Replaces the crates.io
+# crate through [patch.crates-io] in the root Cargo.toml so whisper-rs 0.16
+# builds on the pinned third_party/whisper.cpp submodule and the Parakeet API
+# is bound. See README.md for what differs from upstream.
+[package]
+name = "whisper-rs-sys"
+version = "0.15.0"
+edition = "2021"
+rust-version = "1.88.0"
+description = "Rust bindings for whisper.cpp and Parakeet (FFI bindings), patched for voice-to-text"
+license = "Unlicense"
+repository = "https://codeberg.org/tazz4843/whisper-rs"
+links = "whisper"
+build = "build.rs"
+publish = false
+
+[lib]
+name = "whisper_rs_sys"
+path = "src/lib.rs"
+
+[features]
+coreml = []
+cuda = []
+force-debug = []
+hipblas = []
+intel-sycl = []
+metal = []
+openblas = []
+openmp = []
+vulkan = []
+
+[build-dependencies]
+bindgen = "0.72"
+cfg-if = "1"
+cmake = "0.1"
+fs_extra = "1.3"

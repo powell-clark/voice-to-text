@@ -1,19 +1,20 @@
-This directory holds vendored third-party code used by Voice to Text.
+Third-party code built into Voice to Text (ADR-0011).
 
-whisper.cpp (https://github.com/ggerganov/whisper.cpp)
-- We include it as a git submodule or a plain clone.
-- The build integrates a static library (libwhisper.a) for a zero-dependency Voice to Text.
-- The bundled model (ggml-small.en.bin) is used by default at runtime.
+whisper.cpp (https://github.com/ggml-org/whisper.cpp) — submodule, MIT
+- Pinned to a release tag; `vtt --version` prints which.
+- Provides both speech engines: Whisper (libwhisper) and Parakeet
+  (libparakeet), on the ggml runtime with Vulkan, Metal or CPU backends.
 
-Fetch options:
-- Submodule: git submodule add --depth=1 https://github.com/ggerganov/whisper.cpp third_party/whisper.cpp
-- Clone:     git clone --depth=1 https://github.com/ggerganov/whisper.cpp third_party/whisper.cpp
+SPIRV-Headers (https://github.com/KhronosGroup/SPIRV-Headers) — submodule
+- Header-only. Needed by ggml's Vulkan backend at build time only.
 
-Build options (Makefile supports both):
-- CMake (recommended): builds libwhisper.a into third_party/whisper.cpp/build/
-- Make (fallback): attempts `make -C third_party/whisper.cpp libwhisper.a`
+whisper-rs-sys — patched copy of the crate, Unlicense
+- Builds the whisper.cpp submodule and generates the Rust bindings for both
+  engines. See whisper-rs-sys/README.md for what differs from upstream.
 
-Note: Large model files are not kept under version control here. Place
-ggml-small.en.bin in VTT.app/Contents/Resources during bundling, or use your
-local copy at ~/whisper.cpp/models/.
+Fetch the submodules before the first build:
 
+    git submodule update --init
+
+Model files are not kept here. They download on first use into the user's
+cache directory (or are pre-installed by the Debian package).
