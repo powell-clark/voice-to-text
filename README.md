@@ -200,7 +200,7 @@ The speech engine, whisper.cpp, is pinned as a submodule
 See [`docs/GENERATED-PLATFORM-SPEC.md`](docs/GENERATED-PLATFORM-SPEC.md) for
 the per-platform capability spec (generated from feature cards — re-run
 `scripts/generate-platform-spec.sh` after editing one) and
-[`CLAUDE.md`](CLAUDE.md) for build/packaging commands.
+[`AGENTS.md`](AGENTS.md) for build/packaging commands.
 
 ---
 

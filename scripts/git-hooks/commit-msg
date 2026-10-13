@@ -4,7 +4,7 @@
 # Install via scripts/git-hooks/install.sh.
 #
 # Rules:
-# 1. Forbid AI/bot attribution trailers (CLAUDE.md project policy).
+# 1. Forbid AI/bot attribution trailers (AGENTS.md project policy).
 # 2. Append an Authored-By trailer from git's user.name and user.email if missing.
 
 set -e
@@ -19,7 +19,7 @@ if grep -qiE \
     "co-authored-by.*(claude|anthropic|chatgpt|openai|copilot|codex|cursor)|generated with (claude|chatgpt|openai|copilot|codex|cursor|anthropic)|🤖 *generated" \
     "$MSG_FILE"; then
     echo "ERROR: commit message contains AI/bot attribution." >&2
-    echo "       Remove those trailers and commit again (CLAUDE.md policy)." >&2
+    echo "       Remove those trailers and commit again (AGENTS.md policy)." >&2
     exit 1
 fi
 
