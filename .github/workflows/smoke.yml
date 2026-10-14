@@ -1,12 +1,30 @@
 name: Smoke
 
-# Builds vtt on Linux and transcribes a short public-domain speech clip with
-# each engine, failing if the engine crashes, prints nothing or misses the
-# expected words. Run by hand before a release (Actions > Smoke > Run
-# workflow); it never runs on push, so everyday CI stays as light as it was.
-# No secrets, and no untrusted input reaches a run: block.
+# Transcribes an 11 s public-domain speech clip with each engine, failing if
+# the engine crashes, prints nothing or misses the expected words. Run by
+# hand (Actions > Smoke > Run workflow); it never runs on push, so everyday
+# CI stays as light as it was.
+#
+# On Linux it builds from source: the check before tagging. On macOS and
+# Windows it builds nothing: it downloads the release's own assets, the files
+# users install, and tests those. GitHub-hosted standard runners only. No
+# secrets: gh reads the public release with the run's read-only token, and
+# no untrusted input reaches a run: block.
 on:
   workflow_dispatch:
+    inputs:
+      os:
+        description: Runner to test on
+        type: choice
+        options:
+          - ubuntu-24.04
+          - macos-latest
+          - windows-latest
+        default: ubuntu-24.04
+      release_tag:
+        description: Release whose assets macOS and Windows test (blank for the latest)
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -18,16 +36,21 @@ env:
 
 jobs:
   transcribe:
-    name: transcribe a known clip (ubuntu-24.04)
-    runs-on: ubuntu-24.04
+    name: transcribe a known clip (${{ inputs.os }})
+    runs-on: ${{ inputs.os }}
     timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: ${{ inputs.os == 'ubuntu-24.04' && 'recursive' || 'false' }}
 
+      # ── Linux: build from source ──────────────────────────────────────
       - name: Install system build deps (matches debian/control Build-Depends)
+        if: inputs.os == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -41,33 +64,97 @@ jobs:
             glslc
 
       - name: Install Rust toolchain (stable)
+        if: inputs.os == 'ubuntu-24.04'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache cargo registry and target
+        if: inputs.os == 'ubuntu-24.04'
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
 
+      - name: cargo build --release
+        if: inputs.os == 'ubuntu-24.04'
+        run: |
+          cargo build --release
+          echo "VTT_BIN=$PWD/target/release/vtt" >> "$GITHUB_ENV"
+
+      # ── macOS: the release's Apple Silicon binary ─────────────────────
+      - name: Download the macOS release binary
+        if: inputs.os == 'macos-latest'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          gh release download ${TAG:+"$TAG"} --repo "$GITHUB_REPOSITORY" \
+            --pattern vtt-macos-arm64 --dir release
+          chmod +x release/vtt-macos-arm64
+          echo "VTT_BIN=$PWD/release/vtt-macos-arm64" >> "$GITHUB_ENV"
+
+      # ── Windows: the release's installer, unpacked, not installed ─────
+      - name: Download the Windows release installer
+        if: inputs.os == 'windows-latest'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          gh release download ${TAG:+"$TAG"} --repo "$GITHUB_REPOSITORY" \
+            --pattern voice-to-text-installer.msi --dir release
+
+      - name: Unpack vtt.exe from the installer
+        if: inputs.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $msi = Join-Path $PWD "release\voice-to-text-installer.msi"
+          $dir = Join-Path $PWD "unpacked"
+          $p = Start-Process msiexec.exe -ArgumentList "/a `"$msi`" /qn TARGETDIR=`"$dir`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "msiexec /a exited $($p.ExitCode)" }
+          $exe = Get-ChildItem -Path $dir -Recurse -Filter vtt.exe | Select-Object -First 1
+          if (-not $exe) { throw "vtt.exe not found in the installer" }
+          "VTT_BIN=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # The Windows build links the Vulkan loader, which GPU drivers install
+      # and the installer does not ship. A runner without it gets the runtime
+      # here, with a warning, so the engine itself is still tested.
+      - name: Check for the Vulkan loader
+        if: inputs.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $dll = Join-Path $env:SystemRoot "System32\vulkan-1.dll"
+          if (Test-Path $dll) { "vulkan-1.dll is present on the runner"; exit 0 }
+          "::warning::vulkan-1.dll is absent on the runner. The installer does not ship it, so a PC with no GPU driver could not start vtt. Installing the Vulkan runtime to test the engine."
+          $ver = "1.4.350.0"
+          $exe = Join-Path $env:RUNNER_TEMP "vulkan-runtime.exe"
+          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/$ver/windows/VulkanRT-X64-$ver-Installer.exe" -OutFile $exe
+          Start-Process -FilePath $exe -ArgumentList "/S" -Wait
+          if (-not (Test-Path $dll)) { throw "the Vulkan runtime installer did not provide vulkan-1.dll" }
+          "vulkan-1.dll installed"
+
+      # ── Every OS: transcribe ──────────────────────────────────────────
       # The models download from Hugging Face on first use and are checked
       # against their published checksums; caching them keeps a run short.
       # The key follows the catalogue, so a changed model downloads afresh.
       - name: Cache speech models
         uses: actions/cache@v4
         with:
-          path: ~/.cache/voice-to-text/models
-          key: vtt-models-${{ hashFiles('src/models.rs') }}
+          path: ${{ inputs.os == 'macos-latest' && '~/Library/Caches/voice-to-text/models' || inputs.os == 'windows-latest' && '~/AppData/Local/voice-to-text/models' || '~/.cache/voice-to-text/models' }}
+          key: vtt-models-${{ inputs.os }}-${{ hashFiles('src/models.rs') }}
 
-      - name: cargo build --release
-        run: cargo build --release
+      - name: Name the binary under test
+        run: |
+          bin="$VTT_BIN"
+          if command -v cygpath > /dev/null; then bin="$(cygpath -u "$bin")"; fi
+          ls -l "$bin"
+          "$bin" --version
 
-      # The runner has no GPU, so this is also the check that the engine
-      # falls back to the CPU instead of crashing.
+      # A GPU-less runner also proves the engine falls back to the CPU
+      # instead of crashing.
       - name: Whisper (small.en, the smallest model in the catalogue)
         run: >
-          bash scripts/ci/smoke-transcribe.sh target/release/vtt small.en
+          bash scripts/ci/smoke-transcribe.sh "$VTT_BIN" small.en
           tests/fixtures/jfk-ask-not.mp3 americans ask country
 
       - name: Parakeet (parakeet-v3)
         run: >
-          bash scripts/ci/smoke-transcribe.sh target/release/vtt parakeet-v3
+          bash scripts/ci/smoke-transcribe.sh "$VTT_BIN" parakeet-v3
           tests/fixtures/jfk-ask-not.mp3 americans ask country
