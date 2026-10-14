@@ -1,0 +1,73 @@
+name: Smoke
+
+# Builds vtt on Linux and transcribes a short public-domain speech clip with
+# each engine, failing if the engine crashes, prints nothing or misses the
+# expected words. Run by hand before a release (Actions > Smoke > Run
+# workflow); it never runs on push, so everyday CI stays as light as it was.
+# No secrets, and no untrusted input reaches a run: block.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: "10"
+  CARGO_HTTP_MULTIPLEXING: "false"
+
+jobs:
+  transcribe:
+    name: transcribe a known clip (ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system build deps (matches debian/control Build-Depends)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libasound2-dev \
+            libvulkan-dev \
+            libxtst-dev \
+            pkg-config \
+            cmake \
+            glslc
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      # The models download from Hugging Face on first use and are checked
+      # against their published checksums; caching them keeps a run short.
+      # The key follows the catalogue, so a changed model downloads afresh.
+      - name: Cache speech models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/voice-to-text/models
+          key: vtt-models-${{ hashFiles('src/models.rs') }}
+
+      - name: cargo build --release
+        run: cargo build --release
+
+      # The runner has no GPU, so this is also the check that the engine
+      # falls back to the CPU instead of crashing.
+      - name: Whisper (small.en, the smallest model in the catalogue)
+        run: >
+          bash scripts/ci/smoke-transcribe.sh target/release/vtt small.en
+          tests/fixtures/jfk-ask-not.mp3 americans ask country
+
+      - name: Parakeet (parakeet-v3)
+        run: >
+          bash scripts/ci/smoke-transcribe.sh target/release/vtt parakeet-v3
+          tests/fixtures/jfk-ask-not.mp3 americans ask country
