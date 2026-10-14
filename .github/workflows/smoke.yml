@@ -7,9 +7,9 @@ name: Smoke
 #
 # On Linux it builds from source: the check before tagging. On macOS and
 # Windows it builds nothing: it downloads the release's own assets, the files
-# users install, and tests those. GitHub-hosted standard runners only. No
-# secrets: gh reads the public release with the run's read-only token, and
-# no untrusted input reaches a run: block.
+# users install, and tests those, a draft release included. GitHub-hosted
+# standard runners only. No secrets, and no untrusted input reaches a run:
+# block.
 on:
   workflow_dispatch:
     inputs:
@@ -35,8 +35,43 @@ env:
   CARGO_HTTP_MULTIPLEXING: "false"
 
 jobs:
+  # Only a token with push access can see a draft release, so this short job
+  # alone holds contents: write. It runs nothing but gh and hands the asset to
+  # the test job as an artifact; the test job keeps a read-only token.
+  fetch-release:
+    name: fetch the release asset (${{ inputs.os }})
+    if: inputs.os != 'ubuntu-24.04'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download the release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+          OS: ${{ inputs.os }}
+        run: |
+          case "$OS" in
+            macos-latest) pattern=vtt-macos-arm64 ;;
+            windows-latest) pattern=voice-to-text-installer.msi ;;
+          esac
+          gh release download ${TAG:+"$TAG"} --repo "$GITHUB_REPOSITORY" \
+            --pattern "$pattern" --dir release
+          ls -l release
+
+      - name: Hand the asset to the test job
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-asset
+          path: release/
+          retention-days: 1
+          if-no-files-found: error
+
   transcribe:
     name: transcribe a known clip (${{ inputs.os }})
+    needs: fetch-release
+    if: ${{ !cancelled() && (needs.fetch-release.result == 'success' || needs.fetch-release.result == 'skipped') }}
     runs-on: ${{ inputs.os }}
     timeout-minutes: 60
     defaults:
@@ -79,28 +114,21 @@ jobs:
           cargo build --release
           echo "VTT_BIN=$PWD/target/release/vtt" >> "$GITHUB_ENV"
 
-      # ── macOS: the release's Apple Silicon binary ─────────────────────
-      - name: Download the macOS release binary
+      # ── macOS and Windows: the release asset the first job fetched ────
+      - name: Take the release asset from the first job
+        if: inputs.os != 'ubuntu-24.04'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-asset
+          path: release
+
+      - name: Use the macOS release binary
         if: inputs.os == 'macos-latest'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.release_tag }}
         run: |
-          gh release download ${TAG:+"$TAG"} --repo "$GITHUB_REPOSITORY" \
-            --pattern vtt-macos-arm64 --dir release
           chmod +x release/vtt-macos-arm64
           echo "VTT_BIN=$PWD/release/vtt-macos-arm64" >> "$GITHUB_ENV"
 
       # ── Windows: the release's installer, unpacked, not installed ─────
-      - name: Download the Windows release installer
-        if: inputs.os == 'windows-latest'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.release_tag }}
-        run: |
-          gh release download ${TAG:+"$TAG"} --repo "$GITHUB_REPOSITORY" \
-            --pattern voice-to-text-installer.msi --dir release
-
       - name: Unpack vtt.exe from the installer
         if: inputs.os == 'windows-latest'
         shell: pwsh
