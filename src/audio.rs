@@ -1,8 +1,9 @@
+use crate::segment::{Policy, Segmenter};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleRate, StreamConfig};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 
 /// Whisper's required input rate. Every supported Whisper model is trained at
@@ -17,10 +18,17 @@ const WHISPER_SAMPLE_RATE: u32 = crate::whisper::WHISPER_INPUT_RATE;
 /// device may refuse, in which case the native-format fallback records whatever
 /// rate the device does offer and `capture_rate` carries it.
 const CAPTURE_SAMPLE_RATE: u32 = 48000;
-/// Hard cap on recording length. Past this, the buffer stops growing and
-/// the user sees a "[Truncated]" prefix on the transcription. 5 minutes
-/// fits ~4.8M f32 samples = ~19 MB — acceptable RAM for a dictation tool.
-const MAX_RECORDING_SECONDS: usize = 300;
+/// Most audio the capture callback's buffer holds before the segment tick
+/// moves it on. The tick drains it every second, so this is reached only if
+/// that thread stalls for a minute: it bounds memory, not how long a hold can
+/// last, which is unlimited now that a hold is cut into segments (TASK-VTT195).
+const LIVE_BUFFER_MAX_SECS: usize = 60;
+/// What the callback's buffer is sized for after each drain, so an ordinary
+/// tick never has the audio thread reallocate.
+const LIVE_BUFFER_PREALLOC: usize = CAPTURE_SAMPLE_RATE as usize * 4;
+/// Most segments one tick hands on. Each takes at least a threshold's worth
+/// of audio, so a tick never finds more than one due unless it stalled.
+const MAX_CUTS_PER_TICK: usize = 64;
 /// Minimum recording duration. Anything shorter returns `TooShort` and
 /// is discarded silently (avoids transcribing 0.1s button-smash presses).
 const MIN_DURATION_SECS: f32 = 0.5;
@@ -29,30 +37,47 @@ const MIN_DURATION_SECS: f32 = 0.5;
 /// GPU cycles on Whisper detecting hallucinated speech.
 const MIN_AMPLITUDE: i16 = 500;
 
-/// Result of one push-to-talk recording cycle. The worker pattern-matches
-/// on this to decide between transcribing, adding a "[Truncated]" prefix,
-/// or silently resetting the tray to Ready.
+/// Where a recording sits in its hold. A hold under the segment threshold is
+/// a single segment, both first and last; a longer hold is cut into several
+/// while the key stays down (TASK-VTT195).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Part {
+    /// Position in the hold, from 0.
+    pub index: u32,
+    /// The segment the release ended. Its text is typed together with every
+    /// earlier segment's, in order; nothing is typed before it.
+    pub last: bool,
+}
+
+impl Part {
+    /// A recording that is a whole hold on its own.
+    pub const WHOLE: Part = Part {
+        index: 0,
+        last: true,
+    };
+}
+
+/// Result of one push-to-talk recording cycle, or of one segment cut from a
+/// long hold. The worker pattern-matches on this to decide between
+/// transcribing and silently resetting the tray to Ready.
 pub enum RecordingResult {
-    /// Normal recording completed within the duration + amplitude thresholds.
-    /// Samples and archived WAV path both present.
+    /// A segment that passed the duration + amplitude thresholds. Samples
+    /// and archived WAV path both present.
     Audio {
         samples: Vec<f32>,
         path: PathBuf,
         native: Option<NativeCapture>,
+        part: Part,
     },
     /// Recording was below MIN_DURATION_SECS. Discard.
     TooShort,
     /// Recording was above MIN_DURATION but peak amplitude below MIN_AMPLITUDE.
     /// Probably silence or a hot mic with no speech. Discard.
     TooQuiet,
-    /// Recording hit MAX_RECORDING_SECONDS while the user was still holding
-    /// the hotkey. Samples are up to the cap; transcription is prefixed
-    /// with "[Truncated]" so the user knows to rehearse shorter.
-    MaxLength {
-        samples: Vec<f32>,
-        path: PathBuf,
-        native: Option<NativeCapture>,
-    },
+    /// The key came up after segments had already been cut, and what followed
+    /// the last cut was too short or too quiet to transcribe. The earlier
+    /// segments are the whole hold, and their text is still delivered.
+    NoFinalSegment,
     /// The stream delivered zero samples across a hold long enough to have
     /// captured some — the device re-enumerated, the audio session restarted,
     /// or the source was suspended underneath us. Distinct from TooShort so
@@ -86,17 +111,9 @@ enum CaptureClass {
     TooQuiet,
     /// Normal recording.
     Normal,
-    /// Hit the MAX_RECORDING_SECONDS cap mid-hold.
-    MaxLength,
 }
 
-fn classify_capture(
-    sample_count: usize,
-    max_amp: i16,
-    was_full: bool,
-    held_secs: f32,
-    rate: u32,
-) -> CaptureClass {
+fn classify_capture(sample_count: usize, max_amp: i16, held_secs: f32, rate: u32) -> CaptureClass {
     if sample_count == 0 {
         // Zero samples means a dead stream only when the key was held long
         // enough that cpal should have delivered a buffer. A tap shorter than
@@ -115,23 +132,52 @@ fn classify_capture(
     if max_amp < MIN_AMPLITUDE {
         return CaptureClass::TooQuiet;
     }
-    if was_full {
-        CaptureClass::MaxLength
-    } else {
-        CaptureClass::Normal
-    }
+    CaptureClass::Normal
 }
 
-type BufferFullCallback = Arc<Mutex<Option<Box<dyn Fn() + Send>>>>;
+/// Peak amplitude in i16 range, 0 for no samples.
+fn peak_amplitude(samples: &[f32]) -> i16 {
+    samples
+        .iter()
+        .map(|&s| ((s.clamp(-1.0, 1.0) * 32767.0) as i16).abs())
+        .max()
+        .unwrap_or(0)
+}
+
+/// Lock a mutex whose data stays valid even if a holder panicked: a sample
+/// buffer or a hold's pending audio is still worth delivering.
+fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// One hold, from the press to the release.
+struct Hold {
+    segmenter: Segmenter,
+    /// Segments handed on for transcription so far; the next one's index.
+    sent: u32,
+    /// Segments cut, including any too quiet to hand on.
+    cuts: u32,
+    /// Samples cut off into segments so far.
+    cut_samples: usize,
+}
 
 pub struct Audio {
     /// The live cpal stream, or None between a death and a successful
     /// re-open. Mutex because recovery replaces it from the hotkey thread.
     stream: Mutex<Option<cpal::Stream>>,
+    /// Where the capture callback appends. The segment tick swaps it out
+    /// every second, so it only ever holds the last second or so.
     buffer: Arc<Mutex<Vec<f32>>>,
     recording: Arc<AtomicBool>,
-    buffer_full: Arc<AtomicBool>,
-    buffer_full_callback: BufferFullCallback,
+    /// Samples the callback has appended since the press, counted so the
+    /// release can check every one of them reached a segment.
+    captured: Arc<AtomicUsize>,
+    /// The hold in progress, None between holds. Serialises the segment
+    /// tick against the release.
+    hold: Mutex<Option<Hold>>,
+    /// Seconds of audio after which a held key's capture is cut at the next
+    /// pause (`segment::THRESHOLD_SECS` unless overridden for a test).
+    segment_secs: f32,
     /// Set by the stream error callback (audio thread) when the device goes
     /// away; cleared by `try_reopen`. Checked at every `start_recording` so
     /// a dead stream heals before the recording instead of after it fails.
@@ -198,25 +244,23 @@ impl Audio {
     /// with `pactl set-default-source` hint).
     ///
     /// The stream is driven by cpal on its own high-priority audio thread.
-    /// Calling code only interacts with `start_recording`, `stop_recording`,
-    /// and `set_buffer_full_callback`.
+    /// Calling code only interacts with `start_recording`, `take_segment`
+    /// and `stop_recording`.
     /// `device_index` is the user's chosen input-device ordinal (settings
     /// `device=N`), or `None` to follow the system default. An out-of-range
     /// choice logs a warning and falls back to the default rather than failing.
     pub fn new(device_index: Option<usize>) -> anyhow::Result<Self> {
-        let max_samples = CAPTURE_SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
-        let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::with_capacity(max_samples)));
+        let buffer: Arc<Mutex<Vec<f32>>> =
+            Arc::new(Mutex::new(Vec::with_capacity(LIVE_BUFFER_PREALLOC)));
         let recording = Arc::new(AtomicBool::new(false));
-        let buffer_full = Arc::new(AtomicBool::new(false));
-        let buffer_full_callback: BufferFullCallback = Arc::new(Mutex::new(None));
+        let captured = Arc::new(AtomicUsize::new(0));
         let stream_dead = Arc::new(AtomicBool::new(false));
         let capture_rate = Arc::new(AtomicU32::new(CAPTURE_SAMPLE_RATE));
 
         let stream = Self::open_capture_stream(
             &buffer,
             &recording,
-            &buffer_full,
-            &buffer_full_callback,
+            &captured,
             &stream_dead,
             device_index,
             &capture_rate,
@@ -227,8 +271,9 @@ impl Audio {
             stream: Mutex::new(Some(stream)),
             buffer,
             recording,
-            buffer_full,
-            buffer_full_callback,
+            captured,
+            hold: Mutex::new(None),
+            segment_secs: crate::segment::live_threshold_secs(),
             stream_dead,
             device_index,
             capture_rate,
@@ -269,8 +314,7 @@ impl Audio {
         match Self::open_capture_stream(
             &self.buffer,
             &self.recording,
-            &self.buffer_full,
-            &self.buffer_full_callback,
+            &self.captured,
             &self.stream_dead,
             self.device_index,
             &self.capture_rate,
@@ -300,8 +344,7 @@ impl Audio {
     fn open_capture_stream(
         buffer: &Arc<Mutex<Vec<f32>>>,
         recording: &Arc<AtomicBool>,
-        buffer_full: &Arc<AtomicBool>,
-        buffer_full_callback: &BufferFullCallback,
+        captured: &Arc<AtomicUsize>,
         stream_dead: &Arc<AtomicBool>,
         device_index: Option<usize>,
         capture_rate: &Arc<AtomicU32>,
@@ -367,7 +410,7 @@ impl Audio {
             device.name().unwrap_or_else(|_| "unknown".into())
         );
 
-        let max = CAPTURE_SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
+        let max = CAPTURE_SAMPLE_RATE as usize * LIVE_BUFFER_MAX_SECS;
         // The error callback is the death signal, not just a log line: cpal
         // fires it when the device disappears or the backend fails, and the
         // flag makes the next start_recording re-open the stream instead of
@@ -380,12 +423,7 @@ impl Audio {
             }
         };
         // Owned clones so the per-callback clones below stay unchanged.
-        let (buffer, recording, buffer_full, buffer_full_callback) = (
-            buffer.clone(),
-            recording.clone(),
-            buffer_full.clone(),
-            buffer_full_callback.clone(),
-        );
+        let (buffer, recording, captured) = (buffer.clone(), recording.clone(), captured.clone());
 
         // Attempt 1: ask the device for 48 kHz mono f32 directly. ALSA (Linux)
         // accepts this, and 48 kHz is the native rate of essentially every
@@ -398,15 +436,10 @@ impl Audio {
         };
 
         let stream = {
-            let (b, r, f, c) = (
-                buffer.clone(),
-                recording.clone(),
-                buffer_full.clone(),
-                buffer_full_callback.clone(),
-            );
+            let (b, r, n) = (buffer.clone(), recording.clone(), captured.clone());
             match device.build_input_stream(
                 &preferred,
-                move |data: &[f32], _: &cpal::InputCallbackInfo| ingest(&b, &r, &f, &c, max, data),
+                move |data: &[f32], _: &cpal::InputCallbackInfo| ingest(&b, &r, &n, max, data),
                 err_cb.clone(),
                 None,
             ) {
@@ -441,36 +474,26 @@ impl Audio {
                     );
                     match fmt {
                         cpal::SampleFormat::F32 => {
-                            let (b, r, f, c) = (
-                                buffer.clone(),
-                                recording.clone(),
-                                buffer_full.clone(),
-                                buffer_full_callback.clone(),
-                            );
+                            let (b, r, n) = (buffer.clone(), recording.clone(), captured.clone());
                             device.build_input_stream(
                                 &cfg,
                                 move |data: &[f32], _: &cpal::InputCallbackInfo| {
                                     let mono = downmix_to_mono(data, channels);
-                                    ingest(&b, &r, &f, &c, max, &mono);
+                                    ingest(&b, &r, &n, max, &mono);
                                 },
                                 err_cb.clone(),
                                 None,
                             )?
                         }
                         cpal::SampleFormat::I16 => {
-                            let (b, r, f, c) = (
-                                buffer.clone(),
-                                recording.clone(),
-                                buffer_full.clone(),
-                                buffer_full_callback.clone(),
-                            );
+                            let (b, r, n) = (buffer.clone(), recording.clone(), captured.clone());
                             device.build_input_stream(
                                 &cfg,
                                 move |data: &[i16], _: &cpal::InputCallbackInfo| {
                                     let floats: Vec<f32> =
                                         data.iter().map(|&s| s as f32 / 32768.0).collect();
                                     let mono = downmix_to_mono(&floats, channels);
-                                    ingest(&b, &r, &f, &c, max, &mono);
+                                    ingest(&b, &r, &n, max, &mono);
                                 },
                                 err_cb.clone(),
                                 None,
@@ -496,22 +519,12 @@ impl Audio {
         Ok(stream)
     }
 
-    /// Register a callback that fires when the recording buffer first reaches
-    /// MAX_RECORDING_SECONDS during an active recording. The callback is used
-    /// to show a desktop notification ("release the key — recording limit
-    /// reached") so the user knows further holding does nothing.
-    ///
-    /// Only fires once per recording — the `buffer_full` atomic is set the
-    /// first time the boundary is crossed and not reset until `start_recording`.
-    pub fn set_buffer_full_callback<F: Fn() + Send + 'static>(&self, f: F) {
-        *self.buffer_full_callback.lock().unwrap() = Some(Box::new(f));
-    }
-
-    /// Begin a new recording. Clears the buffer and flips the recording flag
-    /// so the cpal callback starts appending samples. Called on hotkey press.
+    /// Begin a new recording. Empties the buffer, opens a new hold and flips
+    /// the recording flag so the cpal callback starts appending samples.
+    /// Called on hotkey press.
     ///
     /// Safe to call while a previous recording is still being transcribed
-    /// (transcription works from a cloned Vec<f32>, not the live buffer).
+    /// (transcription works from its own segment, not the live buffer).
     pub fn start_recording(&self) {
         // Heal before recording: if the stream died since the last press
         // (device unplugged, session restarted), re-open now so this
@@ -520,109 +533,195 @@ impl Audio {
             crate::vtt_log!("Audio stream flagged dead — re-opening before recording");
             self.try_reopen();
         }
-        let mut buf = self.buffer.lock().unwrap();
-        buf.clear();
-        self.buffer_full.store(false, Ordering::SeqCst);
-        *self.hold_start.lock().unwrap() = Some(Instant::now());
+        let rate = self.capture_rate.load(Ordering::SeqCst);
+        let policy = Policy::new(rate, self.segment_secs);
+        *lock(&self.hold) = Some(Hold {
+            segmenter: Segmenter::new(policy),
+            sent: 0,
+            cuts: 0,
+            cut_samples: 0,
+        });
+        lock(&self.buffer).clear();
+        self.captured.store(0, Ordering::SeqCst);
+        *lock(&self.hold_start) = Some(Instant::now());
         self.recording.store(true, Ordering::SeqCst);
-        crate::vtt_log!("Recording started");
+        crate::vtt_log!(
+            "Recording started (segments cut after {:.0}s)",
+            policy.threshold_secs()
+        );
     }
 
-    /// End the current recording and return the captured samples.
+    /// While the key is held: move the captured audio on to the hold, and
+    /// return the next segment once one is due, ready to transcribe. A due
+    /// segment is cut at the first pause past the threshold, or at the
+    /// quietest stretch by the cap. None between holds and while no cut is
+    /// due. A segment with nothing loud enough to be speech is dropped, as a
+    /// quiet recording is. Called every second by the segment tick.
+    pub fn take_segment(&self) -> Option<RecordingResult> {
+        let mut guard = lock(&self.hold);
+        let hold = guard.as_mut()?;
+        hold.segmenter
+            .push(&swap_out(&self.buffer, LIVE_BUFFER_PREALLOC));
+        let rate = self.capture_rate.load(Ordering::SeqCst);
+        // Bounded: each cut takes at least a threshold's worth of audio, and
+        // a tick adds about a second.
+        for _ in 0..MAX_CUTS_PER_TICK {
+            let samples = hold.segmenter.take_due()?;
+            hold.cuts += 1;
+            hold.cut_samples += samples.len();
+            let secs = samples.len() as f32 / rate as f32;
+            let peak = peak_amplitude(&samples);
+            if peak < MIN_AMPLITUDE {
+                crate::vtt_log!(
+                    "Cut {} ({:.2}s) too quiet (amplitude {}); not transcribed",
+                    hold.cuts,
+                    secs,
+                    peak
+                );
+                continue;
+            }
+            let part = Part {
+                index: hold.sent,
+                last: false,
+            };
+            hold.sent += 1;
+            crate::vtt_log!(
+                "Segment {} cut ({:.2}s) with the key held; transcribing in the background",
+                hold.sent,
+                secs
+            );
+            return Some(self.package(samples, rate, part));
+        }
+        None
+    }
+
+    /// End the current hold and return its last segment: everything since
+    /// the last cut, or the whole hold when nothing was cut.
     ///
     /// Returns `None` if no recording was in progress. Otherwise returns
     /// a `RecordingResult` variant:
-    /// - `Audio` for a normal recording that passed the duration + amplitude thresholds
+    /// - `Audio`, marked last, for a segment that passed the duration +
+    ///   amplitude thresholds; after a cut, any audible stretch passes,
+    ///   however short, since the key was held, not tapped
+    /// - `NoFinalSegment` when segments were already handed on and nothing
+    ///   audible followed the last cut: the earlier segments stand
     /// - `NoAudioCaptured` if the stream delivered 0 samples across a hold
     ///   long enough to have captured some (dead device/session — the stream
     ///   is re-opened before returning)
     /// - `TooShort` if < MIN_DURATION_SECS (discarded, tray resets)
     /// - `TooQuiet` if peak amplitude < MIN_AMPLITUDE (discarded)
-    /// - `MaxLength` if the buffer hit MAX_RECORDING_SECONDS mid-recording
-    ///   (transcribes with a "[Truncated]" prefix)
     ///
     /// Also writes the samples to a temp-dir WAV for the debug recordings
     /// archive. If WAV write fails, transcription proceeds from the in-memory
     /// samples — disk is not on the critical path.
     pub fn stop_recording(&self) -> Option<RecordingResult> {
+        let mut guard = lock(&self.hold);
         self.recording.store(false, Ordering::SeqCst);
-        let was_full = self.buffer_full.load(Ordering::SeqCst);
         let rate = self.capture_rate.load(Ordering::SeqCst);
-
-        let buf = self.buffer.lock().unwrap();
-        let sample_count = buf.len();
-        let duration = sample_count as f32 / rate as f32;
-
-        // Amplitude in i16 range for comparison (0 for an empty capture)
-        let max_amp: i16 = buf
-            .iter()
-            .map(|&s| (s.clamp(-1.0, 1.0) * 32767.0) as i16)
-            .map(|s| s.abs())
-            .max()
-            .unwrap_or(0);
-
+        let live = swap_out(&self.buffer, LIVE_BUFFER_PREALLOC);
+        let captured = self.captured.load(Ordering::SeqCst);
         // How long the key was actually down, which is not the same as how
         // much audio arrived — that gap is the whole point of the check.
-        let held_secs = self
-            .hold_start
-            .lock()
-            .unwrap()
+        let held_secs = lock(&self.hold_start)
             .take()
             .map(|t| t.elapsed().as_secs_f32())
             .unwrap_or(0.0);
+        let Some(Hold {
+            mut segmenter,
+            sent,
+            cuts,
+            cut_samples,
+        }) = guard.take()
+        else {
+            crate::vtt_log!("Key released with no recording in progress");
+            return None;
+        };
+        drop(guard);
+        segmenter.push(&live);
+        let samples = segmenter.finish();
+        let sample_count = samples.len();
+        let duration = sample_count as f32 / rate as f32;
+        let max_amp = peak_amplitude(&samples);
 
-        match classify_capture(sample_count, max_amp, was_full, held_secs, rate) {
-            CaptureClass::Empty => {
-                // Zero samples after a hold long enough to have filled a
-                // buffer is a dead stream. Say so, and re-open now so the next
-                // press works without a manual restart (TASK-VTT121 zero-frame
-                // watchdog). A hasty tap never reaches here — it classifies as
-                // TooShort above (TASK-VTT148).
-                crate::vtt_log!("No audio captured (0 samples) — re-opening capture stream");
-                drop(buf);
-                self.try_reopen();
-                return Some(RecordingResult::NoAudioCaptured);
+        if cuts > 0 {
+            // Every sample the callback appended belongs to a segment: one
+            // cut while the key was held, or this last one.
+            let segmented = cut_samples + sample_count;
+            crate::vtt_log!(
+                "Hold ended after {} cut(s): {} samples captured, {} in segments, {} unaccounted",
+                cuts,
+                captured,
+                segmented,
+                captured.abs_diff(segmented)
+            );
+            if max_amp < MIN_AMPLITUDE {
+                crate::vtt_log!(
+                    "Nothing audible after the last cut ({:.2}s, amplitude {})",
+                    duration,
+                    max_amp
+                );
+                return Some(if sent > 0 {
+                    RecordingResult::NoFinalSegment
+                } else {
+                    RecordingResult::TooQuiet
+                });
             }
-            CaptureClass::TooShort => {
-                crate::vtt_log!("Recording too short ({:.2}s)", duration);
-                return Some(RecordingResult::TooShort);
+        } else {
+            match classify_capture(sample_count, max_amp, held_secs, rate) {
+                CaptureClass::Empty => {
+                    // Zero samples after a hold long enough to have filled a
+                    // buffer is a dead stream. Say so, and re-open now so the
+                    // next press works without a manual restart (TASK-VTT121
+                    // zero-frame watchdog). A hasty tap never reaches here —
+                    // it classifies as TooShort above (TASK-VTT148).
+                    crate::vtt_log!("No audio captured (0 samples) — re-opening capture stream");
+                    self.try_reopen();
+                    return Some(RecordingResult::NoAudioCaptured);
+                }
+                CaptureClass::TooShort => {
+                    crate::vtt_log!("Recording too short ({:.2}s)", duration);
+                    return Some(RecordingResult::TooShort);
+                }
+                CaptureClass::TooQuiet => {
+                    crate::vtt_log!("Audio too quiet (amplitude {})", max_amp);
+                    return Some(RecordingResult::TooQuiet);
+                }
+                CaptureClass::Normal => {}
             }
-            CaptureClass::TooQuiet => {
-                crate::vtt_log!("Audio too quiet (amplitude {})", max_amp);
-                return Some(RecordingResult::TooQuiet);
-            }
-            CaptureClass::Normal | CaptureClass::MaxLength => {}
         }
 
         crate::vtt_log!(
-            "Recording stopped: {:.2}s{}, amplitude: {}",
+            "Recording stopped: {:.2}s, amplitude: {}{}",
             duration,
-            if was_full { " (MAX LENGTH)" } else { "" },
-            max_amp
+            max_amp,
+            if sent > 0 {
+                format!(" (segment {} of the hold)", sent + 1)
+            } else {
+                String::new()
+            }
         );
+        Some(self.package(
+            samples,
+            rate,
+            Part {
+                index: sent,
+                last: true,
+            },
+        ))
+    }
 
-        // Retain the native-rate capture only when archiving is on. This is the
-        // one branch that decides whether a second copy of the audio exists at
-        // all, so with the setting absent the memory and the disk behaviour are
-        // exactly what they were before TASK-VTT150.
-        let native = if self.archive_enabled.load(Ordering::SeqCst) {
-            Some(NativeCapture {
-                samples: buf.clone(),
-                sample_rate: rate,
-            })
-        } else {
-            None
-        };
-
-        // Resample to Whisper's rate here, once, on the finished capture. The
+    /// Ready one segment, at the capture rate, for the worker: the 16 kHz
+    /// copy Whisper reads, the debug WAV of that copy, and the native-rate
+    /// original when archiving is on.
+    fn package(&self, captured: Vec<f32>, rate: u32, part: Part) -> RecordingResult {
+        // Resample to Whisper's rate here, once, on the finished segment. The
         // debug recordings archive is written from these samples too, so the
         // re-transcribe-last recovery net keeps reading the 16 kHz wavs it has
         // always read.
-        let mut samples: Vec<f32> = resample_to_whisper(&buf, rate);
-        drop(buf);
+        let mut samples: Vec<f32> = resample_to_whisper(&captured, rate);
 
-        // Rumble suppression, on the transcription path only. `native` was
-        // cloned above and is untouched, so the voice-clone corpus keeps the
+        // Rumble suppression, on the transcription path only. `native` below
+        // is the untouched capture, so the voice-clone corpus keeps the
         // original audio while Whisper gets the cleaned version (TASK-VTT145).
         if self.denoise_enabled.load(Ordering::SeqCst) {
             samples = crate::denoise::suppress_rumble(&samples, WHISPER_SAMPLE_RATE);
@@ -638,18 +737,23 @@ impl Audio {
             }
         };
 
-        if was_full {
-            Some(RecordingResult::MaxLength {
-                samples,
-                path,
-                native,
-            })
-        } else {
-            Some(RecordingResult::Audio {
-                samples,
-                path,
-                native,
-            })
+        // Retain the native-rate capture only when archiving is on. This is the
+        // one branch that decides whether a copy of the audio at the device's
+        // rate outlives this call, so with the setting absent the memory and
+        // the disk behaviour are exactly what they were before TASK-VTT150.
+        let native = self
+            .archive_enabled
+            .load(Ordering::SeqCst)
+            .then_some(NativeCapture {
+                samples: captured,
+                sample_rate: rate,
+            });
+
+        RecordingResult::Audio {
+            samples,
+            path,
+            native,
+            part,
         }
     }
 }
@@ -685,38 +789,37 @@ pub(crate) fn write_wav(samples: &[f32], sample_rate: u32) -> anyhow::Result<Pat
     Ok(path)
 }
 
+/// Take everything the capture callback has appended, leaving it an empty
+/// buffer sized for `capacity`. The allocation happens before the lock, so
+/// the lock is held for a pointer swap and the audio thread waits on nothing.
+fn swap_out(buffer: &Mutex<Vec<f32>>, capacity: usize) -> Vec<f32> {
+    let fresh = Vec::with_capacity(capacity);
+    std::mem::replace(&mut *lock(buffer), fresh)
+}
+
 /// Append captured mono f32 samples, at the device's own rate, into the shared
-/// recording buffer,
-/// honouring the recording flag, the lock-skip rule (never block the audio
-/// thread), and the buffer-full transition. Shared by the direct-16k and the
-/// native-resampled capture callbacks.
+/// recording buffer, honouring the recording flag and the buffer's memory
+/// bound, and count them. Shared by the direct and the native-format capture
+/// callbacks.
+///
+/// Waits for the lock rather than skipping the frame. Every other holder
+/// keeps it only for a pointer swap or a clear, so the wait is short, while a
+/// skipped frame is speech lost — and with the segment tick swapping the
+/// buffer every second, a skip would land on a cut (TASK-VTT195).
 fn ingest(
     buffer: &Mutex<Vec<f32>>,
     recording: &AtomicBool,
-    buffer_full: &AtomicBool,
-    cb: &Mutex<Option<Box<dyn Fn() + Send>>>,
+    captured: &AtomicUsize,
     max: usize,
     data: &[f32],
 ) {
     if !recording.load(Ordering::Relaxed) {
         return;
     }
-    let mut buf = match buffer.try_lock() {
-        Ok(b) => b,
-        Err(_) => return, // Skip frame if locked (avoids blocking audio thread)
-    };
-    let (take, became_full) = compute_append(buf.len(), data.len(), max);
-    if take > 0 {
-        buf.extend_from_slice(&data[..take]);
-    }
-    if became_full && !buffer_full.load(Ordering::Relaxed) {
-        buffer_full.store(true, Ordering::Relaxed);
-        if let Ok(cb) = cb.try_lock() {
-            if let Some(ref f) = *cb {
-                f();
-            }
-        }
-    }
+    let mut buf = lock(buffer);
+    let take = compute_append(buf.len(), data.len(), max);
+    buf.extend_from_slice(&data[..take]);
+    captured.fetch_add(take, Ordering::Relaxed);
 }
 
 /// Average interleaved frames down to a single mono channel. `channels <= 1`
@@ -755,31 +858,72 @@ fn resample_to_whisper(input: &[f32], in_rate: u32) -> Vec<f32> {
 }
 
 /// Pure: given the current buffer length, an incoming chunk size, and the
-/// maximum allowed buffer length, compute how many samples we can append and
-/// whether the append causes the buffer to transition to "full".
+/// maximum allowed buffer length, how many samples can be appended
+/// (0..=incoming, clamped to the space left).
 ///
-/// Returns `(take, became_full)` where:
-/// - `take` is the number of samples to append (0..=incoming, clamped to available space)
-/// - `became_full` is true if after the append the buffer reached `max`
-///
-/// Used by the audio stream callback to avoid overflowing the bounded capture
-/// buffer (currently 5 min at 16 kHz = 4.8 M samples). Becoming full flips the
-/// `buffer_full` atomic flag and fires the notification callback.
-fn compute_append(current_len: usize, incoming: usize, max: usize) -> (usize, bool) {
-    let space = max.saturating_sub(current_len);
-    let take = incoming.min(space);
-    let new_len = current_len + take;
-    let became_full = new_len >= max;
-    (take, became_full)
+/// Used by the audio stream callback to bound the live buffer, which the
+/// segment tick normally empties every second (LIVE_BUFFER_MAX_SECS).
+fn compute_append(current_len: usize, incoming: usize, max: usize) -> usize {
+    incoming.min(max.saturating_sub(current_len))
+}
+
+/// A deviceless capture for tests here and in the worker's tests: the
+/// capture callback and the segment tick are played by hand, silently,
+/// with synthetic audio and no device, sound server or display.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use super::*;
+
+    /// An `Audio` with no device behind it, so a test can play the capture
+    /// callback and the segment tick by hand. Archiving is on, so every
+    /// segment carries its audio at the capture rate for checking.
+    pub(crate) fn deviceless(segment_secs: f32) -> Audio {
+        Audio {
+            stream: Mutex::new(None),
+            buffer: Arc::new(Mutex::new(Vec::new())),
+            recording: Arc::new(AtomicBool::new(false)),
+            captured: Arc::new(AtomicUsize::new(0)),
+            hold: Mutex::new(None),
+            segment_secs,
+            stream_dead: Arc::new(AtomicBool::new(false)),
+            device_index: None,
+            hold_start: Mutex::new(None),
+            capture_rate: Arc::new(AtomicU32::new(CAPTURE_SAMPLE_RATE)),
+            archive_enabled: Arc::new(AtomicBool::new(true)),
+            denoise_enabled: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    /// Dictation at the capture rate: 1.5 s phrases, each followed by half a
+    /// second of near-silence.
+    pub(crate) fn phrases(secs: usize) -> Vec<f32> {
+        let rate = CAPTURE_SAMPLE_RATE as usize;
+        (0..secs * rate)
+            .map(|i| {
+                if i % (2 * rate) < rate * 3 / 2 {
+                    0.3 * (i as f32 * 0.05).sin()
+                } else {
+                    0.0005 * ((i % 7) as f32 - 3.0) / 3.0
+                }
+            })
+            .collect()
+    }
+
+    /// Deliver one capture-callback frame of `samples`, as cpal would.
+    pub(crate) fn feed(dev: &Audio, samples: &[f32]) {
+        let max = CAPTURE_SAMPLE_RATE as usize * LIVE_BUFFER_MAX_SECS;
+        ingest(&dev.buffer, &dev.recording, &dev.captured, max, samples);
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::test_support::*;
     use super::*;
 
     #[test]
     fn compute_append_room_for_full_chunk() {
-        assert_eq!(compute_append(100, 50, 1000), (50, false));
+        assert_eq!(compute_append(100, 50, 1000), 50);
     }
 
     #[test]
@@ -802,50 +946,45 @@ mod tests {
 
     #[test]
     fn compute_append_chunk_exactly_fills_buffer() {
-        assert_eq!(compute_append(900, 100, 1000), (100, true));
+        assert_eq!(compute_append(900, 100, 1000), 100);
     }
 
     #[test]
     fn compute_append_chunk_overflows_gets_clamped() {
-        assert_eq!(
-            compute_append(950, 100, 1000),
-            (50, true),
-            "only 50 of the 100 fit, buffer transitions to full"
-        );
+        assert_eq!(compute_append(950, 100, 1000), 50, "only 50 of the 100 fit");
     }
 
     #[test]
     fn compute_append_already_full_takes_nothing() {
         assert_eq!(
             compute_append(1000, 50, 1000),
-            (0, true),
-            "at capacity, take nothing but still report full"
+            0,
+            "at capacity, take nothing"
         );
     }
 
     #[test]
     fn compute_append_past_full_takes_nothing() {
         // Shouldn't happen in practice but should not panic or wrap.
-        assert_eq!(compute_append(2000, 50, 1000), (0, true));
+        assert_eq!(compute_append(2000, 50, 1000), 0);
     }
 
     #[test]
     fn compute_append_empty_buffer_empty_chunk() {
-        assert_eq!(compute_append(0, 0, 1000), (0, false));
+        assert_eq!(compute_append(0, 0, 1000), 0);
     }
 
     #[test]
     fn compute_append_empty_buffer_full_chunk() {
-        assert_eq!(compute_append(0, 1000, 1000), (1000, true));
+        assert_eq!(compute_append(0, 1000, 1000), 1000);
     }
 
     #[test]
     fn compute_append_realistic_audio_frame() {
-        // 16 kHz, 5 min max buffer, 10 ms frame = 160 samples
-        let max = 16_000 * 300;
-        let (take, full) = compute_append(max - 100, 160, max);
+        // 48 kHz, the live buffer's bound, 10 ms frame = 480 samples
+        let max = CAPTURE_SAMPLE_RATE as usize * LIVE_BUFFER_MAX_SECS;
+        let take = compute_append(max - 100, 480, max);
         assert_eq!(take, 100, "only 100 samples fit in the last slice");
-        assert!(full, "buffer is at capacity after the append");
     }
 
     #[test]
@@ -853,7 +992,7 @@ mod tests {
         // The historic bug: 0 samples logged as "Recording too short (0.00s)",
         // hiding a dead stream behind a user-timing message (TASK-VTT121).
         assert_eq!(
-            classify_capture(0, 0, false, 3.0, CAPTURE_SAMPLE_RATE),
+            classify_capture(0, 0, 3.0, CAPTURE_SAMPLE_RATE),
             CaptureClass::Empty
         );
 
@@ -863,27 +1002,17 @@ mod tests {
         // icon in the tray and re-opened the stream for nothing — the symptom
         // that surfaced once releases stopped being discarded (TASK-VTT148).
         assert_eq!(
-            classify_capture(0, 0, false, 0.02, CAPTURE_SAMPLE_RATE),
+            classify_capture(0, 0, 0.02, CAPTURE_SAMPLE_RATE),
             CaptureClass::TooShort,
             "a hasty tap must not be reported as a dead microphone"
         );
         // At and beyond the threshold a silent stream is still a real fault.
         assert_eq!(
-            classify_capture(0, 0, false, MIN_DURATION_SECS, CAPTURE_SAMPLE_RATE),
+            classify_capture(0, 0, MIN_DURATION_SECS, CAPTURE_SAMPLE_RATE),
             CaptureClass::Empty
         );
         assert_eq!(
-            classify_capture(0, 0, false, 10.0, CAPTURE_SAMPLE_RATE),
-            CaptureClass::Empty
-        );
-    }
-
-    #[test]
-    fn classify_zero_samples_with_full_flag_is_still_empty() {
-        // Shouldn't happen (full implies samples), but empty must win: a dead
-        // stream must never masquerade as a max-length recording.
-        assert_eq!(
-            classify_capture(0, 32767, true, 3.0, CAPTURE_SAMPLE_RATE),
+            classify_capture(0, 0, 10.0, CAPTURE_SAMPLE_RATE),
             CaptureClass::Empty
         );
     }
@@ -893,7 +1022,7 @@ mod tests {
         // The boundary: any real samples below MIN_DURATION_SECS are the
         // user's timing, not a device failure.
         assert_eq!(
-            classify_capture(1, 32767, false, 0.01, CAPTURE_SAMPLE_RATE),
+            classify_capture(1, 32767, 0.01, CAPTURE_SAMPLE_RATE),
             CaptureClass::TooShort
         );
     }
@@ -902,7 +1031,7 @@ mod tests {
     fn classify_just_under_min_duration_is_too_short() {
         let just_under = (CAPTURE_SAMPLE_RATE as f32 * MIN_DURATION_SECS) as usize - 1;
         assert_eq!(
-            classify_capture(just_under, 32767, false, 0.49, CAPTURE_SAMPLE_RATE),
+            classify_capture(just_under, 32767, 0.49, CAPTURE_SAMPLE_RATE),
             CaptureClass::TooShort
         );
     }
@@ -911,13 +1040,7 @@ mod tests {
     fn classify_long_enough_but_quiet_is_too_quiet() {
         let one_second = CAPTURE_SAMPLE_RATE as usize;
         assert_eq!(
-            classify_capture(
-                one_second,
-                MIN_AMPLITUDE - 1,
-                false,
-                1.0,
-                CAPTURE_SAMPLE_RATE
-            ),
+            classify_capture(one_second, MIN_AMPLITUDE - 1, 1.0, CAPTURE_SAMPLE_RATE),
             CaptureClass::TooQuiet
         );
     }
@@ -926,17 +1049,137 @@ mod tests {
     fn classify_normal_recording() {
         let one_second = CAPTURE_SAMPLE_RATE as usize;
         assert_eq!(
-            classify_capture(one_second, MIN_AMPLITUDE, false, 1.0, CAPTURE_SAMPLE_RATE),
+            classify_capture(one_second, MIN_AMPLITUDE, 1.0, CAPTURE_SAMPLE_RATE),
             CaptureClass::Normal
         );
     }
 
     #[test]
-    fn classify_full_buffer_is_max_length() {
-        let five_minutes = CAPTURE_SAMPLE_RATE as usize * MAX_RECORDING_SECONDS;
+    fn classify_a_long_recording_is_normal() {
+        // There is no length limit to classify any more: a long hold is cut
+        // into segments instead (TASK-VTT195).
+        let ten_minutes = CAPTURE_SAMPLE_RATE as usize * 600;
         assert_eq!(
-            classify_capture(five_minutes, 20_000, true, 300.0, CAPTURE_SAMPLE_RATE),
-            CaptureClass::MaxLength
+            classify_capture(ten_minutes, 20_000, 600.0, CAPTURE_SAMPLE_RATE),
+            CaptureClass::Normal
+        );
+    }
+
+    /// Play one hold as the app does: the callback delivers `audio` in 10 ms
+    /// frames, the segment tick runs every second, then the key comes up.
+    fn play_hold(dev: &Audio, audio: &[f32]) -> Vec<RecordingResult> {
+        dev.start_recording();
+        let mut out = Vec::new();
+        for (i, frame) in audio.chunks(480).enumerate() {
+            feed(dev, frame);
+            if (i + 1) % 100 == 0 {
+                out.extend(dev.take_segment());
+            }
+        }
+        out.extend(dev.stop_recording());
+        out
+    }
+
+    /// Each result's segment position and audio at the capture rate, with
+    /// its debug wav removed.
+    fn parts(results: Vec<RecordingResult>) -> Vec<(Part, Vec<f32>)> {
+        results
+            .into_iter()
+            .map(|r| match r {
+                RecordingResult::Audio {
+                    path, native, part, ..
+                } => {
+                    std::fs::remove_file(&path).ok();
+                    (part, native.expect("archiving is on").samples)
+                }
+                _ => panic!("expected a segment of audio"),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_long_hold_hands_on_every_sample_in_order() {
+        // Half a minute at a 4 s threshold, released mid-phrase: several
+        // cuts, each segment numbered in order, only the release's marked
+        // last, and the segments back to back are the capture, sample for
+        // sample.
+        let dev = deviceless(4.0);
+        let audio = phrases(31);
+        let parts = parts(play_hold(&dev, &audio));
+        assert!(parts.len() >= 5, "{} segments", parts.len());
+        for (i, (part, _)) in parts.iter().enumerate() {
+            assert_eq!(part.index as usize, i, "segments out of order");
+            assert_eq!(part.last, i + 1 == parts.len(), "only the release is last");
+        }
+        let joined: Vec<f32> = parts.into_iter().flat_map(|(_, s)| s).collect();
+        assert_eq!(joined.len(), audio.len(), "samples lost or added at a cut");
+        assert!(joined == audio, "a sample changed or moved across a cut");
+    }
+
+    #[test]
+    fn a_short_hold_is_one_whole_segment() {
+        let dev = deviceless(4.0);
+        let audio = phrases(3);
+        let parts = parts(play_hold(&dev, &audio));
+        assert_eq!(parts.len(), 1);
+        assert_eq!(parts[0].0, Part::WHOLE);
+        assert!(parts[0].1 == audio);
+    }
+
+    #[test]
+    fn silence_after_the_last_cut_still_delivers_the_earlier_segments() {
+        let dev = deviceless(4.0);
+        let mut audio = phrases(6);
+        audio.extend(vec![0.0; CAPTURE_SAMPLE_RATE as usize]);
+        let results = play_hold(&dev, &audio);
+        assert_eq!(results.len(), 2, "one cut, then the release");
+        assert!(matches!(
+            &results[0],
+            RecordingResult::Audio { part, .. } if *part == Part { index: 0, last: false }
+        ));
+        assert!(matches!(results[1], RecordingResult::NoFinalSegment));
+        parts(results.into_iter().take(1).collect());
+    }
+
+    #[test]
+    fn the_tick_never_drops_a_frame_the_callback_delivers() {
+        // The callback and the tick contend for the buffer every second of a
+        // hold. Every frame must survive the contention, in order.
+        let buffer = Arc::new(Mutex::new(Vec::new()));
+        let recording = Arc::new(AtomicBool::new(true));
+        let captured = Arc::new(AtomicUsize::new(0));
+        let done = Arc::new(AtomicBool::new(false));
+        let (frames, frame_len) = (20_000usize, 480usize);
+        let producer = {
+            let (b, r, c, d) = (
+                buffer.clone(),
+                recording.clone(),
+                captured.clone(),
+                done.clone(),
+            );
+            std::thread::spawn(move || {
+                for f in 0..frames {
+                    let data: Vec<f32> =
+                        (0..frame_len).map(|i| (f * frame_len + i) as f32).collect();
+                    ingest(&b, &r, &c, usize::MAX, &data);
+                }
+                d.store(true, Ordering::SeqCst);
+            })
+        };
+        let mut drained = Vec::new();
+        for _ in 0..100_000_000 {
+            if done.load(Ordering::SeqCst) {
+                break;
+            }
+            drained.extend(swap_out(&buffer, 0));
+        }
+        producer.join().expect("producer thread");
+        drained.extend(swap_out(&buffer, 0));
+        assert_eq!(captured.load(Ordering::SeqCst), frames * frame_len);
+        assert_eq!(drained.len(), frames * frame_len, "frames dropped");
+        assert!(
+            drained.iter().enumerate().all(|(i, &s)| s == i as f32),
+            "frames reordered"
         );
     }
 

@@ -9,10 +9,11 @@
 use std::time::Duration;
 
 /// Longest a single hold may last before the watchdog force-stops it. A hold
-/// past this is a lost KeyRelease, not someone still talking — `audio.rs` caps
-/// the buffer at the same 300s, so nothing is captured by staying open and an
-/// open mic is the worst failure this tool has (TASK-VTT146).
-pub const MAX_HOLD: Duration = Duration::from_secs(300);
+/// past this is taken for a lost KeyRelease, not someone still talking: an
+/// open mic is the worst failure this tool has (TASK-VTT146). A long hold is
+/// cut into segments rather than capped (TASK-VTT195), so this is set well
+/// past any dictation, and a force-stop still types everything captured.
+pub const MAX_HOLD: Duration = Duration::from_secs(60 * 60);
 
 /// What the caller should do with the capture stream in response to an event.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

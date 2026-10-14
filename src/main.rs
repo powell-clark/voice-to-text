@@ -20,6 +20,7 @@ mod hotkey;
 mod logging;
 mod models;
 mod parakeet;
+mod segment;
 mod settings;
 mod transcribe;
 mod tray;
@@ -34,10 +35,10 @@ use std::sync::{mpsc, Arc, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-/// Work units sent to the transcription worker.
-/// v2.0 uses in-memory f32 samples; Truncated marks buffer-full recordings so
-/// the user sees `[Truncated]` prefix on the typed output.
+/// Work units sent to the transcription worker, in-memory f32 samples.
 pub(crate) enum WorkItem {
+    /// One segment of a hold: the whole hold, or one cut from a long one
+    /// while the key is still down (TASK-VTT195).
     Audio {
         samples: Vec<f32>,
         archive_path: PathBuf,
@@ -46,12 +47,13 @@ pub(crate) enum WorkItem {
         /// audio layer because the sidecar records the transcript, and the
         /// transcript does not exist until after this item is worked.
         native: Option<audio::NativeCapture>,
+        /// Where the segment sits in its hold. Text is typed only when the
+        /// last one is worked, so nothing is typed while the key is held.
+        part: audio::Part,
     },
-    Truncated {
-        samples: Vec<f32>,
-        archive_path: PathBuf,
-        native: Option<audio::NativeCapture>,
-    },
+    /// The key came up with nothing audible since the last cut: type the
+    /// text the hold's earlier segments produced.
+    DeliverHeld,
     /// Re-run transcription on the newest archived recording and re-type the
     /// result — the tray recovery net for lost output (FEAT-VTT039). Carries no
     /// audio: the worker locates and decodes the WAV itself, so the tray stays
@@ -277,38 +279,6 @@ fn main() -> anyhow::Result<()> {
         vtt_log!("Rumble filtering {}", if s.denoise { "on" } else { "off" });
     }
 
-    // Buffer full notification (shells to notify-send on Linux; libnotify-bin
-    // is a runtime dependency. This avoids the notify-rust crate which pulls
-    // zbus 5.x which uses edition 2024 — Ubuntu Noble cargo 1.75 can't parse).
-    audio.set_buffer_full_callback(|| {
-        let show_notification = || {
-            #[cfg(target_os = "linux")]
-            {
-                let result = std::process::Command::new("notify-send")
-                    .args([
-                        "--icon=dialog-information",
-                        "--expire-time=3000",
-                        "Voice to Text",
-                        "Recording limit reached — release key to transcribe",
-                    ])
-                    .status();
-                if let Err(e) = result {
-                    crate::vtt_log!("notify-send failed: {}", e);
-                }
-            }
-            #[cfg(not(target_os = "linux"))]
-            {
-                // TODO: macOS/Windows notifications via osascript / winrt API in
-                // STORY-VTT012 / STORY-VTT013.
-                crate::vtt_log!("Recording limit reached");
-            }
-        };
-        #[cfg(target_os = "linux")]
-        glib::idle_add_once(show_notification);
-        #[cfg(not(target_os = "linux"))]
-        show_notification();
-    });
-
     // Transcription work channel
     let (work_tx, work_rx) = mpsc::channel::<WorkItem>();
 
@@ -369,6 +339,11 @@ fn main() -> anyhow::Result<()> {
     let hk_work_tx = work_tx.clone();
     let hk_ui_tx = ui_tx.clone();
     let hk_recording_start = recording_start.clone();
+    // Held while audio leaves the audio layer and enters the work channel, by
+    // the release and by the segment tick alike, so a hold's segments always
+    // reach the worker in the order they were cut (TASK-VTT195).
+    let handoff = Arc::new(Mutex::new(()));
+    let hk_handoff = handoff.clone();
 
     let hotkey_tx = hotkey::start_monitor(hk_keycode, move |event| {
         match event {
@@ -421,14 +396,16 @@ fn main() -> anyhow::Result<()> {
                     "Key released - stopping recording ({}ms)",
                     held_for.as_millis()
                 );
-                finish_recording(&hk_audio, &hk_work_tx, &hk_ui_tx);
+                finish_recording(&hk_audio, &hk_work_tx, &hk_ui_tx, &hk_handoff);
             }
         }
     })?;
 
-    // Watchdog. A KeyRelease lost anywhere below this layer must not be able to
-    // strand the microphone, so an over-long hold is force-stopped rather than
-    // trusted (TASK-VTT146).
+    // Segment tick and watchdog, once a second. While the key is held, the
+    // capture is cut into segments that are transcribed in the background and
+    // typed together on release (TASK-VTT195). A KeyRelease lost anywhere
+    // below this layer must not be able to strand the microphone, so an
+    // over-long hold is force-stopped rather than trusted (TASK-VTT146).
     let wd_gate = gate.clone();
     let wd_audio = audio.clone();
     let wd_work_tx = work_tx.clone();
@@ -438,13 +415,16 @@ fn main() -> anyhow::Result<()> {
         .name("recording-watchdog".into())
         .spawn(move || loop {
             thread::sleep(Duration::from_secs(1));
+            if wd_gate.lock().unwrap().is_recording() {
+                cut_segments(&wd_audio, &wd_work_tx, &handoff);
+            }
             let held_for = wd_recording_start.lock().unwrap().elapsed();
             if wd_gate.lock().unwrap().poll(held_for) == hotkey::Action::Stop {
                 vtt_log!(
                     "Watchdog: hold exceeded {}s with no KeyRelease - forcing stop",
                     hotkey::MAX_HOLD.as_secs()
                 );
-                finish_recording(&wd_audio, &wd_work_tx, &wd_ui_tx);
+                finish_recording(&wd_audio, &wd_work_tx, &wd_ui_tx, &handoff);
             }
         })?;
 
@@ -541,11 +521,7 @@ fn main() -> anyhow::Result<()> {
 
 // ─── Transcription worker ───────────────────────────────────────
 
-/// Owns the transcription loop for the lifetime of the process — the extra
-/// param over clippy's default threshold is independent cross-thread handles,
-/// not a design smell to fix by bundling into a struct only this fn would use.
-#[allow(clippy::too_many_arguments)]
-/// Close the microphone and route the captured audio to the right place.
+/// Close the microphone and route the hold's last segment to the right place.
 ///
 /// Shared by the KeyRelease handler and the watchdog so that a force-stop takes
 /// exactly the same path as a normal release — the watchdog is worthless if it
@@ -554,12 +530,15 @@ fn finish_recording(
     audio: &audio::Audio,
     work_tx: &mpsc::Sender<WorkItem>,
     ui_tx: &tray::UiSender,
+    handoff: &Mutex<()>,
 ) {
+    let _in_order = handoff.lock().unwrap_or_else(|p| p.into_inner());
     match audio.stop_recording() {
         Some(RecordingResult::Audio {
             samples,
             path,
             native,
+            part,
         }) => {
             vtt_log!("Recording saved: {}", path.display());
             ui_tx
@@ -568,51 +547,25 @@ fn finish_recording(
             ui_tx
                 .send(tray::UiMessage::SetIcon("processing".into()))
                 .ok();
-            if let Err(e) = work_tx.send(WorkItem::Audio {
-                samples,
-                archive_path: path,
-                native,
-            }) {
-                vtt_log!(
-                    "Transcription worker channel closed — worker thread died: {}",
-                    e
-                );
-                ui_tx
-                    .send(tray::UiMessage::SetStatus(
-                        "Worker died — restart required".into(),
-                    ))
-                    .ok();
-                ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
-            }
+            send_work(
+                work_tx,
+                ui_tx,
+                WorkItem::Audio {
+                    samples,
+                    archive_path: path,
+                    native,
+                    part,
+                },
+            );
         }
-        Some(RecordingResult::MaxLength {
-            samples,
-            path,
-            native,
-        }) => {
-            vtt_log!("Max recording length reached");
+        Some(RecordingResult::NoFinalSegment) => {
             ui_tx
                 .send(tray::UiMessage::SetStatus("Transcribing...".into()))
                 .ok();
             ui_tx
                 .send(tray::UiMessage::SetIcon("processing".into()))
                 .ok();
-            if let Err(e) = work_tx.send(WorkItem::Truncated {
-                samples,
-                archive_path: path,
-                native,
-            }) {
-                vtt_log!(
-                    "Transcription worker channel closed — worker thread died: {}",
-                    e
-                );
-                ui_tx
-                    .send(tray::UiMessage::SetStatus(
-                        "Worker died — restart required".into(),
-                    ))
-                    .ok();
-                ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
-            }
+            send_work(work_tx, ui_tx, WorkItem::DeliverHeld);
         }
         Some(RecordingResult::NoAudioCaptured) => {
             // Dead stream detected and re-opened inside audio.rs;
@@ -649,6 +602,52 @@ fn finish_recording(
             ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
             ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
         }
+    }
+}
+
+/// While the key is held, hand every segment that has fallen due to the
+/// worker, to be transcribed in the background and typed on release
+/// (TASK-VTT195). The tray keeps showing the recording.
+fn cut_segments(audio: &audio::Audio, work_tx: &mpsc::Sender<WorkItem>, handoff: &Mutex<()>) {
+    let _in_order = handoff.lock().unwrap_or_else(|p| p.into_inner());
+    // Bounded: a tick normally finds at most one segment due.
+    for _ in 0..8 {
+        let Some(RecordingResult::Audio {
+            samples,
+            path,
+            native,
+            part,
+        }) = audio.take_segment()
+        else {
+            return;
+        };
+        let item = WorkItem::Audio {
+            samples,
+            archive_path: path,
+            native,
+            part,
+        };
+        if work_tx.send(item).is_err() {
+            vtt_log!("Transcription worker channel closed — segment not transcribed");
+            return;
+        }
+    }
+}
+
+/// Queue work for the transcription worker, telling the user when the worker
+/// is gone.
+fn send_work(work_tx: &mpsc::Sender<WorkItem>, ui_tx: &tray::UiSender, item: WorkItem) {
+    if let Err(e) = work_tx.send(item) {
+        vtt_log!(
+            "Transcription worker channel closed — worker thread died: {}",
+            e
+        );
+        ui_tx
+            .send(tray::UiMessage::SetStatus(
+                "Worker died — restart required".into(),
+            ))
+            .ok();
+        ui_tx.send(tray::UiMessage::SetIcon("error".into())).ok();
     }
 }
 
@@ -757,23 +756,52 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
             .ok();
     }
 
+    // Type one dictation's text into the window focused now, exactly as a
+    // single recording has always been typed: the voice prefix once, and a
+    // newline first when the user asked for one between dictations.
+    let deliver = |text: &str| {
+        let (prefix, append_newline, newline_type) = {
+            let s = settings.read().unwrap();
+            (s.voice_prefix.clone(), s.append_newline, s.newline_type)
+        };
+        let final_text = compose_final_text(&prefix, text);
+        *last_transcription.lock().unwrap() = Some(final_text.clone());
+        typing_active.store(true, Ordering::SeqCst);
+        if append_newline && typing_has_output.load(Ordering::Relaxed) {
+            typer.type_text("\n", newline_type);
+        }
+        typer.type_text(&final_text, newline_type);
+        typing_active.store(false, Ordering::SeqCst);
+        typing_has_output.store(true, Ordering::Relaxed);
+    };
+    let mut held = HeldText::default();
+
     while running.load(Ordering::Relaxed) {
         let item = match rx.recv() {
             Ok(item) => item,
             Err(_) => break, // Channel closed
         };
 
-        let (samples, archive_path, is_truncated, native) = match item {
+        // `part` is None for a re-transcription, which is typed as soon as it
+        // is done and never joins a hold.
+        let (samples, archive_path, native, part) = match item {
             WorkItem::Audio {
                 samples,
                 archive_path,
                 native,
-            } => (samples, archive_path, false, native),
-            WorkItem::Truncated {
-                samples,
-                archive_path,
-                native,
-            } => (samples, archive_path, true, native),
+                part,
+            } => (samples, archive_path, native, Some(part)),
+            WorkItem::DeliverHeld => {
+                let text = held.release();
+                if text.is_empty() {
+                    vtt_log!("Hold ended with no text to type");
+                } else {
+                    deliver(&text);
+                }
+                ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
+                ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
+                continue;
+            }
             // Re-transcribe the newest archived recording and re-type it. The
             // empty archive_path makes the save/prune step below a no-op so the
             // source WAV is not re-archived or self-copied (FEAT-VTT039).
@@ -786,7 +814,7 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
                             // Never re-archives: the source is already an
                             // archived 16 kHz wav, and a second copy would be
                             // a duplicate corpus row with a re-run transcript.
-                            (s, PathBuf::new(), false, None)
+                            (s, PathBuf::new(), None, None)
                         }
                         Err(e) => {
                             vtt_log!("Re-transcribe: decode failed for {}: {}", path.display(), e);
@@ -822,6 +850,17 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
             }
         };
 
+        // Every hold's first segment comes after the previous hold's last, so
+        // text still held here belongs to a hold whose release never arrived.
+        // Typing it into this dictation would be worse than losing it.
+        if part.is_some_and(|p| p.index == 0) && !held.is_empty() {
+            vtt_log!("Dropping text held from a hold that never ended");
+            held.release();
+        }
+        // A segment cut while the key is still down is worked out of sight:
+        // the tray keeps showing the recording, and nothing is typed.
+        let background = part.is_some_and(|p| !p.last);
+
         // Detect tray-driven settings changes a Preload has not already
         // caught: reload transparently before transcribing.
         reload_if_changed(&mut engine, &settings, &ui_tx);
@@ -830,28 +869,29 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
             Some(e) => e,
             None => {
                 vtt_log!("Transcription skipped — no model loaded");
-                ui_tx
-                    .send(tray::UiMessage::SetStatus("No model loaded".into()))
-                    .ok();
+                if !background {
+                    ui_tx
+                        .send(tray::UiMessage::SetStatus("No model loaded".into()))
+                        .ok();
+                }
                 continue;
             }
         };
 
-        ui_tx
-            .send(tray::UiMessage::SetStatus("Transcribing...".into()))
-            .ok();
-        ui_tx
-            .send(tray::UiMessage::SetIcon("processing".into()))
-            .ok();
+        if !background {
+            ui_tx
+                .send(tray::UiMessage::SetStatus("Transcribing...".into()))
+                .ok();
+            ui_tx
+                .send(tray::UiMessage::SetIcon("processing".into()))
+                .ok();
+        }
 
         // Read settings snapshot
         let s = settings.read().unwrap();
         let language = s.selected_language.clone();
         let prompt = s.initial_prompt.clone();
         let corrections = s.corrections.clone();
-        let prefix = s.voice_prefix.clone();
-        let append_newline = s.append_newline;
-        let newline_type = s.newline_type;
         drop(s);
 
         vtt_log!(
@@ -859,7 +899,10 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
             engine_ref.model_name(),
             language,
             samples.len(),
-            if is_truncated { " (TRUNCATED)" } else { "" }
+            match part {
+                Some(p) if p != audio::Part::WHOLE => format!(" (segment {})", p.index + 1),
+                _ => String::new(),
+            }
         );
         let t0 = Instant::now();
         // Try the CT2 daemon first when it's alive; any failure (including
@@ -900,19 +943,7 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
                 vtt_log!("Skipping blank transcription");
             } else if trimmed.chars().any(|c| c.is_alphanumeric()) {
                 vtt_log!("Transcription: {}", trimmed);
-
-                let corrected = corrections::apply(trimmed, &corrections);
-                let final_text = compose_final_text(is_truncated, &prefix, &corrected);
-                *last_transcription.lock().unwrap() = Some(final_text.clone());
-                archived_text = Some(corrected.clone());
-
-                typing_active.store(true, Ordering::SeqCst);
-                if append_newline && typing_has_output.load(Ordering::Relaxed) {
-                    typer.type_text("\n", newline_type);
-                }
-                typer.type_text(&final_text, newline_type);
-                typing_active.store(false, Ordering::SeqCst);
-                typing_has_output.store(true, Ordering::Relaxed);
+                archived_text = Some(corrections::apply(trimmed, &corrections));
             } else {
                 vtt_log!("Skipping punctuation-only transcription: {}", trimmed);
             }
@@ -920,10 +951,18 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
             vtt_log!("Transcription failed after {:.2}s", elapsed.as_secs_f64());
         }
 
+        if let Some(p) = part.filter(|p| p.last && p.index > 0) {
+            vtt_log!("Key released: typing {} segments in order", p.index + 1);
+        }
+        if let Some(text) = text_to_type(&mut held, part, archived_text.clone()) {
+            deliver(&text);
+        }
+
         // Archive the native-rate recording with its transcript (TASK-VTT150).
         // Only reached when the `archive` setting put a native buffer on this
         // work item, and only when there is a transcript to pair with it — a
-        // wav whose text is empty or filler is not a corpus row.
+        // wav whose text is empty or filler is not a corpus row. Each segment
+        // of a long hold is its own recording, with its own sidecar.
         if let (Some(native), Some(text)) = (
             native,
             archived_text.filter(|t| {
@@ -972,11 +1011,61 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
             save_and_cleanup(&archive_path, &data_dir);
         }
 
-        ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
-        ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
+        if !background {
+            ui_tx.send(tray::UiMessage::SetStatus("Ready".into())).ok();
+            ui_tx.send(tray::UiMessage::SetIcon("ready".into())).ok();
+        }
     }
 
     vtt_log!("Transcription worker stopped");
+}
+
+/// What to type now, after one segment's text is worked: nothing while the
+/// key is held, and with the release's segment every segment's text of the
+/// hold, in the order spoken (TASK-VTT195). `part` is None for a
+/// re-transcription, which is typed at once and never joins a hold.
+fn text_to_type(
+    held: &mut HeldText,
+    part: Option<audio::Part>,
+    text: Option<String>,
+) -> Option<String> {
+    let Some(part) = part else {
+        return text;
+    };
+    held.keep(part.index, text);
+    if !part.last {
+        return None;
+    }
+    Some(held.release()).filter(|all| !all.is_empty())
+}
+
+/// The text of a hold's segments, kept until the key comes up: nothing is
+/// typed while it is held (TASK-VTT195). Kept by segment index, so the text
+/// comes out in the order it was spoken, whatever order it was finished in.
+#[derive(Default)]
+struct HeldText {
+    parts: Vec<(u32, String)>,
+}
+
+impl HeldText {
+    /// Hold one segment's text; a segment that produced none adds nothing.
+    fn keep(&mut self, index: u32, text: Option<String>) {
+        if let Some(text) = text {
+            self.parts.push((index, text));
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.parts.is_empty()
+    }
+
+    /// Every held segment's text in segment order, leaving nothing held.
+    fn release(&mut self) -> String {
+        let mut parts = std::mem::take(&mut self.parts);
+        parts.sort_by_key(|&(index, _)| index);
+        let texts: Vec<String> = parts.into_iter().map(|(_, text)| text).collect();
+        whisper::join_trimmed(&texts)
+    }
 }
 
 /// Reload when the selected model or language no longer matches the loaded
@@ -1123,64 +1212,63 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
     } else {
         Some(settings.initial_prompt.as_str())
     };
-    // Long files (>5 min) are transcribed in bounded-memory chunks with
-    // progress on stderr (TASK-VTT130 criterion 3) rather than one call over
-    // the whole buffer. Short files (the overwhelming common case) take the
-    // unchanged single-call path — chunk_ranges returns exactly one range
-    // covering the whole buffer when it fits under the threshold.
-    let ranges = chunk_ranges(samples.len(), FILE_CHUNK_SAMPLES);
-    let mut text = String::new();
+    // A long file is cut exactly as a long hold is: at the first pause past
+    // the segment threshold, fed a second at a time (TASK-VTT195), so it
+    // never splits a word and `--file` reproduces the live cuts, with
+    // progress on stderr (TASK-VTT130 criterion 3). A file under the
+    // threshold is one segment, the unchanged single-call path.
+    let rate = whisper::WHISPER_INPUT_RATE;
+    let segments = file_segments(
+        &samples,
+        segment::Policy::new(rate, segment::live_threshold_secs()),
+    );
+    let mut parts = Vec::with_capacity(segments.len());
+    let mut start = 0usize;
     let t0 = Instant::now();
-    for (i, (start, end)) in ranges.iter().enumerate() {
-        if ranges.len() > 1 {
-            eprintln!("chunk {}/{}...", i + 1, ranges.len());
+    for (i, piece) in segments.iter().enumerate() {
+        if segments.len() > 1 {
+            eprintln!(
+                "segment {}/{} ({:.2}s-{:.2}s)...",
+                i + 1,
+                segments.len(),
+                start as f32 / rate as f32,
+                (start + piece.len()) as f32 / rate as f32
+            );
         }
-        let chunk_text =
-            engine.transcribe(&samples[*start..*end], &settings.selected_language, prompt)?;
-        if !chunk_text.trim().is_empty() {
-            if !text.is_empty() {
-                text.push(' ');
-            }
-            text.push_str(chunk_text.trim());
-        }
+        start += piece.len();
+        parts.push(engine.transcribe(piece, &settings.selected_language, prompt)?);
     }
     // Transcription time alone, model load excluded, so engines can be
     // compared from the command line (ADR-0011). Counts only, on stderr.
     eprintln!(
         "Transcribed {:.1}s of audio in {:.2}s ({})",
-        samples.len() as f32 / whisper::WHISPER_INPUT_RATE as f32,
+        samples.len() as f32 / rate as f32,
         t0.elapsed().as_secs_f32(),
         engine.model_name()
     );
-    let text = corrections::apply(text.trim(), &settings.corrections);
+    let text = corrections::apply(&whisper::join_trimmed(&parts), &settings.corrections);
     println!("{text}");
     Ok(())
 }
 
-/// Chunking threshold: over 5 minutes at 16 kHz mono. Chunking exists to
-/// bound memory and give the user visible progress on long inputs, not to
-/// change short-file behaviour — anything at or under this returns as a
-/// single range (TASK-VTT130).
-const FILE_CHUNK_SAMPLES: usize = 5 * 60 * whisper::WHISPER_INPUT_RATE as usize;
-
-/// Pure: split `total` samples into non-overlapping `(start, end)` ranges of
-/// at most `chunk_size` each. No overlap-and-trim — a word split exactly at
-/// a chunk boundary is a known, documented limitation, accepted in favour of
-/// not risking duplicated text from an overlap-deduplication step that has
-/// no simple correct implementation against whisper's segment timestamps.
-/// Testable without any audio or model dependency.
-fn chunk_ranges(total: usize, chunk_size: usize) -> Vec<(usize, usize)> {
-    if total == 0 {
-        return vec![(0, 0)];
+/// Cut decoded audio into segments the way a long hold is cut, feeding it a
+/// second at a time. Every sample lands in exactly one segment, and audio
+/// under the threshold is a single segment.
+fn file_segments(samples: &[f32], policy: segment::Policy) -> Vec<Vec<f32>> {
+    let mut segmenter = segment::Segmenter::new(policy);
+    let mut out = Vec::new();
+    for second in samples.chunks(whisper::WHISPER_INPUT_RATE as usize) {
+        segmenter.push(second);
+        // Bounded: a second of audio makes at most one cut due.
+        for _ in 0..8 {
+            match segmenter.take_due() {
+                Some(piece) => out.push(piece),
+                None => break,
+            }
+        }
     }
-    let mut ranges = Vec::new();
-    let mut start = 0;
-    while start < total {
-        let end = (start + chunk_size).min(total);
-        ranges.push((start, end));
-        start = end;
-    }
-    ranges
+    out.push(segmenter.finish());
+    out
 }
 
 /// Translate legacy settings.conf model names ("CT2 large-v3-turbo", "W medium")
@@ -1542,15 +1630,12 @@ fn ctrlc_handler<F: Fn() + Send + Sync + 'static>(f: F) {
 
 /// Pure: build the final text that gets typed, given the transcription.
 ///
-/// - If `is_truncated`, prepend `[Truncated] ` before the prefix.
-/// - Else if the transcription doesn't already start with the prefix,
-///   prepend the prefix (so the user isn't double-prefixed when Whisper
-///   echoes the prefix back from the prompt).
+/// - If the transcription doesn't already start with the prefix, prepend
+///   the prefix (so the user isn't double-prefixed when Whisper echoes the
+///   prefix back from the prompt).
 /// - Else return the trimmed text unchanged.
-fn compose_final_text(is_truncated: bool, prefix: &str, trimmed: &str) -> String {
-    if is_truncated {
-        format!("[Truncated] {}{}", prefix, trimmed)
-    } else if !trimmed.starts_with(prefix) {
+fn compose_final_text(prefix: &str, trimmed: &str) -> String {
+    if !trimmed.starts_with(prefix) {
         format!("{}{}", prefix, trimmed)
     } else {
         trimmed.to_string()
@@ -1605,79 +1690,157 @@ fn is_whisper_filler(trimmed: &str) -> bool {
 mod tests {
     use super::*;
 
-    #[test]
-    fn chunk_ranges_short_input_is_one_range_covering_everything() {
-        assert_eq!(chunk_ranges(1000, FILE_CHUNK_SAMPLES), vec![(0, 1000)]);
+    /// Speech-like audio at 16 kHz: 1.5 s phrases, each followed by half a
+    /// second of near-silence.
+    fn phrases_16k(secs: usize) -> Vec<f32> {
+        let rate = whisper::WHISPER_INPUT_RATE as usize;
+        (0..secs * rate)
+            .map(|i| {
+                if i % (2 * rate) < rate * 3 / 2 {
+                    0.3 * (i as f32 * 0.05).sin()
+                } else {
+                    0.0005
+                }
+            })
+            .collect()
     }
 
     #[test]
-    fn chunk_ranges_exact_multiple_splits_evenly_with_no_trailing_empty_range() {
-        assert_eq!(
-            chunk_ranges(2000, 1000),
-            vec![(0, 1000), (1000, 2000)],
-            "an exact multiple must not produce a trailing (2000, 2000) empty range"
+    fn file_segments_short_input_is_one_segment_covering_everything() {
+        let audio = phrases_16k(3);
+        let segments = file_segments(&audio, segment::Policy::new(16_000, 4.0));
+        assert_eq!(segments.len(), 1);
+        assert!(segments[0] == audio);
+    }
+
+    #[test]
+    fn file_segments_production_threshold_keeps_five_minutes_whole() {
+        // Under the four-minute threshold a file is one call, as before.
+        let audio = vec![0.1; 16_000 * 200];
+        let segments = file_segments(
+            &audio,
+            segment::Policy::new(16_000, segment::THRESHOLD_SECS),
         );
+        assert_eq!(segments.len(), 1);
     }
 
     #[test]
-    fn chunk_ranges_remainder_becomes_a_shorter_final_chunk() {
-        assert_eq!(
-            chunk_ranges(2500, 1000),
-            vec![(0, 1000), (1000, 2000), (2000, 2500)]
-        );
+    fn file_segments_cut_a_long_file_without_losing_a_sample() {
+        let audio = phrases_16k(30);
+        let segments = file_segments(&audio, segment::Policy::new(16_000, 4.0));
+        assert!(segments.len() >= 5, "{} segments", segments.len());
+        assert!(segments.concat() == audio, "samples lost, added or moved");
     }
 
-    #[test]
-    fn chunk_ranges_zero_total_is_one_empty_range_not_zero_ranges() {
-        // A caller iterating `ranges` must see at least one (possibly empty)
-        // chunk, never an empty Vec silently producing no transcription call.
-        assert_eq!(chunk_ranges(0, 1000), vec![(0, 0)]);
-    }
-
-    #[test]
-    fn chunk_ranges_covers_every_sample_exactly_once_for_many_sizes() {
-        for total in [0usize, 1, 999, 1000, 1001, 4_800_000, 4_800_001, 9_600_003] {
-            let ranges = chunk_ranges(total, FILE_CHUNK_SAMPLES);
-            let mut covered = 0usize;
-            for &(start, end) in &ranges {
-                assert_eq!(
-                    start, covered,
-                    "ranges must be contiguous, no gaps or overlap"
-                );
-                covered = end;
+    /// The segment position of a recording result, with its debug wav removed.
+    fn part_of(result: Option<RecordingResult>) -> audio::Part {
+        match result {
+            Some(RecordingResult::Audio { path, part, .. }) => {
+                std::fs::remove_file(&path).ok();
+                part
             }
-            assert_eq!(covered, total, "ranges must cover exactly `total` samples");
+            _ => panic!("expected a segment of audio"),
         }
     }
 
     #[test]
+    fn a_held_key_types_nothing_until_release_then_everything_in_order() {
+        // The held-key test, silent and in-process: 31 s of synthetic speech
+        // through the real capture path at a 4 s segment threshold, the real
+        // segment tick every second, the release through stop_recording, and
+        // the worker's real decision on what to type. No device, sound server
+        // or display is touched, and nothing is played.
+        let dev = audio::test_support::deviceless(4.0);
+        let speech = audio::test_support::phrases(31);
+        let mut held = HeldText::default();
+        let mut cut_while_held = 0;
+        dev.start_recording();
+        for (i, frame) in speech.chunks(480).enumerate() {
+            audio::test_support::feed(&dev, frame);
+            if (i + 1) % 100 == 0 {
+                if let Some(result) = dev.take_segment() {
+                    let part = part_of(Some(result));
+                    assert!(!part.last, "a segment cut while held is never the last");
+                    cut_while_held += 1;
+                    let text = format!("segment-{}", part.index);
+                    assert_eq!(
+                        text_to_type(&mut held, Some(part), Some(text)),
+                        None,
+                        "text was released for typing while the key was held"
+                    );
+                }
+            }
+        }
+        assert!(cut_while_held >= 4, "{cut_while_held} cuts in 31 s at 4 s");
+
+        let last = part_of(dev.stop_recording());
+        assert!(last.last, "the release ends the hold");
+        assert_eq!(
+            last.index, cut_while_held,
+            "the release's segment follows the cuts"
+        );
+        let typed = text_to_type(
+            &mut held,
+            Some(last),
+            Some(format!("segment-{}", last.index)),
+        );
+        let expected: Vec<String> = (0..=last.index).map(|i| format!("segment-{i}")).collect();
+        assert_eq!(
+            typed,
+            Some(expected.join(" ")),
+            "every segment, once, in order"
+        );
+        assert!(
+            held.is_empty(),
+            "nothing is left held for the next dictation"
+        );
+    }
+
+    #[test]
+    fn a_short_hold_and_a_retranscription_type_straight_away() {
+        let mut held = HeldText::default();
+        let whole = audio::Part::WHOLE;
+        assert_eq!(
+            text_to_type(&mut held, Some(whole), Some("hello".into())),
+            Some("hello".into())
+        );
+        assert_eq!(
+            text_to_type(&mut held, None, Some("again".into())),
+            Some("again".into())
+        );
+        assert_eq!(text_to_type(&mut held, Some(whole), None), None);
+    }
+
+    #[test]
+    fn held_text_comes_out_in_spoken_order_whatever_finished_first() {
+        // Segment 2 finishing before segments 0 and 1 must not reorder the
+        // typed text; a segment with no text leaves no gap or double space.
+        let mut held = HeldText::default();
+        held.keep(2, Some("third.".into()));
+        held.keep(0, Some("First,".into()));
+        held.keep(3, None);
+        held.keep(1, Some(" second, ".into()));
+        assert!(!held.is_empty());
+        assert_eq!(held.release(), "First, second, third.");
+        assert!(held.is_empty(), "a release leaves nothing held");
+        assert_eq!(held.release(), "", "nothing held types nothing");
+    }
+
+    #[test]
     fn compose_final_text_prepends_prefix_when_missing() {
-        let s = compose_final_text(false, "[Voice] ", "hello world");
+        let s = compose_final_text("[Voice] ", "hello world");
         assert_eq!(s, "[Voice] hello world");
     }
 
     #[test]
     fn compose_final_text_does_not_double_prefix() {
-        let s = compose_final_text(false, "[Voice] ", "[Voice] hello world");
+        let s = compose_final_text("[Voice] ", "[Voice] hello world");
         assert_eq!(s, "[Voice] hello world");
     }
 
     #[test]
-    fn compose_final_text_handles_truncated_flag() {
-        let s = compose_final_text(true, "[Voice] ", "hello world");
-        assert_eq!(s, "[Truncated] [Voice] hello world");
-    }
-
-    #[test]
-    fn compose_final_text_truncated_wins_over_prefix_check() {
-        // Even when the text already starts with prefix, truncated still prepends.
-        let s = compose_final_text(true, "[Voice] ", "[Voice] hello");
-        assert_eq!(s, "[Truncated] [Voice] [Voice] hello");
-    }
-
-    #[test]
     fn compose_final_text_empty_prefix_returns_trimmed_unchanged() {
-        let s = compose_final_text(false, "", "hello");
+        let s = compose_final_text("", "hello");
         assert_eq!(
             s, "hello",
             "empty prefix means every string already 'starts with' it"
@@ -1686,7 +1849,7 @@ mod tests {
 
     #[test]
     fn compose_final_text_unicode_prefix_and_body_roundtrip() {
-        let s = compose_final_text(false, "[£ é] ", "£100 an hour");
+        let s = compose_final_text("[£ é] ", "£100 an hour");
         assert_eq!(s, "[£ é] £100 an hour");
     }
 
