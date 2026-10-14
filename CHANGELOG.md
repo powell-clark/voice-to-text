@@ -9,6 +9,32 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.5.1] — 2026-10-14
+
+### Changed
+- **Hold the key for as long as you talk.** The five-minute recording limit
+  is gone, and so is the "Recording limit reached" notification. While the
+  key stays held, a long dictation is cut into segments of about four
+  minutes, each at a pause between words, and each is transcribed in the
+  background while you keep talking. Nothing is typed while the key is down:
+  when you let go, the whole dictation is typed in order into the window
+  that has focus, just as a short one is. A long dictation finishes sooner
+  after you let go, because only its last few minutes are still to
+  transcribe. With archiving on, each segment is archived as its own
+  recording, with its own sidecar.
+- **`vtt --file` cuts long files at pauses.** A file over four minutes is
+  cut the way a held key is, at the first pause after every four minutes,
+  rather than every five minutes wherever that falls, so a word is no
+  longer split between two pieces.
+- **If a key release is ever lost, the safety stop comes after an hour,**
+  rather than five minutes, and it types everything captured.
+
+### Added
+- **A release smoke test.** Run by hand from GitHub Actions (Smoke), it
+  builds the app on Linux and transcribes a short public-domain speech clip
+  with Whisper small.en and with Parakeet, failing if the engine crashes,
+  prints nothing or misses the expected words.
+
 ## [2.5.0] — 2026-10-13
 
 ### Added

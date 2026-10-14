@@ -1,3 +1,23 @@
+voice-to-text (2.5.1) noble; urgency=medium
+
+  * feat(audio): hold the key for as long as you talk. The five-minute
+    recording limit and its "Recording limit reached" notification are
+    gone. While the key is held, a long dictation is cut into segments of
+    about four minutes, each at a pause between words, and transcribed in
+    the background. Nothing is typed until the key is released; then the
+    whole dictation is typed in order into the focused window. With
+    archiving on, each segment is archived as its own recording and
+    sidecar. A lost key release is now stopped after an hour, not five
+    minutes, and still types everything captured.
+  * feat(file): `vtt --file` cuts files over four minutes at pauses, the
+    same way, instead of every five minutes wherever that falls.
+  * ci: a release smoke test, run by hand, builds the app on Linux and
+    transcribes a short public-domain speech clip with Whisper small.en and
+    with Parakeet, failing if the engine crashes, prints nothing or misses
+    the expected words.
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Wed, 14 Oct 2026 20:26:04 +0100
+
 voice-to-text (2.5.0) noble; urgency=medium
 
   * feat(engine): a second speech engine, NVIDIA Parakeet TDT 0.6B v3. Pick
