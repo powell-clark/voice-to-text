@@ -15,8 +15,11 @@ voice-to-text (2.5.1) noble; urgency=medium
     transcribes a short public-domain speech clip with Whisper small.en and
     with Parakeet, failing if the engine crashes, prints nothing or misses
     the expected words.
+  * security(deps): rustls 0.23.46 for model downloads clears
+    RUSTSEC-2026-0346, RUSTSEC-2026-0347, RUSTSEC-2026-0348 and
+    RUSTSEC-2026-0349.
 
- -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Wed, 14 Oct 2026 20:26:04 +0100
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Wed, 14 Oct 2026 20:34:17 +0100
 
 voice-to-text (2.5.0) noble; urgency=medium
 

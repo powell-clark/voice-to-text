@@ -35,6 +35,11 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   with Whisper small.en and with Parakeet, failing if the engine crashes,
   prints nothing or misses the expected words.
 
+### Security
+- **rustls 0.23.46 for model downloads**, clearing RUSTSEC-2026-0346,
+  RUSTSEC-2026-0347, RUSTSEC-2026-0348 and RUSTSEC-2026-0349, all
+  published on 14 October 2026 against 0.23.45.
+
 ## [2.5.0] — 2026-10-13
 
 ### Added
