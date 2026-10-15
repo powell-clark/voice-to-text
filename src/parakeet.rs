@@ -22,6 +22,13 @@ use whisper_rs_sys as sys;
 
 /// One second of silence at 16 kHz: enough to run every graph once.
 const WARM_UP_SAMPLES: usize = crate::whisper::WHISPER_INPUT_RATE as usize;
+/// Recordings longer than this are decoded in chunks (TASK-VTT199). Fed an
+/// 84 s dictation whole, Parakeet dropped three whole phrases, the last
+/// sentence among them; the same audio in 20 s pieces lost none.
+const CHUNK_SECS: f32 = 20.0;
+/// How long past `CHUNK_SECS` a chunk waits for a pause before it is cut at
+/// the quietest stretch instead, so no chunk runs past 30 s.
+const CHUNK_PAUSE_WAIT_SECS: f32 = 10.0;
 
 pub struct ParakeetEngine {
     ctx: NonNull<sys::parakeet_context>,
@@ -77,10 +84,31 @@ impl ParakeetEngine {
         Ok(engine)
     }
 
-    /// Transcribe raw 16 kHz mono f32 PCM in one `parakeet_full` call. Each
-    /// call starts from a cleared decoder state, so no text or LSTM state
-    /// crosses from one dictation to the next.
+    /// Transcribe raw 16 kHz mono f32 PCM. A recording up to `CHUNK_SECS` is
+    /// one `parakeet_full` call, as it always was; a longer one is cut at
+    /// pauses into chunks of about that length, each decoded on its own, and
+    /// their text joined in order (TASK-VTT199).
     pub fn transcribe(&self, samples: &[f32]) -> anyhow::Result<String> {
+        let chunks = chunk_ranges(samples);
+        if chunks.len() == 1 {
+            return self.transcribe_once(samples);
+        }
+        let texts: anyhow::Result<Vec<String>> = chunks
+            .iter()
+            .map(|&(start, end)| self.transcribe_once(&samples[start..end]))
+            .collect();
+        crate::whisper::note(&format!(
+            "Parakeet: {:.1}s recording decoded as {} chunks cut at pauses",
+            samples.len() as f32 / crate::whisper::WHISPER_INPUT_RATE as f32,
+            chunks.len()
+        ));
+        Ok(crate::whisper::join_trimmed(&texts?))
+    }
+
+    /// One `parakeet_full` call over `samples`. Each call starts from a
+    /// cleared decoder state, so no text or LSTM state crosses from one
+    /// dictation, or one chunk, to the next.
+    fn transcribe_once(&self, samples: &[f32]) -> anyhow::Result<String> {
         if samples.is_empty() {
             return Ok(String::new());
         }
@@ -132,6 +160,19 @@ impl Drop for ParakeetEngine {
     }
 }
 
+/// Pure: where a recording at 16 kHz is cut for Parakeet. Up to `CHUNK_SECS`
+/// it is one range, the whole recording, untouched; longer, it is cut at the
+/// first pause after every `CHUNK_SECS`, by the same rules that cut a held
+/// key's capture, into contiguous ranges covering every sample.
+fn chunk_ranges(samples: &[f32]) -> Vec<(usize, usize)> {
+    let rate = crate::whisper::WHISPER_INPUT_RATE;
+    if samples.len() as f32 <= CHUNK_SECS * rate as f32 {
+        return vec![(0, samples.len())];
+    }
+    let policy = crate::segment::Policy::with_wait(rate, CHUNK_SECS, CHUNK_PAUSE_WAIT_SECS);
+    crate::segment::split(samples, rate, policy)
+}
+
 /// Route Parakeet's own log lines: errors to the log (or stderr in `--file`
 /// mode), everything else dropped, matching what whisper-rs's hooks do for
 /// whisper.cpp. Parakeet would otherwise print every load and timing line to
@@ -168,5 +209,42 @@ mod tests {
         // it into a tray "model failed" status like it does for Whisper.
         let missing = Path::new("this-parakeet-model-does-not-exist-zzz.bin");
         assert!(ParakeetEngine::new(missing, "ghost").is_err());
+    }
+
+    use crate::segment::test_support::{dictation, secs};
+
+    #[test]
+    fn a_recording_up_to_the_chunk_length_is_decoded_whole() {
+        // Today's path, exactly: one range, the whole buffer.
+        for len in [0, 1, secs(5.0), secs(CHUNK_SECS)] {
+            assert_eq!(chunk_ranges(&vec![0.1; len]), vec![(0, len)]);
+        }
+    }
+
+    #[test]
+    fn a_long_recording_is_cut_into_chunks_covering_every_sample() {
+        let (audio, _) = dictation(84.0, 11);
+        let ranges = chunk_ranges(&audio);
+        assert!(ranges.len() >= 3, "{} chunks in 84 s", ranges.len());
+        let mut at = 0;
+        for &(start, end) in &ranges {
+            assert_eq!(start, at, "chunks must be contiguous");
+            assert!(end - start <= secs(CHUNK_SECS + CHUNK_PAUSE_WAIT_SECS));
+            at = end;
+        }
+        assert_eq!(at, audio.len(), "chunks must cover the whole recording");
+    }
+
+    #[test]
+    fn no_chunk_boundary_splits_a_word() {
+        for seed in 1..=30 {
+            let (audio, words) = dictation(120.0, seed);
+            let ranges = chunk_ranges(&audio);
+            for &(_, cut) in &ranges[..ranges.len() - 1] {
+                if let Some(&(s, e)) = words.iter().find(|&&(s, e)| s < cut && cut < e) {
+                    panic!("seed {seed}: chunk cut at {cut} splits the word {s}..{e}");
+                }
+            }
+        }
     }
 }

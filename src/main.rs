@@ -1218,25 +1218,24 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
     // progress on stderr (TASK-VTT130 criterion 3). A file under the
     // threshold is one segment, the unchanged single-call path.
     let rate = whisper::WHISPER_INPUT_RATE;
-    let segments = file_segments(
+    let segments = segment::split(
         &samples,
+        rate,
         segment::Policy::new(rate, segment::live_threshold_secs()),
     );
     let mut parts = Vec::with_capacity(segments.len());
-    let mut start = 0usize;
     let t0 = Instant::now();
-    for (i, piece) in segments.iter().enumerate() {
+    for (i, &(start, end)) in segments.iter().enumerate() {
         if segments.len() > 1 {
             eprintln!(
                 "segment {}/{} ({:.2}s-{:.2}s)...",
                 i + 1,
                 segments.len(),
                 start as f32 / rate as f32,
-                (start + piece.len()) as f32 / rate as f32
+                end as f32 / rate as f32
             );
         }
-        start += piece.len();
-        parts.push(engine.transcribe(piece, &settings.selected_language, prompt)?);
+        parts.push(engine.transcribe(&samples[start..end], &settings.selected_language, prompt)?);
     }
     // Transcription time alone, model load excluded, so engines can be
     // compared from the command line (ADR-0011). Counts only, on stderr.
@@ -1249,26 +1248,6 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
     let text = corrections::apply(&whisper::join_trimmed(&parts), &settings.corrections);
     println!("{text}");
     Ok(())
-}
-
-/// Cut decoded audio into segments the way a long hold is cut, feeding it a
-/// second at a time. Every sample lands in exactly one segment, and audio
-/// under the threshold is a single segment.
-fn file_segments(samples: &[f32], policy: segment::Policy) -> Vec<Vec<f32>> {
-    let mut segmenter = segment::Segmenter::new(policy);
-    let mut out = Vec::new();
-    for second in samples.chunks(whisper::WHISPER_INPUT_RATE as usize) {
-        segmenter.push(second);
-        // Bounded: a second of audio makes at most one cut due.
-        for _ in 0..8 {
-            match segmenter.take_due() {
-                Some(piece) => out.push(piece),
-                None => break,
-            }
-        }
-    }
-    out.push(segmenter.finish());
-    out
 }
 
 /// Translate legacy settings.conf model names ("CT2 large-v3-turbo", "W medium")
@@ -1690,46 +1669,15 @@ fn is_whisper_filler(trimmed: &str) -> bool {
 mod tests {
     use super::*;
 
-    /// Speech-like audio at 16 kHz: 1.5 s phrases, each followed by half a
-    /// second of near-silence.
-    fn phrases_16k(secs: usize) -> Vec<f32> {
-        let rate = whisper::WHISPER_INPUT_RATE as usize;
-        (0..secs * rate)
-            .map(|i| {
-                if i % (2 * rate) < rate * 3 / 2 {
-                    0.3 * (i as f32 * 0.05).sin()
-                } else {
-                    0.0005
-                }
-            })
-            .collect()
-    }
-
     #[test]
-    fn file_segments_short_input_is_one_segment_covering_everything() {
-        let audio = phrases_16k(3);
-        let segments = file_segments(&audio, segment::Policy::new(16_000, 4.0));
-        assert_eq!(segments.len(), 1);
-        assert!(segments[0] == audio);
-    }
-
-    #[test]
-    fn file_segments_production_threshold_keeps_five_minutes_whole() {
+    fn file_mode_keeps_a_file_under_the_threshold_whole() {
         // Under the four-minute threshold a file is one call, as before.
         let audio = vec![0.1; 16_000 * 200];
-        let segments = file_segments(
-            &audio,
-            segment::Policy::new(16_000, segment::THRESHOLD_SECS),
+        let policy = segment::Policy::new(16_000, segment::THRESHOLD_SECS);
+        assert_eq!(
+            segment::split(&audio, 16_000, policy),
+            vec![(0, audio.len())]
         );
-        assert_eq!(segments.len(), 1);
-    }
-
-    #[test]
-    fn file_segments_cut_a_long_file_without_losing_a_sample() {
-        let audio = phrases_16k(30);
-        let segments = file_segments(&audio, segment::Policy::new(16_000, 4.0));
-        assert!(segments.len() >= 5, "{} segments", segments.len());
-        assert!(segments.concat() == audio, "samples lost, added or moved");
     }
 
     /// The segment position of a recording result, with its debug wav removed.

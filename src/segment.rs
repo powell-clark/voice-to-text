@@ -45,12 +45,17 @@ impl Policy {
     /// Cut audio at `rate` Hz at the first pause after `threshold_secs`, and
     /// `PAUSE_WAIT_SECS` later at the latest.
     pub fn new(rate: u32, threshold_secs: f32) -> Self {
+        Self::with_wait(rate, threshold_secs, PAUSE_WAIT_SECS)
+    }
+
+    /// As `new`, waiting `wait_secs` past the threshold for a pause.
+    pub fn with_wait(rate: u32, threshold_secs: f32, wait_secs: f32) -> Self {
         let frames = |secs: f32| ((secs.max(0.0) * 1000.0) as usize / FRAME_MS).max(1);
         let threshold = frames(threshold_secs);
         Self {
             frame: (rate as usize * FRAME_MS / 1000).max(1),
             threshold,
-            cap: frames(threshold_secs + PAUSE_WAIT_SECS).max(threshold + 1),
+            cap: frames(threshold_secs + wait_secs).max(threshold + 1),
             pause: PAUSE_MS / FRAME_MS,
         }
     }
@@ -59,6 +64,28 @@ impl Policy {
     pub fn threshold_secs(&self) -> f32 {
         (self.threshold * FRAME_MS) as f32 / 1000.0
     }
+}
+
+/// Pure: cut audio already in hand, at `rate` Hz, the way a hold is cut
+/// live, feeding it a second at a time. Returns contiguous sample ranges
+/// covering all of it; audio under the threshold is a single range.
+pub fn split(samples: &[f32], rate: u32, policy: Policy) -> Vec<(usize, usize)> {
+    let mut segmenter = Segmenter::new(policy);
+    let mut ranges = Vec::new();
+    let mut start = 0;
+    for second in samples.chunks((rate as usize).max(1)) {
+        segmenter.push(second);
+        // Bounded: a second of audio makes at most one cut due.
+        for _ in 0..8 {
+            let Some(piece) = segmenter.take_due() else {
+                break;
+            };
+            ranges.push((start, start + piece.len()));
+            start += piece.len();
+        }
+    }
+    ranges.push((start, samples.len()));
+    ranges
 }
 
 /// The threshold holds and `--file` run on: `THRESHOLD_SECS`, or the
@@ -181,29 +208,27 @@ fn quietest_stretch(energy: &[f64], from: usize, to: usize, width: usize) -> usi
     best.0 + width / 2
 }
 
+/// Synthetic speech for this module's tests and the engines' chunking
+/// tests: silent, deterministic, and with every word's span known.
 #[cfg(test)]
-mod tests {
-    use super::*;
+pub(crate) mod test_support {
+    pub(crate) const RATE: u32 = 16_000;
 
-    const RATE: u32 = 16_000;
-    /// The shrunk threshold every test cuts at.
-    const TEST_SECS: f32 = 4.0;
-
-    fn secs(s: f32) -> usize {
+    pub(crate) fn secs(s: f32) -> usize {
         (s * RATE as f32) as usize
     }
 
     /// Deterministic pseudo-random numbers, so a failing case replays.
-    struct Lcg(u64);
+    pub(crate) struct Lcg(pub(crate) u64);
     impl Lcg {
-        fn next(&mut self) -> f32 {
+        pub(crate) fn next(&mut self) -> f32 {
             self.0 = self
                 .0
                 .wrapping_mul(6_364_136_223_846_793_005)
                 .wrapping_add(1_442_695_040_888_963_407);
             ((self.0 >> 33) as f32) / (1u64 << 31) as f32
         }
-        fn between(&mut self, lo: f32, hi: f32) -> f32 {
+        pub(crate) fn between(&mut self, lo: f32, hi: f32) -> f32 {
             lo + (hi - lo) * self.next()
         }
     }
@@ -216,7 +241,7 @@ mod tests {
     /// Speech-like audio: words of noisy tone separated by short gaps, and a
     /// longer pause after every sentence of a few words, over a faint noise
     /// floor. Returns the audio and the sample span of every word.
-    fn dictation(total_secs: f32, seed: u64) -> (Vec<f32>, Vec<(usize, usize)>) {
+    pub(crate) fn dictation(total_secs: f32, seed: u64) -> (Vec<f32>, Vec<(usize, usize)>) {
         let mut rng = Lcg(seed);
         let total = secs(total_secs);
         let mut audio = Vec::with_capacity(total);
@@ -249,6 +274,15 @@ mod tests {
         audio.truncate(total);
         (audio, words)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::test_support::*;
+    use super::*;
+
+    /// The shrunk threshold every test cuts at.
+    const TEST_SECS: f32 = 4.0;
 
     /// Feed `audio` the way the live capture does, a second at a time, taking
     /// every segment as it falls due; the remainder is the last segment.
@@ -386,6 +420,45 @@ mod tests {
         assert_eq!(segments.len(), 3, "{} segments", segments.len());
         assert_eq!(segments[0].len(), secs(TEST_SECS));
         assert_eq!(segments.concat().len(), secs(11.0));
+    }
+
+    #[test]
+    fn split_gives_the_live_cuts_as_ranges_covering_everything() {
+        let (audio, _) = dictation(60.0, 3);
+        let policy = Policy::new(RATE, TEST_SECS);
+        let ranges = split(&audio, RATE, policy);
+        let live = segment(&audio, policy);
+        assert_eq!(ranges.len(), live.len());
+        let mut at = 0;
+        for (&(start, end), piece) in ranges.iter().zip(&live) {
+            assert_eq!(start, at, "ranges must be contiguous");
+            assert!(
+                audio[start..end] == piece[..],
+                "a range differs from the live cut"
+            );
+            at = end;
+        }
+        assert_eq!(at, audio.len());
+        assert_eq!(
+            split(&audio[..secs(3.0)], RATE, policy),
+            vec![(0, secs(3.0))]
+        );
+        assert_eq!(split(&[], RATE, policy), vec![(0, 0)]);
+    }
+
+    #[test]
+    fn a_shorter_wait_caps_a_segment_sooner() {
+        // Unbroken sound has no pause, so the cut comes at the cap: 4 s
+        // threshold plus 2 s of waiting.
+        let tone: Vec<f32> = (0..secs(20.0))
+            .map(|i| 0.3 * (i as f32 * 0.05).sin())
+            .collect();
+        let policy = Policy::with_wait(RATE, TEST_SECS, 2.0);
+        let ranges = split(&tone, RATE, policy);
+        assert!(ranges.len() >= 3, "{ranges:?}");
+        assert!(ranges[..ranges.len() - 1]
+            .iter()
+            .all(|&(s, e)| e - s <= secs(6.0)));
     }
 
     #[test]
