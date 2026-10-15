@@ -17,4 +17,3 @@
 # committed to git.
 
 voice-to-text source: source-is-missing [packaging/linux/vtt.prebuilt]
-voice-to-text source: source-is-missing [vtt]
