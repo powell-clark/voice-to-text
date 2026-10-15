@@ -11,7 +11,7 @@ name: Release
 #     v2.3.4/2.3.5). Release jobs therefore run with RUSTFLAGS unset.
 #   * Every job has a timeout so a hung/queued runner can't stall a release.
 #   * publish-release waits only on the three always-available runners
-#     (Linux, Windows, macos-latest/arm64). The scarce macos-13 Intel runner is
+#     (Linux, Windows, macos-latest/arm64). The macos-15-intel runner is
 #     decoupled: it attaches its asset best-effort whenever it gets scheduled,
 #     and never blocks the publish.
 #
@@ -203,16 +203,18 @@ jobs:
           files: vtt-macos-arm64
           draft: true
 
-  # Intel x86_64 on macos-13. macos-13 (Intel) runners are scarce and can queue
-  # for a long time, so this job is DECOUPLED from publish-release: it is not in
-  # publish's needs, and it attaches its asset with `gh release upload` (which
-  # never alters the release's draft/latest state) so a late finish quietly adds
-  # the Intel binary to an already-published release instead of re-drafting it.
+  # Intel x86_64 on macos-15-intel, a standard runner for public repos
+  # (macos-13 is retired; a job asking for it queues and never runs). Intel
+  # runners can still queue for a long time, so this job is DECOUPLED from
+  # publish-release: it is not in publish's needs, and it attaches its asset
+  # with `gh release upload` (which never alters the release's draft/latest
+  # state) so a late finish quietly adds the Intel binary to an
+  # already-published release instead of re-drafting it.
   # A universal binary via lipo (TASK-VTT104) is the eventual consolidation.
   build-macos-intel:
     name: Build macOS binary (Intel) [best-effort]
     needs: build-and-release
-    runs-on: macos-13
+    runs-on: macos-15-intel
     timeout-minutes: 30
     permissions:
       contents: write
@@ -252,7 +254,7 @@ jobs:
 
   publish-release:
     name: Publish release (un-draft once core assets are uploaded)
-    # Intentionally NOT depending on build-macos-intel — the scarce Intel runner
+    # Intentionally NOT depending on build-macos-intel — the Intel runner
     # must never block a publish. Intel attaches best-effort (see that job).
     needs: [build-and-release, build-windows-msi, build-macos-arm]
     runs-on: ubuntu-24.04
