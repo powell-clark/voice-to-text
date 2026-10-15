@@ -24,7 +24,14 @@ sudo add-apt-repository ppa:powellclark/voice-to-text
 sudo apt update && sudo apt install voice-to-text
 ```
 
-**macOS** — download the binary for your chip from the
+**macOS (Homebrew)**
+```bash
+brew install powell-clark/voice-to-text/voice-to-text
+```
+Builds from source with Metal acceleration, so the first install takes a few
+minutes. Then start it with `vtt`.
+
+**macOS (binary)** — download the binary for your chip from the
 [latest release](https://github.com/powell-clark/voice-to-text/releases/latest)
 (**`vtt-macos-intel`** or **`vtt-macos-arm64`**), then:
 ```bash
@@ -43,7 +50,8 @@ settings.
 - **Windows** — download and run a newer `voice-to-text-installer.msi`; it
   upgrades in place over the previous install (no manual uninstall needed).
   Settings and downloaded models are preserved.
-- **macOS** — download a new binary and replace the old one (no installer yet).
+- **macOS** — `brew upgrade voice-to-text` for a Homebrew install; otherwise
+  download a new binary and replace the old one.
 
 The app also checks GitHub Releases for a newer version at launch and, if one
 exists, adds an **"Update available: vX.Y.Z"** item to the tray menu linking to
