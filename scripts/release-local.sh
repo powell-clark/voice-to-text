@@ -65,8 +65,7 @@ if [ ! -f "$DEB" ]; then
     exit 1
 fi
 
-echo "[4/4] Built: $(realpath "$DEB") ($(du -h "$DEB" | cut -f1))"
-echo ""
+echo "[4/4] Built: $(basename "$DEB") ($(du -h "$DEB" | cut -f1))"
 
 # Stage in /tmp (world-readable) before apt install: apt's sandboxed _apt
 # user can't read files under a home directory locked down to 700, which
@@ -74,6 +73,21 @@ echo ""
 STAGED_DEB="/tmp/$(basename "$DEB")"
 cp "$DEB" "$STAGED_DEB"
 chmod 644 "$STAGED_DEB"
+
+# debuild writes the .deb, .build, .buildinfo and .changes beside the repo,
+# in the parent folder. Move this run's into build-archives/, as
+# release-ppa.sh does, so the parent folder is left as it was; the staged
+# copy above is the one to install.
+mkdir -p build-archives
+archived=0
+for f in ../voice-to-text_"${VERSION}"_*; do
+    if [ -f "$f" ]; then
+        mv -f "$f" build-archives/
+        archived=$((archived + 1))
+    fi
+done
+echo "  Staged $STAGED_DEB; archived $archived build output(s) to build-archives/"
+echo ""
 
 if [ "$INSTALL" = true ]; then
     echo "=== Installing (you may be prompted for sudo) ==="
