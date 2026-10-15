@@ -1,0 +1,143 @@
+name: WiX check
+
+# Builds the Windows installer exactly as release.yml's Windows job does, but
+# uploads it as a workflow artifact instead of attaching it to a release, so
+# an installer change can be proven on main before a tag. A second job
+# unpacks the installer's vtt.exe and transcribes the smoke-test clip with
+# it. Run by hand (Actions > WiX check > Run workflow); never on push.
+# GitHub-hosted standard runners only. No secrets.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_NET_RETRY: "10"
+  CARGO_HTTP_MULTIPLEXING: "false"
+
+jobs:
+  build-msi:
+    name: build the .msi (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      # As release.yml: whisper.cpp's Vulkan sub-build passes Windows'
+      # 260-character MAX_PATH under the default target dir.
+      CARGO_TARGET_DIR: C:\t
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Install WiX Toolset 3.x
+        run: choco install wixtoolset -y --no-progress
+
+      - name: Install cargo-wix
+        run: cargo install --locked cargo-wix
+
+      - name: Install Vulkan SDK
+        shell: pwsh
+        run: |
+          $ver = "1.4.350.0"
+          $url = "https://sdk.lunarg.com/sdk/download/$ver/windows/vulkansdk-windows-X64-$ver.exe"
+          Invoke-WebRequest -Uri $url -OutFile "$env:RUNNER_TEMP\vulkan-sdk.exe"
+          Start-Process -FilePath "$env:RUNNER_TEMP\vulkan-sdk.exe" `
+            -ArgumentList "--accept-licenses","--default-answer","--confirm-command","install" -Wait
+          "VULKAN_SDK=C:\VulkanSDK\$ver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "C:\VulkanSDK\$ver\Bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      - name: Build release binary
+        run: cargo build --release
+        env:
+          RUSTFLAGS: ""
+
+      # As release.yml, plus --nocapture so candle's and light's own messages
+      # reach the log if either fails.
+      - name: Build .msi installer
+        run: cargo wix --no-build --nocapture --output "target\wix\voice-to-text-installer.msi"
+
+      - name: Upload the .msi
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-to-text-installer
+          path: target\wix\voice-to-text-installer.msi
+          retention-days: 7
+          if-no-files-found: error
+
+  smoke-msi:
+    name: transcribe with the .msi's vtt.exe (windows-latest)
+    needs: build-msi
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Take the .msi from the build job
+        uses: actions/download-artifact@v4
+        with:
+          name: voice-to-text-installer
+          path: release
+
+      - name: Unpack vtt.exe from the installer
+        shell: pwsh
+        run: |
+          $msi = Join-Path $PWD "release\voice-to-text-installer.msi"
+          $dir = Join-Path $PWD "unpacked"
+          $p = Start-Process msiexec.exe -ArgumentList "/a `"$msi`" /qn TARGETDIR=`"$dir`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "msiexec /a exited $($p.ExitCode)" }
+          $exe = Get-ChildItem -Path $dir -Recurse -Filter vtt.exe | Select-Object -First 1
+          if (-not $exe) { throw "vtt.exe not found in the installer" }
+          "VTT_BIN=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # The Windows build links the Vulkan loader, which GPU drivers install
+      # and the installer does not ship. A runner without it gets the runtime
+      # here, with a warning, so the engine itself is still tested.
+      - name: Check for the Vulkan loader
+        shell: pwsh
+        run: |
+          $dll = Join-Path $env:SystemRoot "System32\vulkan-1.dll"
+          if (Test-Path $dll) { "vulkan-1.dll is present on the runner"; exit 0 }
+          "::warning::vulkan-1.dll is absent on the runner. The installer does not ship it, so a PC with no GPU driver could not start vtt. Installing the Vulkan runtime to test the engine."
+          $ver = "1.4.350.0"
+          $exe = Join-Path $env:RUNNER_TEMP "vulkan-runtime.exe"
+          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/$ver/windows/VulkanRT-X64-$ver-Installer.exe" -OutFile $exe
+          Start-Process -FilePath $exe -ArgumentList "/S" -Wait
+          if (-not (Test-Path $dll)) { throw "the Vulkan runtime installer did not provide vulkan-1.dll" }
+          "vulkan-1.dll installed"
+
+      # Same key as smoke.yml's Windows runs, so either warms the other.
+      - name: Cache speech models
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Local/voice-to-text/models
+          key: vtt-models-windows-latest-${{ hashFiles('src/models.rs') }}
+
+      - name: Name the binary under test
+        run: |
+          bin="$(cygpath -u "$VTT_BIN")"
+          ls -l "$bin"
+          "$bin" --version
+
+      - name: Whisper (small.en)
+        run: >
+          bash scripts/ci/smoke-transcribe.sh "$VTT_BIN" small.en
+          tests/fixtures/jfk-ask-not.mp3 americans ask country
+
+      - name: Parakeet (parakeet-v3)
+        run: >
+          bash scripts/ci/smoke-transcribe.sh "$VTT_BIN" parakeet-v3
+          tests/fixtures/jfk-ask-not.mp3 americans ask country
