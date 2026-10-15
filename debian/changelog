@@ -1,3 +1,20 @@
+voice-to-text (2.5.2) noble; urgency=medium
+
+  * fix(parakeet): a recording longer than 20 seconds is decoded in chunks
+    cut at pauses and the text joined in order, so a long Parakeet
+    dictation no longer loses whole sentences. Recordings of 20 seconds or
+    less are decoded exactly as before; Whisper is unchanged.
+  * fix(windows): the installer's icon path now resolves where the WiX
+    linker looks, so the Windows installer builds again.
+  * ci(release): the Intel macOS binary builds on macos-15-intel; the
+    macos-13 runner it asked for no longer exists.
+  * build: scripts/release-local.sh moves its .deb, .build, .buildinfo and
+    .changes into build-archives/, leaving the parent folder as it was.
+  * build: drop a lintian override for a file the source package no longer
+    contains.
+
+ -- Emmanuel Powell-Clark <emmanuel@powellclark.com>  Thu, 15 Oct 2026 01:19:29 +0100
+
 voice-to-text (2.5.1) noble; urgency=medium
 
   * feat(audio): hold the key for as long as you talk. The five-minute

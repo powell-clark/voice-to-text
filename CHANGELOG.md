@@ -9,6 +9,27 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.5.2] — 2026-10-15
+
+### Fixed
+- **Long Parakeet dictations arrive whole.** Parakeet now decodes a
+  recording longer than 20 seconds in chunks cut at pauses between words,
+  then joins the text in order. Fed whole, an 84-second dictation lost two
+  sentences near its end; decoded in chunks, it kept them. Recordings of 20
+  seconds or less are decoded exactly as before, and Whisper is unchanged.
+- **The Windows installer builds again.** The installer named its icon by a
+  path the build tools could not find, so the 2.5.1 build produced no
+  Windows installer.
+- **Intel Macs get a binary again.** The release built it on a GitHub runner
+  that no longer exists; it now builds on the current Intel runner.
+
+### Changed
+- Local `.deb` builds (`scripts/release-local.sh`) leave nothing in the
+  folder above the repository: the `.deb`, `.build`, `.buildinfo` and
+  `.changes` go to `build-archives/`, as PPA releases' already do.
+- The PPA source package drops a lintian override for a file it no longer
+  contains.
+
 ## [2.5.1] — 2026-10-14
 
 ### Changed
