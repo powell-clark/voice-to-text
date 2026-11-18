@@ -22,6 +22,7 @@ mod models;
 mod parakeet;
 mod segment;
 mod settings;
+mod textformat;
 mod transcribe;
 mod tray;
 mod typing;
@@ -891,7 +892,9 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
         let s = settings.read().unwrap();
         let language = s.selected_language.clone();
         let prompt = s.initial_prompt.clone();
-        let corrections = s.corrections.clone();
+        // The whole snapshot, so formatting and corrections both use the
+        // settings in force when this segment started.
+        let finishing = s.clone();
         drop(s);
 
         vtt_log!(
@@ -943,7 +946,7 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
                 vtt_log!("Skipping blank transcription");
             } else if trimmed.chars().any(|c| c.is_alphanumeric()) {
                 vtt_log!("Transcription: {}", trimmed);
-                archived_text = Some(corrections::apply(trimmed, &corrections));
+                archived_text = Some(finish_transcript(trimmed, &finishing));
             } else {
                 vtt_log!("Skipping punctuation-only transcription: {}", trimmed);
             }
@@ -1202,7 +1205,8 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
     eprintln!();
 
     let engine = engine::Engine::load(info, &model_path)?;
-    // Pass the initial prompt and apply corrections, exactly as the live path
+    // Pass the initial prompt and finish the text (formatting, then
+    // corrections, TASK-VTT208) exactly as the live path
     // does. Batch mode exists to reproduce what the hotkey produces; dropping
     // the prompt made it silently disagree with the app it is meant to debug,
     // and made an A/B over settings return "no difference" for every prompt
@@ -1245,7 +1249,7 @@ fn run_file_mode(path: Option<&str>) -> anyhow::Result<()> {
         t0.elapsed().as_secs_f32(),
         engine.model_name()
     );
-    let text = corrections::apply(&whisper::join_trimmed(&parts), &settings.corrections);
+    let text = finish_transcript(&whisper::join_trimmed(&parts), &settings);
     println!("{text}");
     Ok(())
 }
@@ -1607,6 +1611,15 @@ fn ctrlc_handler<F: Fn() + Send + Sync + 'static>(f: F) {
     }
 }
 
+/// Pure: the transcript as it is typed and archived. Money and accent
+/// formatting run first and the correction dictionary last, so a user's own
+/// correction always has the final word (TASK-VTT208). The live path and
+/// `--file` both call this, so batch mode reproduces the hotkey's output.
+fn finish_transcript(text: &str, settings: &settings::Settings) -> String {
+    let formatted = textformat::apply(text, settings.money_figures, settings.accents);
+    corrections::apply(&formatted, &settings.corrections)
+}
+
 /// Pure: build the final text that gets typed, given the transcription.
 ///
 /// - If the transcription doesn't already start with the prefix, prepend
@@ -1668,6 +1681,36 @@ fn is_whisper_filler(trimmed: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finished_transcript_writes_money_as_figures_and_restores_accents() {
+        let s = settings::Settings::default();
+        assert_eq!(
+            finish_transcript("Touche, ten pounds", &s),
+            "Touché, £10",
+            "both formatting steps default on"
+        );
+    }
+
+    #[test]
+    fn a_user_correction_still_wins_over_formatting() {
+        // Formatting runs before the dictionary, so a correction written
+        // against the formatted text overrides it.
+        let mut s = settings::Settings::default();
+        s.corrections = vec![("touché".into(), "touche".into())];
+        assert_eq!(finish_transcript("Touche", &s), "touche");
+    }
+
+    #[test]
+    fn finished_transcript_honours_both_switches_off() {
+        let mut s = settings::Settings::default();
+        s.money_figures = false;
+        s.accents = false;
+        assert_eq!(
+            finish_transcript("Touche, ten pounds", &s),
+            "Touche, ten pounds"
+        );
+    }
 
     #[test]
     fn file_mode_keeps_a_file_under_the_threshold_whole() {

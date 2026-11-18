@@ -45,6 +45,14 @@ pub struct Settings {
     /// `initial_prompt`: the prompt biases inference, this guarantees a fix
     /// for a specific known mishearing regardless of how Whisper hears it.
     pub corrections: Vec<(String, String)>,
+    /// Write spoken sterling amounts as figures ("ten pounds" -> "£10") after
+    /// transcription, before the correction dictionary (TASK-VTT208). On by
+    /// default; `money_figures=0` turns it off.
+    pub money_figures: bool,
+    /// Restore accents on a short built-in loanword list ("touche" ->
+    /// "touché") after transcription, before the correction dictionary
+    /// (TASK-VTT208). On by default; `accents=0` turns it off.
+    pub accents: bool,
     /// cpal device index. -1 means "use default". Read from settings.conf
     /// and saved back, but not yet consumed by `audio::Audio::new()` which
     /// currently always uses the default input device. Wiring is tracked
@@ -107,6 +115,8 @@ impl Default for Settings {
             voice_prefix: "[Voice] ".into(),
             initial_prompt: String::new(),
             corrections: Vec::new(),
+            money_figures: true,
+            accents: true,
             selected_device_index: -1,
             hotkey_keycode: 0, // 0 = use default Scroll Lock
             append_newline: true,
@@ -157,6 +167,8 @@ impl Settings {
                                 .push((from.trim().to_string(), to.trim().to_string()));
                         }
                     }
+                    "money_figures" => settings.money_figures = value != "0",
+                    "accents" => settings.accents = value != "0",
                     "device" => {
                         settings.selected_device_index = value.parse().unwrap_or(-1);
                     }
@@ -214,6 +226,16 @@ impl Settings {
                 escape(to)
             ));
         }
+        out.push_str(
+            "# money_figures=0 stops spoken amounts such as \"ten pounds\" becoming \"£10\".\n\
+             # accents=0 stops \"touche\" becoming \"touché\" (also café, née, fiancé,\n\
+             # fiancée, cliché, déjà vu). Both run before the correction lines above.\n",
+        );
+        out.push_str(&format!(
+            "money_figures={}\n",
+            if self.money_figures { 1 } else { 0 }
+        ));
+        out.push_str(&format!("accents={}\n", if self.accents { 1 } else { 0 }));
         out.push_str(&format!("device={}\n", self.selected_device_index));
         if self.hotkey_keycode >= 8 {
             out.push_str(&format!("hotkey={}\n", self.hotkey_keycode));
@@ -350,6 +372,9 @@ mod tests {
                 ("ard".into(), "odd".into()),
                 ("amala vajrayana".into(), "Amala Vijnana".into()),
             ],
+            // Both default on, so off is the value a round-trip has to prove.
+            money_figures: false,
+            accents: false,
             selected_device_index: 3,
             hotkey_keycode: 78,
             append_newline: false,
@@ -371,6 +396,14 @@ mod tests {
         assert_eq!(loaded.voice_prefix, original.voice_prefix);
         assert_eq!(loaded.initial_prompt, original.initial_prompt);
         assert_eq!(loaded.corrections, original.corrections);
+        assert_eq!(
+            loaded.money_figures, original.money_figures,
+            "money_figures defaults on, so a saved 0 must survive"
+        );
+        assert_eq!(
+            loaded.accents, original.accents,
+            "accents defaults on, so a saved 0 must survive"
+        );
         assert_eq!(loaded.selected_device_index, original.selected_device_index);
         assert_eq!(loaded.hotkey_keycode, original.hotkey_keycode);
         assert_eq!(loaded.append_newline, original.append_newline);
@@ -597,6 +630,73 @@ mod tests {
         assert!(
             content.contains("correction=\"misheard=>correct\""),
             "settings.conf should self-document the correction line format for discoverability"
+        );
+    }
+
+    #[test]
+    fn money_figures_and_accents_default_on_for_a_fresh_or_older_settings_file() {
+        let dir = tempdir().unwrap();
+        let fresh = Settings::load(dir.path());
+        assert!(fresh.money_figures, "money figures default on");
+        assert!(fresh.accents, "accents default on");
+
+        // The upgrade case: a settings.conf written before either key existed.
+        std::fs::write(
+            dir.path().join("settings.conf"),
+            "model=parakeet-v3\nlanguage=en\n",
+        )
+        .unwrap();
+        let older = Settings::load(dir.path());
+        assert!(older.money_figures);
+        assert!(older.accents);
+    }
+
+    #[test]
+    fn each_formatting_switch_at_zero_turns_only_its_own_step_off() {
+        let dir = tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.conf"),
+            "money_figures=0\naccents=1\n",
+        )
+        .unwrap();
+        let s = Settings::load(dir.path());
+        assert!(!s.money_figures, "money_figures=0 turns money figures off");
+        assert!(s.accents, "accents=1 leaves accents on");
+
+        std::fs::write(
+            dir.path().join("settings.conf"),
+            "money_figures=1\naccents=0\n",
+        )
+        .unwrap();
+        let s = Settings::load(dir.path());
+        assert!(s.money_figures, "money_figures=1 leaves money figures on");
+        assert!(!s.accents, "accents=0 turns accents off");
+    }
+
+    #[test]
+    fn settings_conf_documents_the_money_and_accent_switches() {
+        let dir = tempdir().unwrap();
+        let s = Settings {
+            data_dir: dir.path().to_path_buf(),
+            ..Settings::default()
+        };
+        s.save().unwrap();
+        let content = std::fs::read_to_string(dir.path().join("settings.conf")).unwrap();
+        assert!(
+            content.contains("money_figures=1"),
+            "a default save writes money_figures=1"
+        );
+        assert!(
+            content.contains("accents=1"),
+            "a default save writes accents=1"
+        );
+        assert!(
+            content.contains("# money_figures=0"),
+            "settings.conf should say how to turn money figures off"
+        );
+        assert!(
+            content.contains("# accents=0"),
+            "settings.conf should say how to turn accents off"
         );
     }
 

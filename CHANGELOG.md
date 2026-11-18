@@ -9,6 +9,24 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Spoken prices type as figures.** Say "Total cost ten pounds. Am I
+  giving two hundred and forty pounds?" and it types "Total cost £10. Am I
+  giving £240?". "One pound fifty" types as "£1.50" and "250 pounds" as
+  "£250". A weight such as "two pounds of flour", and "pound" as a verb, are
+  left as spoken. Set `money_figures=0` in settings.conf to turn it off.
+- **Accents come back on a short list of loanwords.** "Touche" types as
+  "Touché", and café, née, fiancé, fiancée, cliché and déjà vu likewise,
+  keeping your capitals. "Resume" is left alone, since it is also an English
+  word. Set `accents=0` in settings.conf to turn it off.
+
+Both run before your correction list, so a correction you have written
+still has the final say. `--file` applies them too.
+
+---
+
 ## [2.5.2] — 2026-10-15
 
 ### Fixed
