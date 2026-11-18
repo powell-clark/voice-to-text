@@ -40,9 +40,6 @@ arboard = "3"
 # runtime dep). notify-rust crate removed because its zbus 5.x transitive
 # requires Rust edition 2024, which Ubuntu Noble's cargo 1.75 can't parse.
 
-# Date/time
-chrono = "0.4"
-
 # Error handling
 anyhow = "1"
 

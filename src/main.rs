@@ -7,6 +7,7 @@
 
 mod archive;
 mod audio;
+mod clock;
 mod corrections;
 mod ct2_client;
 mod denoise;
@@ -981,10 +982,10 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
                 (s.archive_dir.clone(), s.archive_max_files)
             };
             let root = archive::resolve_archive_dir(&dir_setting, &data_dir);
-            let now = chrono::Local::now();
+            let now = clock::now();
             let meta = archive::Sidecar {
-                id: now.format("%Y%m%dT%H%M%S_%3f").to_string(),
-                recorded_at: now.to_rfc3339(),
+                id: now.archive_id(),
+                recorded_at: now.rfc3339(),
                 duration_s: native.samples.len() as f64 / native.sample_rate as f64,
                 sample_rate: native.sample_rate,
                 text,
@@ -992,7 +993,7 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
                 language: language.clone(),
                 app: None,
             };
-            let date = now.format("%Y-%m-%d").to_string();
+            let date = now.date();
             match archive::write_archive(&root, &date, &native.samples, &meta) {
                 Ok(path) => {
                     vtt_log!(

@@ -31,6 +31,11 @@ still has the final say. `--file` applies them too.
   webpki-roots 1.0.12 (RUSTSEC-2026-0381), rustix 1.1.6 (RUSTSEC-2026-0486)
   and tokio 1.54.1 (RUSTSEC-2026-0386), all published after 2.5.2.
   clipboard-win moves to 5.4.3 because 5.4.1 was yanked.
+- **chrono removed** (RUSTSEC-2026-0543: unmaintained, no fixed release).
+  Dates and times are now formatted in-house from the system clock and the
+  OS's time zone, in the same formats as before. An archive sidecar's
+  `recorded_at` now always carries milliseconds, where it carried up to
+  nanoseconds.
 
 ---
 

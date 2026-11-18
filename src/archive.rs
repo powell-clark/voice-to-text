@@ -571,6 +571,36 @@ mod tests {
     }
 
     #[test]
+    fn clock_ids_and_dates_land_where_prune_can_find_them() {
+        // main.rs names each recording from clock.rs. If that id or date ever
+        // stops matching the shapes this module checks for, the cap never
+        // applies and the archive grows without bound.
+        // 2026-09-03T02:48:12.123Z, written at +01:00.
+        let t = crate::clock::LocalTime::from_unix_millis(1_788_403_692_123, 3_600);
+        assert_eq!(t.archive_id(), "20260903T034812_123");
+        assert_eq!(t.date(), "2026-09-03");
+        assert_eq!(t.rfc3339(), "2026-09-03T03:48:12.123+01:00");
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut m = meta(&t.archive_id(), "Round trip.");
+        m.recorded_at = t.rfc3339();
+        let wav = write_archive(tmp.path(), &t.date(), &[0.0; 48], &m).expect("archive write");
+
+        assert!(is_our_recording(&wav), "{}", wav.display());
+        assert!(is_dated_dir(wav.parent().expect("dated dir")));
+        let found: Vec<PathBuf> = collect_archived(tmp.path())
+            .into_iter()
+            .map(|(p, _)| p)
+            .collect();
+        assert_eq!(found, vec![wav.clone()]);
+        let json = std::fs::read_to_string(wav.with_extension("json")).expect("sidecar");
+        assert!(
+            json.contains("\"recorded_at\": \"2026-09-03T03:48:12.123+01:00\""),
+            "{json}"
+        );
+    }
+
+    #[test]
     fn is_dated_dir_accepts_only_our_layout() {
         assert!(is_dated_dir(Path::new("/a/2026-09-03")));
         assert!(!is_dated_dir(Path::new("/a/Albums")));

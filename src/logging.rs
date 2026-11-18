@@ -1,4 +1,4 @@
-use chrono::Local;
+use crate::clock;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -26,7 +26,7 @@ impl Logger {
     }
 
     fn ensure_date(&mut self) {
-        let today = Local::now().format("%Y-%m-%d").to_string();
+        let today = clock::now().date();
         if today != self.current_date {
             self.current_date = today;
         }
@@ -51,7 +51,7 @@ pub fn log(msg: &str) {
 
     logger.ensure_date();
     let path = logger.log_path();
-    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let timestamp = clock::now().log_timestamp();
     let line = format!("[{}] {}\n", timestamp, msg);
 
     if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(&path) {
@@ -70,8 +70,7 @@ pub fn get_dir() -> PathBuf {
 }
 
 fn purge_old_logs(log_dir: &Path) {
-    let cutoff = Local::now() - chrono::Duration::days(MAX_LOG_DAYS);
-    let cutoff_ts = cutoff.timestamp();
+    let cutoff_ts = clock::unix_seconds() - MAX_LOG_DAYS * clock::SECS_PER_DAY;
 
     if let Ok(entries) = fs::read_dir(log_dir) {
         for entry in entries.flatten() {
@@ -153,13 +152,8 @@ pub fn format_log_label(filename: &str, today: &str, yesterday: &str) -> String 
 
 /// Today's and yesterday's ISO dates, the two `format_log_label` compares against.
 pub fn today_and_yesterday() -> (String, String) {
-    let now = Local::now();
-    (
-        now.format("%Y-%m-%d").to_string(),
-        (now - chrono::Duration::days(1))
-            .format("%Y-%m-%d")
-            .to_string(),
-    )
+    let now = clock::now();
+    (now.date(), now.yesterday())
 }
 
 /// Convenience macro for formatted logging
