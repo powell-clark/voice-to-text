@@ -25,6 +25,13 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 Both run before your correction list, so a correction you have written
 still has the final say. `--file` applies them too.
 
+### Security
+- **Five dependency advisories cleared**: quinn-udp 0.5.16
+  (RUSTSEC-2026-0538), rustls-webpki 0.103.17 (RUSTSEC-2026-0382),
+  webpki-roots 1.0.12 (RUSTSEC-2026-0381), rustix 1.1.6 (RUSTSEC-2026-0486)
+  and tokio 1.54.1 (RUSTSEC-2026-0386), all published after 2.5.2.
+  clipboard-win moves to 5.4.3 because 5.4.1 was yanked.
+
 ---
 
 ## [2.5.2] — 2026-10-15
