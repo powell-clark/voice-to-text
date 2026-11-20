@@ -25,6 +25,14 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 Both run before your correction list, so a correction you have written
 still has the final say. `--file` applies them too.
 
+### Changed
+- **`--file` reads WAV files through symphonia**, the library that already
+  reads mp3, m4a and flac, instead of hound. A WAV whose header lengths were
+  never written, as a recorder leaves when it stops mid-write, is now
+  refused instead of read as no audio; a WAV whose data is shorter than its
+  header declares is still refused. The WAV files the app writes are
+  unchanged, byte for byte.
+
 ### Removed
 - **The optional CT2 backend** and its tray Backend row. An existing
   `backend=ct2` line in settings.conf is ignored and dictation runs on the

@@ -209,9 +209,6 @@ pub fn archive_targets(root: &Path, date: &str, id: &str) -> (PathBuf, PathBuf) 
     )
 }
 
-/// Peak value of a 24-bit signed sample.
-const I24_MAX: f32 = 8_388_607.0;
-
 /// Write 24-bit mono PCM at `sample_rate` to `path`, creating the parent
 /// directory.
 ///
@@ -224,18 +221,7 @@ pub fn write_wav_at(path: &Path, samples: &[f32], sample_rate: u32) -> anyhow::R
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let spec = hound::WavSpec {
-        channels: 1,
-        sample_rate,
-        bits_per_sample: 24,
-        sample_format: hound::SampleFormat::Int,
-    };
-    let mut writer = hound::WavWriter::create(path, spec)?;
-    for &s in samples {
-        writer.write_sample((s.clamp(-1.0, 1.0) * I24_MAX) as i32)?;
-    }
-    writer.finalize()?;
-    Ok(())
+    crate::audio::write_pcm_wav(path, samples, sample_rate, 24)
 }
 
 /// Archive one recording: the wav at its capture rate plus the sidecar.
@@ -507,6 +493,24 @@ mod tests {
         );
     }
 
+    /// The rate, channel count and bit depth in a 24-bit archive file's
+    /// header, and its samples sign-extended, read straight from the bytes.
+    fn read_s24_wav(path: &Path) -> (u32, u16, u16, Vec<i32>) {
+        let bytes = std::fs::read(path).expect("readable wav");
+        let u16_at = |at: usize| u16::from_le_bytes([bytes[at], bytes[at + 1]]);
+        let rate = u32::from_le_bytes([bytes[24], bytes[25], bytes[26], bytes[27]]);
+        let data = bytes
+            .windows(4)
+            .position(|w| w == b"data")
+            .expect("data chunk")
+            + 8;
+        let samples = bytes[data..]
+            .chunks_exact(3)
+            .map(|b| i32::from_le_bytes([0, b[0], b[1], b[2]]) >> 8)
+            .collect();
+        (rate, u16_at(22), u16_at(34), samples)
+    }
+
     #[test]
     fn write_archive_lands_wav_and_sidecar_together() {
         let tmp = tempfile::tempdir().expect("tempdir");
@@ -519,11 +523,11 @@ mod tests {
         let json = wav.with_extension("json");
         assert!(json.exists(), "sidecar must land beside it");
 
-        let reader = hound::WavReader::open(&wav).expect("readable wav");
-        assert_eq!(reader.spec().sample_rate, 48_000, "capture rate preserved");
-        assert_eq!(reader.spec().channels, 1);
+        let (rate, channels, bits, _) = read_s24_wav(&wav);
+        assert_eq!(rate, 48_000, "capture rate preserved");
+        assert_eq!(channels, 1);
         assert_eq!(
-            reader.spec().bits_per_sample,
+            bits,
             24,
             "the corpus consumer's conventions call for 24-bit; 16 would be              silently accepted and quietly worse"
         );
@@ -543,11 +547,8 @@ mod tests {
             .collect();
         write_wav_at(&path, &input, 48_000).expect("write");
 
-        let mut reader = hound::WavReader::open(&path).expect("readable");
-        let decoded: Vec<f32> = reader
-            .samples::<i32>()
-            .map(|s| s.expect("sample") as f32 / 8_388_607.0)
-            .collect();
+        let (_, _, _, samples) = read_s24_wav(&path);
+        let decoded: Vec<f32> = samples.iter().map(|&s| s as f32 / 8_388_607.0).collect();
         assert_eq!(decoded.len(), input.len());
         for (a, b) in input.iter().zip(decoded.iter()) {
             assert!(

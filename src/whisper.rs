@@ -504,8 +504,8 @@ fn collapse_loops(text: &str, min_repeats: usize) -> (String, usize) {
 }
 
 /// Down-mix interleaved multi-channel f32 samples to mono by channel
-/// averaging. Shared by every decode path (WAV via hound, everything else
-/// via symphonia) so there is exactly one down-mix formula to get right.
+/// averaging. Shared by every decode path (WAV and everything else) so
+/// there is exactly one down-mix formula to get right.
 fn downmix_to_mono(interleaved: &[f32], channels: usize) -> Vec<f32> {
     let channels = channels.max(1);
     if channels == 1 {
@@ -519,30 +519,53 @@ fn downmix_to_mono(interleaved: &[f32], channels: usize) -> Vec<f32> {
 
 /// Decode a WAV file into mono f32 PCM samples at its native sample rate —
 /// no rate restriction, no resampling. Stereo is down-mixed by averaging
-/// channels; 16-bit (and wider) integer and 32-bit float sample formats are
-/// supported. Returns `(samples, native_sample_rate)`; the caller resamples
-/// to 16 kHz if needed (`decode_audio_to_samples`).
+/// channels; 8-, 16-, 24- and 32-bit integer and 32-bit float samples are
+/// supported, each normalised by its format's full scale. Returns `(samples,
+/// native_sample_rate)`; the caller resamples to 16 kHz if needed
+/// (`decode_audio_to_samples`).
+///
+/// The file can come from anyone (`--file`), so symphonia's WAV reader and
+/// PCM decoder parse it rather than code of our own (ADR-0012, TASK-VTT211).
 fn decode_wav_native(path: &Path) -> anyhow::Result<(Vec<f32>, u32)> {
-    let mut reader = hound::WavReader::open(path)
-        .map_err(|e| anyhow::anyhow!("open {}: {}", path.display(), e))?;
-    let spec = reader.spec();
+    use symphonia::core::formats::{FormatOptions, FormatReader};
+    use symphonia::core::io::MediaSourceStream;
 
-    // Read every interleaved sample as f32 in roughly [-1, 1].
-    let interleaved: Vec<f32> = match spec.sample_format {
-        hound::SampleFormat::Int => {
-            // Normalise by the format's full-scale so 16/24/32-bit all land in
-            // the same range. `samples::<i32>()` sign-extends narrower depths.
-            let full_scale = (1i64 << (spec.bits_per_sample - 1)) as f32;
-            reader
-                .samples::<i32>()
-                .map(|s| s.map(|v| v as f32 / full_scale))
-                .collect::<Result<_, _>>()?
+    let file =
+        std::fs::File::open(path).map_err(|e| anyhow::anyhow!("open {}: {}", path.display(), e))?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    // The WAV reader itself rather than the probe, so a file named .wav that
+    // holds anything else is refused, not sniffed for another format.
+    let mut reader =
+        symphonia::default::formats::WavReader::try_new(mss, &FormatOptions::default())
+            .map_err(|e| anyhow::anyhow!("open {}: {}", path.display(), e))?;
+    let track = reader
+        .tracks()
+        .first()
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("open {}: no audio track", path.display()))?;
+    let rate = track
+        .codec_params
+        .sample_rate
+        .ok_or_else(|| anyhow::anyhow!("open {}: no sample rate", path.display()))?;
+
+    let (mono, _) = decode_track(path, &mut reader, &track)?;
+
+    // A data chunk shorter than its header declares, such as a recording cut
+    // off mid-write, is refused, not decoded in part: TASK-VTT211 keeps
+    // today's behaviour, and the choice is open to the operator's review.
+    // symphonia ends such a stream quietly after the last bytes present, so
+    // compare the frames decoded with the frames declared.
+    if let Some(declared) = track.codec_params.n_frames {
+        if (mono.len() as u64) < declared {
+            anyhow::bail!(
+                "{}: truncated WAV, {} of the {} frames its header declares are present",
+                path.display(),
+                mono.len(),
+                declared
+            );
         }
-        hound::SampleFormat::Float => reader.samples::<f32>().collect::<Result<_, _>>()?,
-    };
-
-    let mono = downmix_to_mono(&interleaved, spec.channels as usize);
-    Ok((mono, spec.sample_rate))
+    }
+    Ok((mono, rate))
 }
 
 /// Decode a 16 kHz WAV file into the mono f32 PCM samples whisper expects
@@ -570,9 +593,7 @@ pub fn decode_wav_to_samples(path: &Path) -> anyhow::Result<Vec<f32>> {
 /// native_sample_rate)`, matching `decode_wav_native`'s contract so both
 /// feed the same resample step in `decode_audio_to_samples`.
 fn decode_via_symphonia(path: &Path) -> anyhow::Result<(Vec<f32>, u32)> {
-    use symphonia::core::audio::SampleBuffer;
-    use symphonia::core::codecs::{DecoderOptions, CODEC_TYPE_NULL};
-    use symphonia::core::errors::Error as SymErr;
+    use symphonia::core::codecs::CODEC_TYPE_NULL;
     use symphonia::core::formats::FormatOptions;
     use symphonia::core::io::MediaSourceStream;
     use symphonia::core::meta::MetadataOptions;
@@ -608,8 +629,26 @@ fn decode_via_symphonia(path: &Path) -> anyhow::Result<(Vec<f32>, u32)> {
         .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
         .ok_or_else(|| anyhow::anyhow!("{}: no decodable audio track found", path.display()))?
         .clone();
-    let track_id = track.id;
 
+    let (mono_samples, native_rate) = decode_track(path, format.as_mut(), &track)?;
+    let rate = native_rate
+        .ok_or_else(|| anyhow::anyhow!("{}: no audio packets decoded", path.display()))?;
+    Ok((mono_samples, rate))
+}
+
+/// Decode every packet of `track` from `format` into mono f32 PCM. Returns
+/// the samples and the rate the decoder reported, `None` if no packet
+/// decoded. Shared by the WAV path and `decode_via_symphonia`.
+fn decode_track(
+    path: &Path,
+    format: &mut dyn symphonia::core::formats::FormatReader,
+    track: &symphonia::core::formats::Track,
+) -> anyhow::Result<(Vec<f32>, Option<u32>)> {
+    use symphonia::core::audio::SampleBuffer;
+    use symphonia::core::codecs::DecoderOptions;
+    use symphonia::core::errors::Error as SymErr;
+
+    let track_id = track.id;
     let mut decoder = symphonia::default::get_codecs()
         .make(&track.codec_params, &DecoderOptions::default())
         .map_err(|e| anyhow::anyhow!("{}: unsupported codec ({e})", path.display()))?;
@@ -638,10 +677,7 @@ fn decode_via_symphonia(path: &Path) -> anyhow::Result<(Vec<f32>, u32)> {
         buf.copy_interleaved_ref(decoded);
         mono_samples.extend(downmix_to_mono(buf.samples(), spec.channels.count()));
     }
-
-    let rate = native_rate
-        .ok_or_else(|| anyhow::anyhow!("{}: no audio packets decoded", path.display()))?;
-    Ok((mono_samples, rate))
+    Ok((mono_samples, native_rate))
 }
 
 /// Resample mono f32 PCM from `native_rate` to `WHISPER_INPUT_RATE` via
@@ -724,8 +760,9 @@ fn resample_to_16k(samples: &[f32], native_rate: u32) -> anyhow::Result<Vec<f32>
 
 /// Decode any of `.wav`, `.mp3`, `.m4a`, `.aac`, `.flac` at any input sample
 /// rate into the mono 16 kHz f32 PCM whisper expects (`--file` batch mode,
-/// TASK-VTT130). WAV stays on `hound` (ADR-0006); everything else goes
-/// through `symphonia`. Both paths feed the same `resample_to_16k` step, so
+/// TASK-VTT130). A `.wav` goes straight to symphonia's WAV reader
+/// (`decode_wav_native`, TASK-VTT211); everything else is probed by
+/// `symphonia`. Both paths feed the same `resample_to_16k` step, so
 /// a WAV recorded at, say, 44.1 kHz now works too — the old "must be
 /// 16 kHz" restriction was specific to `decode_wav_to_samples`
 /// (`RetranscribeLast`'s contract, kept unchanged), not to `--file` itself.
@@ -751,20 +788,12 @@ mod tests {
     /// Write `samples` (interleaved) as a 16-bit PCM WAV at `rate`/`channels`
     /// into a fresh temp file and return the temp dir (keep it alive) + path.
     fn write_test_wav(samples: &[f32], rate: u32, channels: u16) -> (tempfile::TempDir, PathBuf) {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let path = dir.path().join("clip.wav");
-        let spec = hound::WavSpec {
-            channels,
-            sample_rate: rate,
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
-        let mut w = hound::WavWriter::create(&path, spec).expect("create wav");
+        let data_len = u32::try_from(samples.len() * 2).expect("small clip");
+        let mut bytes = pcm_header(1, channels, rate, 16, data_len);
         for &s in samples {
-            w.write_sample((s * 32767.0) as i16).expect("write sample");
+            bytes.extend_from_slice(&((s * 32767.0) as i16).to_le_bytes());
         }
-        w.finalize().expect("finalize wav");
-        (dir, path)
+        write_wav_bytes(&bytes)
     }
 
     #[test]
@@ -963,9 +992,10 @@ mod tests {
         let mut bytes = pcm_header(1, 1, 16_000, 16, 2000);
         bytes.extend_from_slice(&[0x10; 1200]);
         let (_dir, path) = write_wav_bytes(&bytes);
+        let err = decode_wav_native(&path).expect_err("1200 of 2000 declared bytes is refused");
         assert!(
-            decode_wav_native(&path).is_err(),
-            "1200 of 2000 declared data bytes must be refused"
+            err.to_string().contains(&path.display().to_string()),
+            "the error should name the file: {err}"
         );
     }
 
@@ -975,6 +1005,17 @@ mod tests {
         let (samples, rate) = decode_wav_native(&path).expect("an empty data chunk is valid");
         assert!(samples.is_empty());
         assert_eq!(rate, 16_000);
+    }
+
+    /// A writer that never finished leaves both lengths at zero with samples
+    /// behind them: a recording cut off mid-write, so it is refused. hound
+    /// read it as no samples at all.
+    #[test]
+    fn never_finished_wav_with_zero_lengths_is_refused() {
+        let mut bytes = pcm_header(1, 1, 16_000, 16, 0);
+        bytes[4..8].copy_from_slice(&0u32.to_le_bytes());
+        bytes.extend_from_slice(&[1, 0, 2, 0]);
+        assert_wav_refused(&bytes, "a header whose lengths were never written");
     }
 
     // ── Long-dictation chunking and the repetition guard (TASK-VTT179) ───────
@@ -1247,19 +1288,6 @@ mod tests {
         path
     }
 
-    /// Decode a 16 kHz mono 16-bit PCM WAV into the f32 samples whisper expects.
-    fn load_wav_f32(path: &Path) -> Vec<f32> {
-        let mut reader = hound::WavReader::open(path).expect("open fixture wav");
-        let spec = reader.spec();
-        assert_eq!(spec.channels, 1, "fixture must be mono");
-        assert_eq!(spec.sample_rate, 16_000, "fixture must be 16 kHz");
-        assert_eq!(spec.bits_per_sample, 16, "fixture must be 16-bit");
-        reader
-            .samples::<i16>()
-            .map(|s| s.expect("read sample") as f32 / 32_768.0)
-            .collect()
-    }
-
     #[test]
     #[ignore = "downloads ~142 MB base.en model and runs CPU inference"]
     fn e2e_transcribes_spoken_digits_from_fixture() {
@@ -1271,7 +1299,7 @@ mod tests {
             fixture.display()
         );
 
-        let samples = load_wav_f32(&fixture);
+        let samples = decode_wav_to_samples(&fixture).expect("decode wav fixture");
         assert!(!samples.is_empty(), "fixture decoded to zero samples");
 
         let model = ensure_e2e_model();

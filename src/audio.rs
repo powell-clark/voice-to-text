@@ -769,24 +769,82 @@ pub(crate) fn write_wav(samples: &[f32], sample_rate: u32) -> anyhow::Result<Pat
         .tempfile_in(std::env::temp_dir())?;
 
     let path = tmp.path().to_path_buf();
-
-    let spec = hound::WavSpec {
-        channels: 1,
-        sample_rate,
-        bits_per_sample: 16,
-        sample_format: hound::SampleFormat::Int,
-    };
-
-    let mut writer = hound::WavWriter::create(&path, spec)?;
-    for &s in samples {
-        writer.write_sample((s.clamp(-1.0, 1.0) * 32767.0) as i16)?;
-    }
-    writer.finalize()?;
+    write_pcm_wav(&path, samples, sample_rate, 16)?;
 
     // Keep the temp file (don't auto-delete)
     tmp.keep()?;
 
     Ok(path)
+}
+
+/// `KSDATAFORMAT_SUBTYPE_PCM`, the sub-format GUID of an integer PCM
+/// WAVE_FORMAT_EXTENSIBLE header, in its on-disk byte order.
+const KSDATAFORMAT_SUBTYPE_PCM: [u8; 16] = [
+    0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71,
+];
+
+/// Write mono integer PCM to `path` at 16 or 24 bits, byte for byte as hound
+/// 3.5.1 wrote it, which `tests/fixtures/wav-golden/` pins (TASK-VTT211).
+///
+/// A 16-bit file has the plain 16-byte fmt chunk. A 24-bit file has the
+/// WAVE_FORMAT_EXTENSIBLE one, as hound wrote above 16 bits. Each sample is
+/// clamped to [-1, 1], scaled by the format's peak and truncated toward zero,
+/// so NaN writes as silence. An odd-length data chunk gets no pad byte.
+pub(crate) fn write_pcm_wav(
+    path: &std::path::Path,
+    samples: &[f32],
+    sample_rate: u32,
+    bits: u16,
+) -> anyhow::Result<()> {
+    use std::io::Write;
+
+    anyhow::ensure!(
+        bits == 16 || bits == 24,
+        "{bits}-bit WAV is not written here; 16 and 24 are"
+    );
+    let extensible = bits > 16;
+    let block_align = bits / 8;
+    let fmt_len: u32 = if extensible { 40 } else { 16 };
+    let header_len = 4 + 8 + fmt_len + 8;
+    let too_long = || anyhow::anyhow!("{} samples is too long for one WAV file", samples.len());
+    let data_len = u32::try_from(samples.len())
+        .ok()
+        .and_then(|n| n.checked_mul(u32::from(block_align)))
+        .filter(|&n| n <= u32::MAX - header_len)
+        .ok_or_else(too_long)?;
+    let byte_rate = sample_rate
+        .checked_mul(u32::from(block_align))
+        .ok_or_else(|| anyhow::anyhow!("{sample_rate} Hz is too high a WAV sample rate"))?;
+
+    let mut out = std::io::BufWriter::new(std::fs::File::create(path)?);
+    out.write_all(b"RIFF")?;
+    out.write_all(&(header_len + data_len).to_le_bytes())?;
+    out.write_all(b"WAVEfmt ")?;
+    out.write_all(&fmt_len.to_le_bytes())?;
+    let format_tag: u16 = if extensible { 0xfffe } else { 1 };
+    out.write_all(&format_tag.to_le_bytes())?;
+    out.write_all(&1u16.to_le_bytes())?; // channels
+    out.write_all(&sample_rate.to_le_bytes())?;
+    out.write_all(&byte_rate.to_le_bytes())?;
+    out.write_all(&block_align.to_le_bytes())?;
+    out.write_all(&bits.to_le_bytes())?;
+    if extensible {
+        out.write_all(&22u16.to_le_bytes())?; // size of the extension
+        out.write_all(&bits.to_le_bytes())?; // valid bits per sample
+        out.write_all(&1u32.to_le_bytes())?; // channel mask, as hound wrote mono
+        out.write_all(&KSDATAFORMAT_SUBTYPE_PCM)?;
+    }
+    out.write_all(b"data")?;
+    out.write_all(&data_len.to_le_bytes())?;
+
+    let peak = ((1i32 << (bits - 1)) - 1) as f32;
+    let width = usize::from(block_align);
+    for &s in samples {
+        let v = (s.clamp(-1.0, 1.0) * peak) as i32;
+        out.write_all(&v.to_le_bytes()[..width])?;
+    }
+    out.flush()?;
+    Ok(())
 }
 
 /// The fixed sample set the golden WAV files in `tests/fixtures/wav-golden/`
@@ -1317,8 +1375,21 @@ mod tests {
         assert!(out.iter().all(|s| s.is_finite()));
     }
 
+    /// The rate, channel count and bit depth in a 16-bit file's header, and
+    /// its samples, read straight from the bytes `write_wav` wrote.
+    fn read_s16_wav(path: &std::path::Path) -> (u32, u16, u16, Vec<i16>) {
+        let bytes = std::fs::read(path).expect("readable wav");
+        let u16_at = |at: usize| u16::from_le_bytes([bytes[at], bytes[at + 1]]);
+        let rate = u32::from_le_bytes([bytes[24], bytes[25], bytes[26], bytes[27]]);
+        let samples = bytes[44..]
+            .chunks_exact(2)
+            .map(|b| i16::from_le_bytes([b[0], b[1]]))
+            .collect();
+        (rate, u16_at(22), u16_at(34), samples)
+    }
+
     #[test]
-    fn write_wav_round_trips_samples_through_hound() {
+    fn write_wav_round_trips_samples() {
         // Synthesize a 100-sample sine-ish signal (amplitude 0.5 at peaks).
         let input: Vec<f32> = (0..100)
             .map(|i| (i as f32 / 100.0 * std::f32::consts::TAU * 5.0).sin() * 0.5)
@@ -1327,17 +1398,12 @@ mod tests {
         let path = write_wav(&input, WHISPER_SAMPLE_RATE).expect("write should succeed");
         assert!(path.exists(), "wav file should be on disk after write");
 
-        // Read it back via hound (same crate used to write it).
-        let mut reader = hound::WavReader::open(&path).expect("readable wav");
-        let spec = reader.spec();
-        assert_eq!(spec.sample_rate, WHISPER_SAMPLE_RATE);
-        assert_eq!(spec.channels, 1);
-        assert_eq!(spec.bits_per_sample, 16);
+        let (rate, channels, bits, samples) = read_s16_wav(&path);
+        assert_eq!(rate, WHISPER_SAMPLE_RATE);
+        assert_eq!(channels, 1);
+        assert_eq!(bits, 16);
 
-        let decoded: Vec<f32> = reader
-            .samples::<i16>()
-            .map(|s| s.expect("readable sample") as f32 / 32767.0)
-            .collect();
+        let decoded: Vec<f32> = samples.iter().map(|&s| s as f32 / 32767.0).collect();
 
         assert_eq!(decoded.len(), input.len(), "sample count preserved");
         for (i, (&a, &b)) in input.iter().zip(decoded.iter()).enumerate() {
@@ -1365,11 +1431,7 @@ mod tests {
         let input = vec![2.0_f32, -2.0, 0.5, -0.5, 1.5, -1.5];
         let path = write_wav(&input, WHISPER_SAMPLE_RATE).expect("write should succeed");
 
-        let mut reader = hound::WavReader::open(&path).expect("readable wav");
-        let decoded: Vec<i16> = reader
-            .samples::<i16>()
-            .map(|s| s.expect("readable sample"))
-            .collect();
+        let (_, _, _, decoded) = read_s16_wav(&path);
 
         assert_eq!(decoded.len(), input.len());
         assert_eq!(decoded[0], 32767, "2.0 clamps to +max");
@@ -1400,5 +1462,15 @@ mod tests {
     #[test]
     fn wav_write_golden_s16_48k() {
         assert_write_wav_matches_golden(48_000, "s16-48k.wav");
+    }
+
+    #[test]
+    fn write_pcm_wav_refuses_a_bit_depth_it_does_not_write() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        for bits in [8, 32] {
+            let path = dir.path().join(format!("{bits}.wav"));
+            assert!(write_pcm_wav(&path, &[0.0], 16_000, bits).is_err());
+            assert!(!path.exists(), "{bits}-bit: nothing written");
+        }
     }
 }

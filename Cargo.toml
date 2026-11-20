@@ -24,13 +24,14 @@ path = "src/main.rs"
 [dependencies]
 # Audio capture (cross-platform)
 cpal = "0.15"
-hound = "3.5"
 tempfile = "3"
 
-# Multi-format --file decode (ADR-0006, TASK-VTT130). WAV stays on hound
-# (unaffected, already well-tested); symphonia covers mp3/m4a/flac, feature-
-# gated to bound binary size to the formats TASK-VTT130 actually asks for.
-symphonia = { version = "0.5", default-features = false, features = ["mp3", "isomp4", "aac", "flac"] }
+# Audio decode for --file and re-transcribe (ADR-0006, TASK-VTT130):
+# mp3/m4a/flac, feature-gated to bound binary size. WAV reading moved from
+# hound to symphonia's wav and pcm features under ADR-0012 (TASK-VTT211), as
+# a file from anyone is untrusted input; the app writes its own WAVs in-house
+# (audio::write_pcm_wav).
+symphonia = { version = "0.5", default-features = false, features = ["mp3", "isomp4", "aac", "flac", "wav", "pcm"] }
 rubato = "0.16"
 
 # Clipboard (cross-platform)
