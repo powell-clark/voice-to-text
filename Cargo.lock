@@ -3314,7 +3314,6 @@ dependencies = [
  "anyhow",
  "arboard",
  "cpal",
- "crossbeam-channel",
  "dirs 5.0.1",
  "enigo",
  "glib",
