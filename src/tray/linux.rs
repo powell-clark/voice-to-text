@@ -92,16 +92,6 @@ impl Tray {
         mic_item.set_sensitive(false);
         menu.append(&mic_item);
 
-        // --- Backend (info label, TASK-VTT054) ---
-        let backend_label = if settings.read().unwrap().backend == "ct2" {
-            "Backend: CT2 (starting...)"
-        } else {
-            "Backend: Native"
-        };
-        let backend_item = gtk::MenuItem::with_label(backend_label);
-        backend_item.set_sensitive(false);
-        menu.append(&backend_item);
-
         // --- Hotkey ---
         let hk_code = settings.read().unwrap().hotkey_keycode;
         let hk_name = hotkey::get_key_name(hk_code);
@@ -344,7 +334,6 @@ impl Tray {
 
         let status_item_clone = status_item.clone();
         let indicator_clone = indicator.clone();
-        let backend_item_clone = backend_item.clone();
         let update_item_clone = update_item.clone();
         glib::timeout_add_local(std::time::Duration::from_millis(50), move || {
             while let Ok(msg) = ui_rx.try_recv() {
@@ -362,9 +351,6 @@ impl Tray {
                         indicator_clone
                             .borrow_mut()
                             .set_icon_full(icon_name, "status");
-                    }
-                    UiMessage::SetBackendLabel(label) => {
-                        backend_item_clone.set_label(&format!("Backend: {}", label));
                     }
                     UiMessage::UpdateAvailable(version, url) => {
                         update_item_clone.set_label(&format!("Update available: {}", version));
@@ -759,7 +745,7 @@ impl SettingsForm {
 
     /// Write the form into `settings`. Fields the dialog does not show (the
     /// hotkey, which its own dialog saves, logging, the archive path and cap,
-    /// the backend and the text clean-up switches) are left as they are.
+    /// and the text clean-up switches) are left as they are.
     fn apply_to(&self, settings: &mut Settings, device_count: usize) {
         settings.selected_language = if self.language_en { "en" } else { "auto" }.to_string();
         if let Some(key) = &self.model_key {
@@ -1659,7 +1645,6 @@ mod tests {
         s.logging_enabled = false;
         s.archive_dir = "/mnt/voice-archive".into();
         s.archive_max_files = 123;
-        s.backend = "ct2".into();
         s
     }
 
@@ -1732,7 +1717,6 @@ mod tests {
         assert_eq!(saved.autostart_initialized, live.autostart_initialized);
         assert_eq!(saved.archive_dir, live.archive_dir);
         assert_eq!(saved.archive_max_files, live.archive_max_files);
-        assert_eq!(saved.backend, live.backend);
     }
 
     #[test]

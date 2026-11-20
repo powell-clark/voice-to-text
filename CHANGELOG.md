@@ -25,6 +25,11 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 Both run before your correction list, so a correction you have written
 still has the final say. `--file` applies them too.
 
+### Removed
+- **The optional CT2 backend** and its tray Backend row. An existing
+  `backend=ct2` line in settings.conf is ignored and dictation runs on the
+  built-in engine; the next save drops the line.
+
 ### Fixed
 - **Voice to Text in the app grid brings dictation back after a tray
   Quit** (Linux). Quit stops the vtt service, and the launcher used to

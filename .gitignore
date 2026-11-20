@@ -80,7 +80,7 @@ build-archives/
 # Cargo target directory
 target/
 
-# Python bytecode (ct2-daemon/)
+# Python bytecode
 __pycache__/
 *.pyc
 .pytest_cache/

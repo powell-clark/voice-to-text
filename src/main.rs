@@ -9,7 +9,6 @@ mod archive;
 mod audio;
 mod clock;
 mod corrections;
-mod ct2_client;
 mod denoise;
 mod doctor;
 mod engine;
@@ -733,56 +732,6 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
         }
     };
 
-    // Optional CT2 daemon backend (FEAT-VTT034, TASK-VTT054). Spawned once at
-    // startup, never restarted mid-session — any failure here or later falls
-    // back to the whisper-rs engine already loaded above, silently to the
-    // transcription result (the tray label is the only visible signal).
-    let mut ct2: Option<ct2_client::Ct2Client> = None;
-    if settings.read().unwrap().backend == "ct2" {
-        let want_model =
-            models::resolve_variant(&migrate_legacy_model_name(&init_model), &init_lang);
-        match ct2_client::resolve_daemon_script() {
-            Some(script) => {
-                ui_tx
-                    .send(tray::UiMessage::SetBackendLabel(format!(
-                        "CT2 (starting {want_model})"
-                    )))
-                    .ok();
-                match ct2_client::Ct2Client::spawn(&script, &want_model, "cpu", "int8") {
-                    Some(client) => {
-                        vtt_log!("CT2 daemon started with model {want_model}");
-                        ui_tx
-                            .send(tray::UiMessage::SetBackendLabel("CT2".into()))
-                            .ok();
-                        ct2 = Some(client);
-                    }
-                    None => {
-                        vtt_log!("CT2 daemon failed to start; using native whisper-rs backend");
-                        ui_tx
-                            .send(tray::UiMessage::SetBackendLabel(
-                                "Native (CT2 failed to start)".into(),
-                            ))
-                            .ok();
-                    }
-                }
-            }
-            None => {
-                vtt_log!(
-                    "backend=ct2 but transcribe_daemon.py could not be located; using native whisper-rs backend"
-                );
-                ui_tx
-                    .send(tray::UiMessage::SetBackendLabel(
-                        "Native (CT2 daemon not found)".into(),
-                    ))
-                    .ok();
-            }
-        }
-    } else {
-        ui_tx
-            .send(tray::UiMessage::SetBackendLabel("Native".into()))
-            .ok();
-    }
-
     // Type one dictation's text into the window focused now, exactly as a
     // single recording has always been typed: the voice prefix once, and a
     // newline first when the user asked for one between dictations.
@@ -934,33 +883,7 @@ fn transcription_worker(rx: mpsc::Receiver<WorkItem>, ctx: WorkerCtx) {
             }
         );
         let t0 = Instant::now();
-        // Try the CT2 daemon first when it's alive; any failure (including
-        // this specific call) falls through to the whisper-rs engine already
-        // loaded, exactly as if CT2 had never been requested (TASK-VTT054).
-        let ct2_text = ct2.as_mut().filter(|c| c.is_alive()).and_then(|client| {
-            match audio::write_wav(&samples, whisper::WHISPER_INPUT_RATE) {
-                Ok(wav_path) => {
-                    let result = client.transcribe(&wav_path, &language, &prompt);
-                    let _ = std::fs::remove_file(&wav_path);
-                    if !client.is_alive() {
-                        ui_tx
-                            .send(tray::UiMessage::SetBackendLabel(
-                                "Native (CT2 daemon died)".into(),
-                            ))
-                            .ok();
-                    }
-                    result
-                }
-                Err(e) => {
-                    vtt_log!("CT2: failed to write temp wav for the daemon: {e}");
-                    None
-                }
-            }
-        });
-        let text = match ct2_text {
-            Some(text) => Some(text),
-            None => transcribe::transcribe_samples(engine_ref, &samples, &language, &prompt),
-        };
+        let text = transcribe::transcribe_samples(engine_ref, &samples, &language, &prompt);
         let elapsed = t0.elapsed();
 
         let mut archived_text: Option<String> = None;

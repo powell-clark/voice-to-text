@@ -99,11 +99,6 @@ pub struct Settings {
     /// count as one), applied after every archive write. 0 means unbounded —
     /// the user has explicitly asked for no pruning.
     pub archive_max_files: usize,
-    /// "native" (default, whisper-rs in-process) or "ct2" (optional
-    /// persistent CTranslate2/faster-whisper daemon, FEAT-VTT034,
-    /// TASK-VTT054). An unrecognised value falls back to "native" — see
-    /// `load()`, never silently half-applies an unknown backend.
-    pub backend: String,
     data_dir: PathBuf,
 }
 
@@ -127,7 +122,6 @@ impl Default for Settings {
             archive_recordings: false,
             archive_dir: String::new(),
             archive_max_files: 5000,
-            backend: "native".into(),
             data_dir: PathBuf::new(),
         }
     }
@@ -146,6 +140,7 @@ impl Settings {
             Err(_) => return settings,
         };
 
+        let mut ct2_backend_requested = false;
         for line in content.lines() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
@@ -193,16 +188,19 @@ impl Settings {
                     "archive_max_files" => {
                         settings.archive_max_files = value.parse().unwrap_or(5000);
                     }
-                    "backend" => {
-                        settings.backend = if value == "ct2" {
-                            "ct2".into()
-                        } else {
-                            "native".into()
-                        };
-                    }
+                    // The CT2 backend was removed (TASK-VTT210). Every older
+                    // save wrote this key, so `backend=native` is ignored
+                    // silently and `backend=ct2` with the one line below.
+                    "backend" => ct2_backend_requested |= value == "ct2",
                     _ => {}
                 }
             }
+        }
+        if ct2_backend_requested {
+            crate::vtt_log!(
+                "settings.conf: ignoring backend=ct2 — the CT2 backend was removed; \
+                 dictation uses the built-in engine"
+            );
         }
         settings
     }
@@ -267,12 +265,6 @@ impl Settings {
             out.push_str(&format!("archive_dir=\"{}\"\n", escape(&self.archive_dir)));
         }
         out.push_str(&format!("archive_max_files={}\n", self.archive_max_files));
-        out.push_str(
-            "# backend=ct2 uses the optional persistent CTranslate2/faster-whisper daemon\n\
-             # instead of the built-in whisper-rs engine. Falls back to native automatically\n\
-             # if the daemon fails to start or crashes mid-session.\n",
-        );
-        out.push_str(&format!("backend={}\n", self.backend));
 
         fs::write(&path, out)?;
         Ok(())
@@ -385,7 +377,6 @@ mod tests {
             archive_recordings: true,
             archive_dir: "/mnt/voice-archive".into(),
             archive_max_files: 12345,
-            backend: "ct2".into(),
             data_dir: dir.path().to_path_buf(),
         };
         original.save().expect("save should succeed");
@@ -419,35 +410,43 @@ mod tests {
         assert_eq!(loaded.archive_recordings, original.archive_recordings);
         assert_eq!(loaded.archive_dir, original.archive_dir);
         assert_eq!(loaded.archive_max_files, original.archive_max_files);
-        assert_eq!(loaded.backend, original.backend);
     }
 
     #[test]
-    fn backend_defaults_to_native_and_survives_a_round_trip() {
+    fn legacy_backend_ct2_line_is_ignored_and_not_saved_back() {
+        // A settings.conf written while the CT2 backend existed (TASK-VTT210).
         let dir = tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.conf"),
+            "model=large-v3-turbo\n\
+             language=auto\n\
+             prefix=\"[Speech] \"\n\
+             backend=ct2\n\
+             hotkey=78\n\
+             archive_max_files=12345\n",
+        )
+        .unwrap();
+
+        let loaded = Settings::load(dir.path());
+        assert_eq!(loaded.selected_model, "large-v3-turbo");
+        assert_eq!(loaded.selected_language, "auto");
+        assert_eq!(loaded.voice_prefix, "[Speech] ");
         assert_eq!(
-            Settings::load(dir.path()).backend,
-            "native",
-            "a fresh install must not silently start spawning a CT2 daemon"
+            loaded.hotkey_keycode, 78,
+            "a key after backend= still loads"
         );
+        assert_eq!(loaded.archive_max_files, 12345);
 
-        let s = Settings {
-            backend: "ct2".into(),
-            data_dir: dir.path().to_path_buf(),
-            ..Settings::default()
-        };
-        s.save().unwrap();
-        assert_eq!(Settings::load(dir.path()).backend, "ct2");
-    }
-
-    #[test]
-    fn backend_unrecognised_value_falls_back_to_native() {
-        let dir = tempdir().unwrap();
-        std::fs::write(dir.path().join("settings.conf"), "backend=quantum\n").unwrap();
+        loaded.save().unwrap();
+        let saved = std::fs::read_to_string(dir.path().join("settings.conf")).unwrap();
+        assert!(
+            !saved.lines().any(|l| l.trim_start().starts_with("backend")),
+            "a save must drop the removed key: {saved}"
+        );
         assert_eq!(
-            Settings::load(dir.path()).backend,
-            "native",
-            "an unknown backend value must not half-apply — fall back cleanly"
+            Settings::load(dir.path()).selected_model,
+            "large-v3-turbo",
+            "the re-saved file still loads"
         );
     }
 
