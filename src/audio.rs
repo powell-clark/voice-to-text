@@ -789,6 +789,66 @@ pub(crate) fn write_wav(samples: &[f32], sample_rate: u32) -> anyhow::Result<Pat
     Ok(path)
 }
 
+/// The fixed sample set the golden WAV files in `tests/fixtures/wav-golden/`
+/// were written from by hound, before the in-house writer replaced it
+/// (TASK-VTT211). Edge values first: silence, full scale, out of range
+/// (clamped), non-finite, and steps near one 16-bit and one 24-bit quantum.
+/// Then a spread over [-1, 1] built with integer arithmetic only, so every
+/// platform computes the same floats. The odd total length gives the 24-bit
+/// files an odd-length data chunk.
+#[cfg(test)]
+pub(crate) fn golden_wav_samples() -> Vec<f32> {
+    let mut samples = vec![
+        0.0,
+        -0.0,
+        1.0,
+        -1.0,
+        1.5,
+        -1.5,
+        2.0,
+        -2.0,
+        f32::INFINITY,
+        f32::NEG_INFINITY,
+        f32::NAN,
+        0.5,
+        -0.5,
+        1.0 / 32_767.0,
+        -1.0 / 32_767.0,
+        0.5 / 32_767.0,
+        -0.5 / 32_767.0,
+        1.0 / 8_388_607.0,
+        -1.0 / 8_388_607.0,
+        0.999_999_9,
+        -0.999_999_9,
+        f32::MIN_POSITIVE,
+        f32::EPSILON,
+    ];
+    samples.extend((0..1000).map(|i| ((i * 7919) % 2001) as f32 / 1000.0 - 1.0));
+    samples
+}
+
+/// A file in `tests/fixtures/wav-golden/`.
+#[cfg(test)]
+pub(crate) fn golden_wav_fixture(name: &str) -> PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/wav-golden")
+        .join(name)
+}
+
+/// Assert `got` equals the golden file `name` byte for byte, naming the first
+/// offset that differs rather than printing both files.
+#[cfg(test)]
+pub(crate) fn assert_matches_golden_file(got: &[u8], name: &str) {
+    let want = std::fs::read(golden_wav_fixture(name)).expect("golden fixture");
+    if let Some(at) = got.iter().zip(&want).position(|(a, b)| a != b) {
+        panic!(
+            "{name}: byte {at} is {:#04x}, the golden file has {:#04x}",
+            got[at], want[at]
+        );
+    }
+    assert_eq!(got.len(), want.len(), "{name}: length differs");
+}
+
 /// Take everything the capture callback has appended, leaving it an empty
 /// buffer sized for `capacity`. The allocation happens before the lock, so
 /// the lock is held for a pointer swap and the audio thread waits on nothing.
@@ -1321,5 +1381,24 @@ mod tests {
         assert!((decoded[3] + 16383).abs() <= 1);
 
         std::fs::remove_file(&path).ok();
+    }
+
+    /// Write the golden sample set at `rate` and compare it with the file
+    /// hound wrote from the same samples (TASK-VTT211).
+    fn assert_write_wav_matches_golden(rate: u32, golden: &str) {
+        let path = write_wav(&golden_wav_samples(), rate).expect("write should succeed");
+        let got = std::fs::read(&path).expect("read back");
+        std::fs::remove_file(&path).ok();
+        assert_matches_golden_file(&got, golden);
+    }
+
+    #[test]
+    fn wav_write_golden_s16_16k() {
+        assert_write_wav_matches_golden(16_000, "s16-16k.wav");
+    }
+
+    #[test]
+    fn wav_write_golden_s16_48k() {
+        assert_write_wav_matches_golden(48_000, "s16-48k.wav");
     }
 }

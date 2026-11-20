@@ -801,6 +801,182 @@ mod tests {
         );
     }
 
+    // ── WAV reading pinned by golden files (TASK-VTT211) ─────────────────────
+    // Each `*.hound.f32` file holds, as raw little-endian f32, what hound
+    // decoded from the golden WAV beside it before the reader moved off hound.
+
+    fn golden_f32(name: &str) -> Vec<f32> {
+        std::fs::read(crate::audio::golden_wav_fixture(name))
+            .expect("golden fixture")
+            .chunks_exact(4)
+            .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+            .collect()
+    }
+
+    /// Decode the golden `wav` and require hound's samples bit for bit: both
+    /// readers divide by the same power of two, so any difference is a bug.
+    fn assert_reads_as_golden(wav: &str, rate: u32) {
+        let (got, got_rate) =
+            decode_wav_native(&crate::audio::golden_wav_fixture(wav)).expect("decode golden wav");
+        assert_eq!(got_rate, rate, "{wav}: sample rate");
+        assert_same_samples(wav, &got, &golden_f32(&wav.replace(".wav", ".hound.f32")));
+    }
+
+    fn assert_same_samples(what: &str, got: &[f32], want: &[f32]) {
+        assert_eq!(got.len(), want.len(), "{what}: sample count");
+        if let Some(i) = got
+            .iter()
+            .zip(want)
+            .position(|(a, b)| a.to_bits() != b.to_bits())
+        {
+            panic!(
+                "{what}: sample {i} reads as {}, hound read {}",
+                got[i], want[i]
+            );
+        }
+    }
+
+    #[test]
+    fn wav_read_golden_s16_16k() {
+        assert_reads_as_golden("s16-16k.wav", 16_000);
+    }
+
+    #[test]
+    fn wav_read_golden_s16_48k() {
+        assert_reads_as_golden("s16-48k.wav", 48_000);
+    }
+
+    #[test]
+    fn wav_read_golden_s24_16k() {
+        assert_reads_as_golden("s24-16k.wav", 16_000);
+    }
+
+    #[test]
+    fn wav_read_golden_s24_48k() {
+        assert_reads_as_golden("s24-48k.wav", 48_000);
+    }
+
+    /// The speech fixture was written by another tool (fmt chunk of 18
+    /// bytes), so it pins the reader against a file this app did not write.
+    /// The pin is the sample count and the SHA-256 of the decoded samples.
+    #[test]
+    fn wav_read_golden_testing_one_two_three() {
+        use sha2::{Digest, Sha256};
+        let wav =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/testing-one-two-three.wav");
+        let (samples, rate) = decode_wav_native(&wav).expect("decode speech fixture");
+        assert_eq!(rate, 16_000);
+        let mut hasher = Sha256::new();
+        for s in &samples {
+            hasher.update(s.to_le_bytes());
+        }
+        let got = format!("{} {:x}", samples.len(), hasher.finalize());
+        let pin = std::fs::read_to_string(crate::audio::golden_wav_fixture(
+            "testing-one-two-three.hound.sha256",
+        ))
+        .expect("golden pin");
+        assert_eq!(got, pin.trim(), "sample count and SHA-256 of the decode");
+    }
+
+    /// A 44-byte WAV header with a 16-byte fmt chunk declaring `data_len`
+    /// bytes of samples; the caller appends whatever data it wants.
+    fn pcm_header(tag: u16, channels: u16, rate: u32, bits: u16, data_len: u32) -> Vec<u8> {
+        let block_align = channels * (bits / 8);
+        let mut h = Vec::with_capacity(44);
+        h.extend_from_slice(b"RIFF");
+        h.extend_from_slice(&(36 + data_len).to_le_bytes());
+        h.extend_from_slice(b"WAVEfmt ");
+        h.extend_from_slice(&16u32.to_le_bytes());
+        h.extend_from_slice(&tag.to_le_bytes());
+        h.extend_from_slice(&channels.to_le_bytes());
+        h.extend_from_slice(&rate.to_le_bytes());
+        h.extend_from_slice(&(rate * u32::from(block_align)).to_le_bytes());
+        h.extend_from_slice(&block_align.to_le_bytes());
+        h.extend_from_slice(&bits.to_le_bytes());
+        h.extend_from_slice(b"data");
+        h.extend_from_slice(&data_len.to_le_bytes());
+        h
+    }
+
+    fn write_wav_bytes(bytes: &[u8]) -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("clip.wav");
+        std::fs::write(&path, bytes).expect("write wav bytes");
+        (dir, path)
+    }
+
+    /// `bytes` saved as a `.wav` must be refused with an error naming the
+    /// file, through the same entry point `--file` uses.
+    fn assert_wav_refused(bytes: &[u8], why: &str) {
+        let (_dir, path) = write_wav_bytes(bytes);
+        let err = decode_audio_to_samples(&path).expect_err(why);
+        assert!(
+            err.to_string().contains(&path.display().to_string()),
+            "{why}: the error should name the file: {err}"
+        );
+    }
+
+    #[test]
+    fn malformed_wav_empty_file() {
+        assert_wav_refused(&[], "an empty file is not a WAV");
+    }
+
+    #[test]
+    fn malformed_wav_truncated_header() {
+        let header = pcm_header(1, 1, 16_000, 16, 0);
+        assert_wav_refused(&header[..20], "a header cut off inside the fmt chunk");
+    }
+
+    #[test]
+    fn malformed_wav_wrong_magic() {
+        let mut rifx = pcm_header(1, 1, 16_000, 16, 4);
+        rifx[..4].copy_from_slice(b"RIFX");
+        rifx.extend_from_slice(&[0; 4]);
+        assert_wav_refused(&rifx, "RIFX is not RIFF");
+
+        let mut wavx = pcm_header(1, 1, 16_000, 16, 4);
+        wavx[8..12].copy_from_slice(b"WAVX");
+        wavx.extend_from_slice(&[0; 4]);
+        assert_wav_refused(&wavx, "a RIFF form other than WAVE");
+    }
+
+    #[test]
+    fn malformed_wav_unsupported_format_tag() {
+        // 0x0055 is MPEG layer 3 inside a WAV container.
+        let mut bytes = pcm_header(0x0055, 1, 16_000, 16, 4);
+        bytes.extend_from_slice(&[0; 4]);
+        assert_wav_refused(&bytes, "a format tag the reader does not decode");
+    }
+
+    #[test]
+    fn malformed_wav_zero_channels() {
+        let mut bytes = pcm_header(1, 0, 16_000, 16, 4);
+        bytes.extend_from_slice(&[0; 4]);
+        assert_wav_refused(&bytes, "a WAV with no channels");
+    }
+
+    /// A WAV whose data chunk is shorter than its header declares is refused,
+    /// never decoded in part. TASK-VTT211 keeps today's behaviour; the choice
+    /// is open to the operator's review.
+    #[test]
+    fn truncated_wav_data_is_refused() {
+        let mut bytes = pcm_header(1, 1, 16_000, 16, 2000);
+        bytes.extend_from_slice(&[0x10; 1200]);
+        let (_dir, path) = write_wav_bytes(&bytes);
+        assert!(
+            decode_wav_native(&path).is_err(),
+            "1200 of 2000 declared data bytes must be refused"
+        );
+    }
+
+    #[test]
+    fn empty_wav_data_chunk_reads_as_no_samples() {
+        let (_dir, path) = write_wav_bytes(&pcm_header(1, 1, 16_000, 16, 0));
+        let (samples, rate) = decode_wav_native(&path).expect("an empty data chunk is valid");
+        assert!(samples.is_empty());
+        assert_eq!(rate, 16_000);
+    }
+
     // ── Long-dictation chunking and the repetition guard (TASK-VTT179) ───────
 
     const RATE: usize = WHISPER_INPUT_RATE as usize;

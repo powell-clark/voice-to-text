@@ -557,6 +557,27 @@ mod tests {
         }
     }
 
+    /// Write the golden sample set as a 24-bit archive WAV at `rate` and
+    /// compare it with the file hound wrote from the same samples
+    /// (TASK-VTT211).
+    fn assert_write_wav_at_matches_golden(rate: u32, golden: &str) {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("golden.wav");
+        write_wav_at(&path, &crate::audio::golden_wav_samples(), rate).expect("write");
+        let got = std::fs::read(&path).expect("read back");
+        crate::audio::assert_matches_golden_file(&got, golden);
+    }
+
+    #[test]
+    fn wav_write_golden_s24_16k() {
+        assert_write_wav_at_matches_golden(16_000, "s24-16k.wav");
+    }
+
+    #[test]
+    fn wav_write_golden_s24_48k() {
+        assert_write_wav_at_matches_golden(48_000, "s24-48k.wav");
+    }
+
     #[test]
     fn is_our_recording_accepts_only_what_we_write() {
         assert!(is_our_recording(Path::new(
