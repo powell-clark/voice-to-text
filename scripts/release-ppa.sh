@@ -138,15 +138,9 @@ fi
 cp target/release/vtt packaging/linux/vtt.prebuilt
 echo "  OK — packaging/linux/vtt.prebuilt at $(du -h packaging/linux/vtt.prebuilt | cut -f1)"
 
-# Pin Cargo.lock to v3 format. rustup ≥ 1.78 writes v4 by default which
-# Ubuntu Noble cargo 1.75 cannot parse. debian/rules currently doesn't
-# parse the lockfile (ships prebuilt) but we keep v3 defensively so any
-# future source-build Noble path (or a user running cargo --locked on
-# Noble) doesn't break. Matches the release-local.sh guard.
-if grep -q '^version = 4$' Cargo.lock; then
-    sed -i 's/^version = 4$/version = 3/' Cargo.lock
-    echo "  NOTE: downgraded Cargo.lock v4 -> v3 for Noble compat"
-fi
+# Cargo.lock is left exactly as cargo wrote it. debian/rules runs no cargo,
+# and Noble's cargo 1.75 cannot parse the edition-2024 dependencies whatever
+# the lockfile version, so rewriting it would only leave the checkout dirty.
 
 echo ""
 
