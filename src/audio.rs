@@ -1382,8 +1382,10 @@ mod tests {
         let u16_at = |at: usize| u16::from_le_bytes([bytes[at], bytes[at + 1]]);
         let rate = u32::from_le_bytes([bytes[24], bytes[25], bytes[26], bytes[27]]);
         let samples = bytes[44..]
-            .chunks_exact(2)
-            .map(|b| i16::from_le_bytes([b[0], b[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|b| i16::from_le_bytes(*b))
             .collect();
         (rate, u16_at(22), u16_at(34), samples)
     }

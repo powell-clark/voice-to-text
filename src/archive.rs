@@ -505,7 +505,9 @@ mod tests {
             .expect("data chunk")
             + 8;
         let samples = bytes[data..]
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|b| i32::from_le_bytes([0, b[0], b[1], b[2]]) >> 8)
             .collect();
         (rate, u16_at(22), u16_at(34), samples)
