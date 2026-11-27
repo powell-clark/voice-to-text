@@ -124,7 +124,9 @@ fn main() -> anyhow::Result<()> {
              -h, --help         Print this help and exit\n  \
              -f, --file <PATH>  Transcribe a WAV, MP3, M4A, AAC or FLAC file, at any\n                     \
              sample rate, to stdout and exit\n  \
-                 --doctor       Check the running app matches the installed one\n\n\
+                 --doctor       Check the running app matches the installed one\n  \
+                 --foreground   Run in this terminal even when the vtt service is\n                 \
+             installed and stopped (Linux)\n\n\
              With no options, launches the tray icon. Hold the configured\n\
              hotkey (default: Scroll Lock) and speak. Release to transcribe.\n\n\
              Config:   ~/.local/share/voice-to-text/settings.conf\n\
@@ -139,6 +141,29 @@ fn main() -> anyhow::Result<()> {
     }
     if wants_file {
         return run_file_mode(file_path.as_deref());
+    }
+
+    // The app-grid launcher runs /usr/bin/vtt outside systemd, so after a
+    // tray Quit has stopped the unit, a click would start an unmanaged copy
+    // with no restart policy. Start the unit instead and exit (TASK-VTT216).
+    #[cfg(target_os = "linux")]
+    if hand_off_to_unit(
+        &args,
+        std::env::var("INVOCATION_ID").ok().as_deref(),
+        probe_vtt_unit,
+    ) {
+        let started = std::process::Command::new("systemctl")
+            .args(["--user", "start", VTT_UNIT])
+            .status()
+            .is_ok_and(|s| s.success());
+        if started {
+            eprintln!(
+                "Started the vtt service ({VTT_UNIT}). \
+                 Run `vtt --foreground` to run this binary in the terminal instead."
+            );
+            return Ok(());
+        }
+        eprintln!("Could not start {VTT_UNIT}; running in the foreground instead.");
     }
 
     // Platform-specific init
@@ -1434,6 +1459,97 @@ fn newest_wav(dir: &std::path::Path) -> Option<PathBuf> {
 
 // ─── Utilities ──────────────────────────────────────────────────
 
+/// The systemd user unit the Debian package installs.
+#[cfg(target_os = "linux")]
+const VTT_UNIT: &str = "vtt.service";
+
+/// Flags that print or transcribe and exit, and so never start the service.
+#[cfg(target_os = "linux")]
+const ONE_SHOT_FLAGS: &[&str] = &[
+    "--version",
+    "-V",
+    "--help",
+    "-h",
+    "--doctor",
+    "--file",
+    "-f",
+];
+
+/// What `systemctl --user show vtt.service` reports about the unit.
+#[cfg(target_os = "linux")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UnitState {
+    /// Installed and stopped: inactive, or failed after giving up restarts.
+    Stopped,
+    /// Running, starting or stopping: the single-instance guard answers.
+    Running,
+    /// Not installed (a tarball or development machine), or masked.
+    Absent,
+    /// systemctl missing, no user bus, or output we do not recognise.
+    Unknown,
+}
+
+/// Pure: should this start hand off to the vtt systemd unit and exit?
+///
+/// Only a plain tray start outside systemd hands off, and only when the unit
+/// is installed and stopped. The unit's own start has `INVOCATION_ID` set and
+/// never hands off — `probe` is not even called — so the hand-off cannot loop.
+/// `--foreground` and the one-shot flags never hand off either. An empty
+/// `INVOCATION_ID` counts as unset, as in `tray::quit`.
+#[cfg(target_os = "linux")]
+fn hand_off_to_unit(
+    args: &[String],
+    invocation_id: Option<&str>,
+    probe: impl FnOnce() -> UnitState,
+) -> bool {
+    let under_systemd = invocation_id.is_some_and(|id| !id.is_empty());
+    let foreground = args.iter().any(|a| a == "--foreground");
+    let one_shot = args.iter().any(|a| ONE_SHOT_FLAGS.contains(&a.as_str()));
+    if under_systemd || foreground || one_shot {
+        return false;
+    }
+    probe() == UnitState::Stopped
+}
+
+/// Ask the user's systemd manager about the vtt unit. Any failure (no
+/// systemctl, no user bus) reads as Unknown, which never hands off.
+#[cfg(target_os = "linux")]
+fn probe_vtt_unit() -> UnitState {
+    let output = std::process::Command::new("systemctl")
+        .args([
+            "--user",
+            "show",
+            VTT_UNIT,
+            "--property=LoadState,ActiveState",
+        ])
+        .stderr(std::process::Stdio::null())
+        .output();
+    match output {
+        Ok(out) if out.status.success() => parse_unit_state(&String::from_utf8_lossy(&out.stdout)),
+        _ => UnitState::Unknown,
+    }
+}
+
+/// Pure: read `LoadState=` and `ActiveState=` lines from `systemctl show`.
+#[cfg(target_os = "linux")]
+fn parse_unit_state(show: &str) -> UnitState {
+    let mut load = None;
+    let mut active = None;
+    for line in show.lines() {
+        if let Some(value) = line.strip_prefix("LoadState=") {
+            load = Some(value.trim());
+        } else if let Some(value) = line.strip_prefix("ActiveState=") {
+            active = Some(value.trim());
+        }
+    }
+    match (load, active) {
+        (Some("loaded"), Some("inactive" | "failed")) => UnitState::Stopped,
+        (Some("loaded"), Some(_)) => UnitState::Running,
+        (Some("not-found" | "masked"), _) => UnitState::Absent,
+        _ => UnitState::Unknown,
+    }
+}
+
 #[cfg(unix)]
 fn singleton_lock(data_dir: &std::path::Path) -> anyhow::Result<std::fs::File> {
     use std::io::Write;
@@ -2138,5 +2254,127 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let deleted = cleanup_old_wavs_in(dir.path(), std::time::SystemTime::now());
         assert_eq!(deleted, 0);
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod hand_off_tests {
+    use super::*;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// A probe that fails the test if it runs: proves the decision never
+    /// asks systemd when the answer is already settled.
+    fn must_not_probe() -> UnitState {
+        panic!("probe must not run");
+    }
+
+    #[test]
+    fn launcher_start_hands_off_when_unit_is_stopped() {
+        assert!(hand_off_to_unit(&args(&["/usr/bin/vtt"]), None, || {
+            UnitState::Stopped
+        }));
+    }
+
+    #[test]
+    fn empty_invocation_id_counts_as_outside_systemd() {
+        assert!(hand_off_to_unit(&args(&["vtt"]), Some(""), || {
+            UnitState::Stopped
+        }));
+    }
+
+    #[test]
+    fn unit_own_start_never_hands_off_or_probes() {
+        // The unit's ExecStart runs with INVOCATION_ID set; handing off from
+        // there would start the unit from inside itself and loop.
+        assert!(!hand_off_to_unit(
+            &args(&["/usr/bin/vtt"]),
+            Some("b0f24d1a2a6c4f5f9d4b7a1c3e5f7a9b"),
+            must_not_probe,
+        ));
+    }
+
+    #[test]
+    fn running_unit_leaves_the_single_instance_message() {
+        assert!(!hand_off_to_unit(&args(&["vtt"]), None, || {
+            UnitState::Running
+        }));
+    }
+
+    #[test]
+    fn missing_unit_runs_in_the_foreground() {
+        assert!(!hand_off_to_unit(&args(&["vtt"]), None, || {
+            UnitState::Absent
+        }));
+        assert!(!hand_off_to_unit(&args(&["vtt"]), None, || {
+            UnitState::Unknown
+        }));
+    }
+
+    #[test]
+    fn foreground_flag_never_hands_off_or_probes() {
+        assert!(!hand_off_to_unit(
+            &args(&["vtt", "--foreground"]),
+            None,
+            must_not_probe,
+        ));
+    }
+
+    #[test]
+    fn one_shot_modes_never_hand_off_or_probe() {
+        for flag in ["--version", "-V", "--help", "-h", "--doctor"] {
+            assert!(
+                !hand_off_to_unit(&args(&["vtt", flag]), None, must_not_probe),
+                "{flag} must not hand off"
+            );
+        }
+        for flag in ["--file", "-f"] {
+            assert!(
+                !hand_off_to_unit(&args(&["vtt", flag, "clip.wav"]), None, must_not_probe),
+                "{flag} must not hand off"
+            );
+        }
+    }
+
+    #[test]
+    fn parses_systemctl_show_output() {
+        let cases = [
+            (
+                "LoadState=loaded\nActiveState=inactive\n",
+                UnitState::Stopped,
+            ),
+            ("LoadState=loaded\nActiveState=failed\n", UnitState::Stopped),
+            ("LoadState=loaded\nActiveState=active\n", UnitState::Running),
+            (
+                "LoadState=loaded\nActiveState=activating\n",
+                UnitState::Running,
+            ),
+            (
+                "LoadState=loaded\nActiveState=deactivating\n",
+                UnitState::Running,
+            ),
+            (
+                "ActiveState=inactive\nLoadState=loaded\n",
+                UnitState::Stopped,
+            ),
+            (
+                "LoadState=not-found\nActiveState=inactive\n",
+                UnitState::Absent,
+            ),
+            (
+                "LoadState=masked\nActiveState=inactive\n",
+                UnitState::Absent,
+            ),
+            (
+                "LoadState=bad-setting\nActiveState=inactive\n",
+                UnitState::Unknown,
+            ),
+            ("", UnitState::Unknown),
+        ];
+        for (show, want) in cases {
+            assert_eq!(parse_unit_state(show), want, "for {show:?}");
+        }
     }
 }

@@ -25,6 +25,14 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 Both run before your correction list, so a correction you have written
 still has the final say. `--file` applies them too.
 
+### Fixed
+- **Voice to Text in the app grid brings dictation back after a tray
+  Quit** (Linux). Quit stops the vtt service, and the launcher used to
+  start a separate copy outside it, with no automatic restart. It now
+  starts the service again and exits. Run `vtt --foreground` to run in
+  the terminal instead; `--file`, `--doctor`, `--help` and `--version`
+  are unchanged.
+
 ### Security
 - **Five dependency advisories cleared**: quinn-udp 0.5.16
   (RUSTSEC-2026-0538), rustls-webpki 0.103.17 (RUSTSEC-2026-0382),
