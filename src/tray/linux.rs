@@ -645,184 +645,493 @@ fn show_about_dialog() {
     }
 }
 
-fn show_settings_dialog(state: &Rc<RefCell<TrayState>>) {
-    let s = state.borrow();
-    let settings = s.settings.read().unwrap().clone();
-    drop(s);
+/// Default width of the settings dialog's content, in logical pixels.
+const SETTINGS_DIALOG_WIDTH: i32 = 520;
+/// Room left under the work area for the title bar and a margin, which the
+/// window's default size does not include.
+const SETTINGS_DIALOG_FRAME_ALLOWANCE: i32 = 80;
+/// Work-area height assumed when GDK reports no monitor at all: a 768-pixel
+/// laptop screen less its top panel.
+const SETTINGS_DIALOG_FALLBACK_WORKAREA: i32 = 700;
+/// The dialog never opens shorter than this, however small the screen.
+const SETTINGS_DIALOG_MIN_HEIGHT: i32 = 240;
 
-    // Resolve the archive destination for display: an empty archive_dir means
-    // "the default", which is exactly the value a user cannot interpret.
-    let data_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
-        .join("voice-to-text");
+/// The settings dialog's opening height: tall enough for its tallest tab,
+/// but never taller than the work area (the monitor less its panels and
+/// dock) minus the title bar, so Save opens on screen (TASK-VTT204). GDK
+/// reports the whole monitor where a backend has no work area; `None` means
+/// it reported no monitor, and a laptop-sized screen is assumed.
+fn settings_dialog_height(natural: i32, workarea_height: Option<i32>) -> i32 {
+    let workarea = workarea_height
+        .filter(|h| *h > 0)
+        .unwrap_or(SETTINGS_DIALOG_FALLBACK_WORKAREA);
+    let cap = (workarea - SETTINGS_DIALOG_FRAME_ALLOWANCE).max(SETTINGS_DIALOG_MIN_HEIGHT);
+    natural.clamp(SETTINGS_DIALOG_MIN_HEIGHT, cap)
+}
 
-    let dialog = gtk::Window::new(gtk::WindowType::Toplevel);
-    dialog.set_title("Settings");
-    // Grown for TASK-VTT051 (hotkey/language/model/device sections added
-    // above the original six). Resizable rather than clipping Save, same
-    // reasoning as the TASK-VTT144 resize.
-    dialog.set_default_size(520, 860);
-    dialog.set_resizable(true);
-    dialog.set_position(gtk::WindowPosition::Center);
-    dialog.set_border_width(20);
+/// Work-area height of the monitor under the pointer, which is the monitor
+/// the dialog opens centred on, falling back to the primary monitor and then
+/// the first. `None` when GDK reports no monitor.
+fn pointer_monitor_workarea_height() -> Option<i32> {
+    let display = gtk::gdk::Display::default()?;
+    let at_pointer = display
+        .default_seat()
+        .and_then(|seat| seat.pointer())
+        .and_then(|pointer| {
+            let (_, x, y) = pointer.position();
+            display.monitor_at_point(x, y)
+        });
+    let monitor = at_pointer
+        .or_else(|| display.primary_monitor())
+        .or_else(|| display.monitor(0))?;
+    Some(monitor.workarea().height())
+}
 
-    let vbox = gtk::Box::new(gtk::Orientation::Vertical, 10);
-    dialog.add(&vbox);
+/// The menu key a saved model name selects: ".en" and the legacy "CT2 " and
+/// "W " prefixes stripped, the same normalisation the tray's model submenu
+/// applies.
+fn model_base_key(selected_model: &str) -> String {
+    let legacy = ["CT2 ", "W "];
+    let cleaned = legacy
+        .iter()
+        .fold(selected_model.replace(".en", ""), |acc, p| {
+            acc.trim_start_matches(*p).to_string()
+        });
+    cleaned.trim_end_matches(".en").to_string()
+}
 
-    // Hotkey — reuses show_hotkey_dialog's own capture-and-save flow (it
-    // saves and updates the tray label itself on release), so this is just
-    // an entry point into that existing, already-correct mechanism rather
-    // than a second implementation of key capture.
-    let hotkey_label = gtk::Label::new(None);
-    hotkey_label.set_markup("<b>Push-to-talk hotkey:</b>");
-    hotkey_label.set_halign(gtk::Align::Start);
-    vbox.pack_start(&hotkey_label, false, false, 0);
+/// Every value the settings dialog shows and saves, as plain data. The
+/// dialog fills its widgets from one of these and reads one back on Save, so
+/// the mapping to and from `Settings` is a pure function a test can call
+/// (TASK-VTT204). `show_form` and `read_form` name every field, so a widget
+/// dropped from a tab page fails to compile rather than silently keeping its
+/// old saved value.
+#[derive(Debug, Clone, PartialEq)]
+struct SettingsForm {
+    /// "English only" is chosen; otherwise "Multilingual".
+    language_en: bool,
+    /// Key of the chosen model row, from `model_menu_entries`.
+    model_key: Option<String>,
+    /// Input-device row: 0 is "Default", row i is device ordinal i-1.
+    device_row: u32,
+    voice_prefix: String,
+    initial_prompt: String,
+    /// The corrections box, one `misheard => correct` pair per line.
+    corrections_text: String,
+    append_newline: bool,
+    shift_return: bool,
+    archive_recordings: bool,
+    denoise: bool,
+}
 
+impl SettingsForm {
+    /// What the dialog shows for `settings`, given the model rows in order
+    /// and the number of listed input devices.
+    fn from_settings(settings: &Settings, model_keys: &[&str], device_count: usize) -> Self {
+        let base_key = model_base_key(&settings.selected_model);
+        // A radio group always has one row chosen, and the first stays chosen
+        // until another is, so an unlisted saved model shows as the first row.
+        let model_key = model_keys
+            .iter()
+            .find(|k| **k == base_key)
+            .or_else(|| model_keys.first())
+            .map(|k| k.to_string());
+        let device_row = if settings.selected_device_index >= 0
+            && (settings.selected_device_index as usize) < device_count
+        {
+            settings.selected_device_index as u32 + 1
+        } else {
+            0
+        };
+        SettingsForm {
+            language_en: settings.selected_language == "en",
+            model_key,
+            device_row,
+            voice_prefix: settings.voice_prefix.clone(),
+            initial_prompt: settings.initial_prompt.clone(),
+            corrections_text: corrections::format_pairs(&settings.corrections),
+            append_newline: settings.append_newline,
+            shift_return: settings.newline_type == NewlineType::ShiftReturn,
+            archive_recordings: settings.archive_recordings,
+            denoise: settings.denoise,
+        }
+    }
+
+    /// Write the form into `settings`. Fields the dialog does not show (the
+    /// hotkey, which its own dialog saves, logging, the archive path and cap,
+    /// the backend and the text clean-up switches) are left as they are.
+    fn apply_to(&self, settings: &mut Settings, device_count: usize) {
+        settings.selected_language = if self.language_en { "en" } else { "auto" }.to_string();
+        if let Some(key) = &self.model_key {
+            settings.selected_model = key.clone();
+        }
+        // Row 0 is "Default" (-1); row i is device ordinal i-1, matching the
+        // order list_input_device_names() and resolve_device_ordinal use.
+        settings.selected_device_index = match self.device_row {
+            0 => -1,
+            row if (row as usize) <= device_count => row as i32 - 1,
+            _ => -1,
+        };
+        settings.voice_prefix = self.voice_prefix.clone();
+        settings.initial_prompt = self.initial_prompt.clone();
+        // An emptied box means "remove them all", so this assigns
+        // unconditionally rather than skipping on empty (TASK-VTT144).
+        settings.corrections = corrections::parse_pairs(&self.corrections_text);
+        settings.append_newline = self.append_newline;
+        settings.newline_type = if self.shift_return {
+            NewlineType::ShiftReturn
+        } else {
+            NewlineType::PlainReturn
+        };
+        settings.archive_recordings = self.archive_recordings;
+        settings.denoise = self.denoise;
+    }
+
+    /// Reset Default: the text boxes and switches go back to the shipped
+    /// defaults, archiving and the rumble filter off among them; language,
+    /// model and input device keep the user's choice.
+    fn reset_to_defaults(&mut self) {
+        let shipped = SettingsForm::from_settings(&Settings::default(), &[], 0);
+        self.voice_prefix = shipped.voice_prefix;
+        self.initial_prompt = shipped.initial_prompt;
+        self.corrections_text = shipped.corrections_text;
+        self.append_newline = shipped.append_newline;
+        self.shift_return = shipped.shift_return;
+        self.archive_recordings = shipped.archive_recordings;
+        self.denoise = shipped.denoise;
+    }
+}
+
+/// The settings dialog's window and the widgets its buttons act on.
+struct SettingsDialog {
+    window: gtk::Window,
+    hotkey_current: gtk::Label,
+    hotkey_change: gtk::Button,
+    lang_en: gtk::RadioButton,
+    lang_multi: gtk::RadioButton,
+    model_buttons: Vec<(gtk::RadioButton, &'static str)>,
+    device_combo: gtk::ComboBoxText,
+    device_count: usize,
+    prefix_entry: gtk::Entry,
+    prompt_buffer: gtk::TextBuffer,
+    corrections_buffer: gtk::TextBuffer,
+    newline_toggle: gtk::CheckButton,
+    plain_radio: gtk::RadioButton,
+    shift_radio: gtk::RadioButton,
+    archive_toggle: gtk::CheckButton,
+    denoise_toggle: gtk::CheckButton,
+    reset_btn: gtk::Button,
+    cancel_btn: gtk::Button,
+    save_btn: gtk::Button,
+}
+
+impl SettingsDialog {
+    fn show_form(&self, form: &SettingsForm) {
+        let SettingsForm {
+            language_en,
+            model_key,
+            device_row,
+            voice_prefix,
+            initial_prompt,
+            corrections_text,
+            append_newline,
+            shift_return,
+            archive_recordings,
+            denoise,
+        } = form;
+        if *language_en {
+            self.lang_en.set_active(true);
+        } else {
+            self.lang_multi.set_active(true);
+        }
+        for (button, key) in &self.model_buttons {
+            if model_key.as_deref() == Some(*key) {
+                button.set_active(true);
+            }
+        }
+        self.device_combo.set_active(Some(*device_row));
+        self.prefix_entry.set_text(voice_prefix);
+        self.prompt_buffer.set_text(initial_prompt);
+        self.corrections_buffer.set_text(corrections_text);
+        self.newline_toggle.set_active(*append_newline);
+        if *shift_return {
+            self.shift_radio.set_active(true);
+        } else {
+            self.plain_radio.set_active(true);
+        }
+        self.archive_toggle.set_active(*archive_recordings);
+        self.denoise_toggle.set_active(*denoise);
+    }
+
+    fn read_form(&self) -> SettingsForm {
+        SettingsForm {
+            language_en: self.lang_en.is_active(),
+            model_key: self
+                .model_buttons
+                .iter()
+                .find(|(button, _)| button.is_active())
+                .map(|(_, key)| key.to_string()),
+            device_row: self.device_combo.active().unwrap_or(0),
+            voice_prefix: self.prefix_entry.text().to_string(),
+            initial_prompt: buffer_text(&self.prompt_buffer),
+            corrections_text: buffer_text(&self.corrections_buffer),
+            append_newline: self.newline_toggle.is_active(),
+            shift_return: self.shift_radio.is_active(),
+            archive_recordings: self.archive_toggle.is_active(),
+            denoise: self.denoise_toggle.is_active(),
+        }
+    }
+}
+
+/// One tab of the settings dialog. The page sits in its own scroller, so a
+/// window resized shorter than the page scrolls the page while the button
+/// row, outside the notebook, stays put (TASK-VTT204).
+fn settings_page(notebook: &gtk::Notebook, title: &str) -> gtk::Box {
+    let page = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    page.set_border_width(12);
+    let scroller = gtk::ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
+    scroller.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+    // The page's natural height reaches the window, so it opens tall enough
+    // for the tallest tab; its minimum does not, so it can still be shortened.
+    scroller.set_propagate_natural_height(true);
+    scroller.add(&page);
+    notebook.append_page(&scroller, Some(&gtk::Label::new(Some(title))));
+    page
+}
+
+/// A bold section heading on a settings page; `gap` puts space above it.
+fn section_heading(page: &gtk::Box, markup: &str, gap: bool) {
+    let label = gtk::Label::new(None);
+    label.set_markup(markup);
+    label.set_halign(gtk::Align::Start);
+    label.set_xalign(0.0);
+    label.set_line_wrap(true);
+    if gap {
+        label.set_margin_top(12);
+    }
+    page.pack_start(&label, false, false, 0);
+}
+
+/// A plain, wrapping note under a setting.
+fn section_note(page: &gtk::Box, text: &str) {
+    let label = gtk::Label::new(Some(text));
+    label.set_halign(gtk::Align::Start);
+    label.set_xalign(0.0);
+    label.set_line_wrap(true);
+    label.set_line_wrap_mode(gtk::pango::WrapMode::WordChar);
+    page.pack_start(&label, false, false, 0);
+}
+
+/// Build the settings window for `settings`, sized to the monitor's work
+/// area, without showing it. Nothing here reads or writes the live settings;
+/// `show_settings_dialog` connects the hotkey, Save and Cancel buttons.
+fn build_settings_dialog(
+    settings: &Settings,
+    data_dir: &Path,
+    device_names: &[String],
+) -> SettingsDialog {
+    let window = gtk::Window::new(gtk::WindowType::Toplevel);
+    window.set_title("Settings");
+    window.set_resizable(true);
+    window.set_position(gtk::WindowPosition::Center);
+    window.set_border_width(12);
+
+    // The notebook takes the spare height; the button row below it sits
+    // outside the notebook and every scroller, so no page or window height
+    // can push Save out of view (TASK-VTT204 pre-mortem).
+    let outer = gtk::Box::new(gtk::Orientation::Vertical, 12);
+    window.add(&outer);
+    let notebook = gtk::Notebook::new();
+    outer.pack_start(&notebook, true, true, 0);
+
+    // ── General: hotkey, language, model, input device ──
+    let general = settings_page(&notebook, "General");
+
+    // Hotkey — the Change... button opens show_hotkey_dialog, which captures
+    // and saves the key itself; show_settings_dialog re-reads it afterwards.
+    section_heading(&general, "<b>Push-to-talk hotkey:</b>", false);
     let hotkey_row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
     let hotkey_current = gtk::Label::new(Some(&hotkey::get_key_name(settings.hotkey_keycode)));
     hotkey_current.set_halign(gtk::Align::Start);
     hotkey_row.pack_start(&hotkey_current, true, true, 0);
-    let hotkey_change_btn = gtk::Button::with_label("Change...");
-    hotkey_row.pack_start(&hotkey_change_btn, false, false, 0);
-    vbox.pack_start(&hotkey_row, false, false, 0);
-    {
-        let st = state.clone();
-        let hotkey_current = hotkey_current.clone();
-        hotkey_change_btn.connect_clicked(move |_| {
-            show_hotkey_dialog(&st);
-            // show_hotkey_dialog saves on release; re-read so this dialog's
-            // own label doesn't go stale while it stays open.
-            let code = st.borrow().settings.read().unwrap().hotkey_keycode;
-            hotkey_current.set_text(&hotkey::get_key_name(code));
-        });
-    }
+    let hotkey_change = gtk::Button::with_label("Change...");
+    hotkey_row.pack_start(&hotkey_change, false, false, 0);
+    general.pack_start(&hotkey_row, false, false, 0);
 
-    vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
+    section_heading(&general, "<b>Language:</b>", true);
+    let lang_en = gtk::RadioButton::with_label("English only (fastest)");
+    let lang_multi =
+        gtk::RadioButton::with_label_from_widget(&lang_en, "Multilingual (99 languages)");
+    general.pack_start(&lang_en, false, false, 0);
+    general.pack_start(&lang_multi, false, false, 0);
 
-    // Language
-    let lang_label = gtk::Label::new(None);
-    lang_label.set_markup("<b>Language:</b>");
-    lang_label.set_halign(gtk::Align::Start);
-    vbox.pack_start(&lang_label, false, false, 0);
-
-    let dlg_lang_en = gtk::RadioButton::with_label("English only (fastest)");
-    let dlg_lang_multi =
-        gtk::RadioButton::with_label_from_widget(&dlg_lang_en, "Multilingual (99 languages)");
-    if settings.selected_language == "en" {
-        dlg_lang_en.set_active(true);
-    } else {
-        dlg_lang_multi.set_active(true);
-    }
-    vbox.pack_start(&dlg_lang_en, false, false, 0);
-    vbox.pack_start(&dlg_lang_multi, false, false, 0);
-
-    vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
-
-    // Model — same catalogue and base-key normalisation rebuild_model_menu
-    // uses, so the dialog's list matches the tray's own submenu exactly.
-    let model_label = gtk::Label::new(None);
-    model_label.set_markup("<b>Model:</b>");
-    model_label.set_halign(gtk::Align::Start);
-    vbox.pack_start(&model_label, false, false, 0);
-
-    let current_base = settings.selected_model.replace(".en", "");
-    let legacy = ["CT2 ", "W "];
-    let cleaned = legacy.iter().fold(current_base, |acc, p| {
-        acc.trim_start_matches(*p).to_string()
-    });
-    let base_key = cleaned.trim_end_matches(".en");
-
+    // Model — the same catalogue the tray's own submenu lists.
+    section_heading(&general, "<b>Model:</b>", true);
     let model_entries = model_menu_entries();
-    let mut dlg_model_group: Option<gtk::RadioButton> = None;
-    let mut dlg_model_buttons: Vec<(gtk::RadioButton, String)> = Vec::new();
+    let mut model_group: Option<gtk::RadioButton> = None;
+    let mut model_buttons: Vec<(gtk::RadioButton, &'static str)> = Vec::new();
     for (label, key) in &model_entries {
-        let item = match &dlg_model_group {
+        let button = match &model_group {
             None => gtk::RadioButton::with_label(label.as_str()),
-            Some(g) => gtk::RadioButton::with_label_from_widget(g, label.as_str()),
+            Some(group) => gtk::RadioButton::with_label_from_widget(group, label.as_str()),
         };
-        if dlg_model_group.is_none() {
-            dlg_model_group = Some(item.clone());
+        if model_group.is_none() {
+            model_group = Some(button.clone());
         }
-        item.set_active(*key == base_key);
-        vbox.pack_start(&item, false, false, 0);
-        dlg_model_buttons.push((item, (*key).to_string()));
+        general.pack_start(&button, false, false, 0);
+        model_buttons.push((button, *key));
     }
 
-    vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
-
-    // Input device — a basic picker (list + save the ordinal); the fuller
-    // tray submenu with hot-plug refresh and live stream rebuild is
-    // TASK-VTT129's scope, not duplicated here.
-    let device_label = gtk::Label::new(None);
-    device_label.set_markup("<b>Input device (restart required to take effect):</b>");
-    device_label.set_halign(gtk::Align::Start);
-    vbox.pack_start(&device_label, false, false, 0);
-
-    let device_names = crate::audio::list_input_device_names();
+    // Input device — a basic picker that saves the ordinal; the tray submenu
+    // with hot-plug refresh is TASK-VTT129's scope, not duplicated here.
+    section_heading(
+        &general,
+        "<b>Input device (restart required to take effect):</b>",
+        true,
+    );
     let device_combo = gtk::ComboBoxText::new();
     device_combo.append_text("Default");
-    for name in &device_names {
+    for name in device_names {
         device_combo.append_text(name);
     }
-    let device_selection = if settings.selected_device_index >= 0
-        && (settings.selected_device_index as usize) < device_names.len()
-    {
-        (settings.selected_device_index as u32) + 1
-    } else {
-        0
-    };
-    device_combo.set_active(Some(device_selection));
-    vbox.pack_start(&device_combo, false, false, 0);
+    general.pack_start(&device_combo, false, false, 0);
 
-    vbox.pack_start(
-        &gtk::Separator::new(gtk::Orientation::Horizontal),
+    // ── Transcription: voice prefix, initial prompt, corrections ──
+    let transcription = settings_page(&notebook, "Transcription");
+
+    section_heading(
+        &transcription,
+        "<b>Voice Prefix (prepended to every transcription):</b>",
         false,
-        false,
-        5,
     );
-
-    // Voice prefix
-    let prefix_label = gtk::Label::new(None);
-    prefix_label.set_markup("<b>Voice Prefix (prepended to every transcription):</b>");
-    prefix_label.set_halign(gtk::Align::Start);
-    vbox.pack_start(&prefix_label, false, false, 0);
-
     let prefix_entry = gtk::Entry::new();
-    prefix_entry.set_text(&settings.voice_prefix);
     prefix_entry.set_placeholder_text(Some("e.g., [voice] "));
-    vbox.pack_start(&prefix_entry, false, false, 0);
+    transcription.pack_start(&prefix_entry, false, false, 0);
 
-    vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
-
-    // Initial prompt
-    let prompt_label = gtk::Label::new(None);
-    prompt_label
-        .set_markup("<b>Initial Prompt (helps Whisper recognize your voice, max 240 chars):</b>");
-    prompt_label.set_halign(gtk::Align::Start);
-    vbox.pack_start(&prompt_label, false, false, 0);
-
-    let scrolled = gtk::ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
-    scrolled.set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Automatic);
-    scrolled.set_size_request(-1, 70);
-    vbox.pack_start(&scrolled, true, true, 0);
-
-    let text_view = gtk::TextView::new();
-    text_view.set_wrap_mode(gtk::WrapMode::WordChar);
-    let buffer = text_view.buffer().unwrap();
-    buffer.set_text(&settings.initial_prompt);
-    scrolled.add(&text_view);
-
-    // Character counter
+    section_heading(
+        &transcription,
+        "<b>Initial Prompt (helps Whisper recognize your voice, max 240 chars):</b>",
+        true,
+    );
+    let prompt_scroller =
+        gtk::ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
+    prompt_scroller.set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Automatic);
+    prompt_scroller.set_size_request(-1, 70);
+    transcription.pack_start(&prompt_scroller, true, true, 0);
+    let prompt_view = gtk::TextView::new();
+    prompt_view.set_wrap_mode(gtk::WrapMode::WordChar);
+    let prompt_buffer = prompt_view.buffer().unwrap();
+    prompt_scroller.add(&prompt_view);
     let counter = gtk::Label::new(None);
     counter.set_halign(gtk::Align::End);
-    update_char_counter(&buffer, &counter);
-    vbox.pack_start(&counter, false, false, 0);
+    transcription.pack_start(&counter, false, false, 0);
 
-    let counter_clone = counter.clone();
-    buffer.connect_changed(move |buf| {
-        // Enforce 240 char limit
-        let count = buf.char_count();
-        if count > 240 {
+    // Corrections. The format is stated in the heading because `parse_pairs`
+    // drops a malformed row silently — a user who types `->` instead of `=>`
+    // would otherwise watch their rule vanish on save (TASK-VTT144).
+    section_heading(
+        &transcription,
+        "<b>Corrections (one per line, <tt>misheard =&gt; correct</tt>):</b>",
+        true,
+    );
+    let corrections_scroller =
+        gtk::ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
+    corrections_scroller.set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Automatic);
+    corrections_scroller.set_size_request(-1, 110);
+    transcription.pack_start(&corrections_scroller, true, true, 0);
+    let corrections_view = gtk::TextView::new();
+    corrections_view.set_wrap_mode(gtk::WrapMode::WordChar);
+    let corrections_buffer = corrections_view.buffer().unwrap();
+    corrections_scroller.add(&corrections_view);
+    section_note(
+        &transcription,
+        "Whole words only, case-insensitive. Empty the box to remove them all.",
+    );
+
+    // ── Output: newline behaviour ──
+    let output = settings_page(&notebook, "Output");
+    let newline_toggle = gtk::CheckButton::with_label("Insert newline between transcriptions");
+    output.pack_start(&newline_toggle, false, false, 0);
+    section_heading(&output, "<b>Newline key behavior:</b>", true);
+    let plain_radio = gtk::RadioButton::with_label("Plain Return (may send messages in chat apps)");
+    output.pack_start(&plain_radio, false, false, 0);
+    let shift_radio = gtk::RadioButton::with_label_from_widget(
+        &plain_radio,
+        "Shift+Return (safer, won't send messages)",
+    );
+    output.pack_start(&shift_radio, false, false, 0);
+
+    // ── Audio and privacy: archive, rumble filter ──
+    // Both were settings-file only before, and the file most people would
+    // edit by hand is the wrong one — the app reads the data directory, not
+    // ~/.config (TASK-VTT154).
+    let audio = settings_page(&notebook, "Audio and privacy");
+    let archive_toggle = gtk::CheckButton::with_label(
+        "Archive my recordings — saves my voice AND what I said, to disk",
+    );
+    audio.pack_start(&archive_toggle, false, false, 0);
+    section_note(
+        &audio,
+        &format!(
+            "Saved to {}. Nothing is uploaded. See the README before enabling.",
+            crate::archive::resolve_archive_dir(&settings.archive_dir, data_dir).display()
+        ),
+    );
+    let denoise_toggle =
+        gtk::CheckButton::with_label("Filter low-frequency rumble before transcribing");
+    denoise_toggle.set_margin_top(12);
+    audio.pack_start(&denoise_toggle, false, false, 0);
+    section_note(
+        &audio,
+        "These two apply on restart: systemctl --user restart vtt.service",
+    );
+
+    // ── Button row, outside the notebook ──
+    let button_row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+    outer.pack_start(&button_row, false, false, 0);
+    let reset_btn = gtk::Button::with_label("Reset Default");
+    reset_btn.set_size_request(120, -1);
+    button_row.pack_start(&reset_btn, false, false, 0);
+    let cancel_btn = gtk::Button::with_label("Cancel");
+    cancel_btn.set_size_request(80, -1);
+    let save_btn = gtk::Button::with_label("Save");
+    save_btn.set_size_request(80, -1);
+    button_row.pack_end(&save_btn, false, false, 0);
+    button_row.pack_end(&cancel_btn, false, false, 0);
+
+    let dialog = SettingsDialog {
+        window,
+        hotkey_current,
+        hotkey_change,
+        lang_en,
+        lang_multi,
+        model_buttons,
+        device_combo,
+        device_count: device_names.len(),
+        prefix_entry,
+        prompt_buffer,
+        corrections_buffer,
+        newline_toggle,
+        plain_radio,
+        shift_radio,
+        archive_toggle,
+        denoise_toggle,
+        reset_btn,
+        cancel_btn,
+        save_btn,
+    };
+
+    // Fill the widgets before the 240-character limit is connected, so a
+    // longer hand-edited prompt opens whole, as it always has.
+    let model_keys: Vec<&str> = model_entries.iter().map(|(_, key)| *key).collect();
+    dialog.show_form(&SettingsForm::from_settings(
+        settings,
+        &model_keys,
+        device_names.len(),
+    ));
+    update_char_counter(&dialog.prompt_buffer, &counter);
+    dialog.prompt_buffer.connect_changed(move |buf| {
+        if buf.char_count() > 240 {
             let start = buf.start_iter();
             let mut end = buf.start_iter();
             end.set_offset(240);
@@ -830,139 +1139,60 @@ fn show_settings_dialog(state: &Rc<RefCell<TrayState>>) {
                 buf.set_text(&text);
             }
         }
-        update_char_counter(buf, &counter_clone);
+        update_char_counter(buf, &counter);
     });
 
-    vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
-
-    // Corrections dictionary. The format is stated in the label because
-    // `parse_pairs` drops a malformed row silently — a user who types `->`
-    // instead of `=>` would otherwise watch their rule vanish on save with no
-    // explanation (TASK-VTT144 pre-mortem).
-    let corrections_label = gtk::Label::new(None);
-    corrections_label
-        .set_markup("<b>Corrections (one per line, <tt>misheard =&gt; correct</tt>):</b>");
-    corrections_label.set_halign(gtk::Align::Start);
-    vbox.pack_start(&corrections_label, false, false, 0);
-
-    let corrections_scrolled =
-        gtk::ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
-    corrections_scrolled.set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Automatic);
-    corrections_scrolled.set_size_request(-1, 110);
-    vbox.pack_start(&corrections_scrolled, true, true, 0);
-
-    let corrections_view = gtk::TextView::new();
-    corrections_view.set_wrap_mode(gtk::WrapMode::WordChar);
-    let corrections_buffer = corrections_view.buffer().unwrap();
-    corrections_buffer.set_text(&corrections::format_pairs(&settings.corrections));
-    corrections_scrolled.add(&corrections_view);
-
-    let corrections_hint = gtk::Label::new(Some(
-        "Whole words only, case-insensitive. Empty the box to remove them all.",
-    ));
-    corrections_hint.set_halign(gtk::Align::Start);
-    vbox.pack_start(&corrections_hint, false, false, 0);
-
-    vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
-
-    // Newline toggle
-    let newline_toggle = gtk::CheckButton::with_label("Insert newline between transcriptions");
-    newline_toggle.set_active(settings.append_newline);
-    vbox.pack_start(&newline_toggle, false, false, 0);
-
-    // Newline type radios
-    let nl_label = gtk::Label::new(Some("Newline key behavior:"));
-    nl_label.set_halign(gtk::Align::Start);
-    vbox.pack_start(&nl_label, false, false, 5);
-
-    let plain_radio = gtk::RadioButton::with_label("Plain Return (may send messages in chat apps)");
-    vbox.pack_start(&plain_radio, false, false, 0);
-
-    let shift_radio = gtk::RadioButton::with_label_from_widget(
-        &plain_radio,
-        "Shift+Return (safer, won't send messages)",
+    // Open as tall as the tallest tab wants, capped to the work area.
+    outer.show_all();
+    let content_width = SETTINGS_DIALOG_WIDTH - 2 * dialog.window.border_width() as i32;
+    let (_, natural) = outer.preferred_height_for_width(content_width);
+    let natural = natural + 2 * dialog.window.border_width() as i32;
+    dialog.window.set_default_size(
+        SETTINGS_DIALOG_WIDTH,
+        settings_dialog_height(natural, pointer_monitor_workarea_height()),
     );
-    vbox.pack_start(&shift_radio, false, false, 0);
+    dialog
+}
 
-    if settings.newline_type == NewlineType::ShiftReturn {
-        shift_radio.set_active(true);
-    } else {
-        plain_radio.set_active(true);
+fn show_settings_dialog(state: &Rc<RefCell<TrayState>>) {
+    let settings = state.borrow().settings.read().unwrap().clone();
+
+    // Resolve the archive destination for display: an empty archive_dir means
+    // "the default", which is exactly the value a user cannot interpret.
+    let data_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+        .join("voice-to-text");
+
+    let device_names = crate::audio::list_input_device_names();
+    let dialog = Rc::new(build_settings_dialog(&settings, &data_dir, &device_names));
+
+    // Hotkey: show_hotkey_dialog saves on release; re-read so this dialog's
+    // own label doesn't go stale while it stays open.
+    {
+        let st = state.clone();
+        let hotkey_current = dialog.hotkey_current.clone();
+        dialog.hotkey_change.connect_clicked(move |_| {
+            show_hotkey_dialog(&st);
+            let code = st.borrow().settings.read().unwrap().hotkey_keycode;
+            hotkey_current.set_text(&hotkey::get_key_name(code));
+        });
     }
-
-    vbox.pack_start(&gtk::Label::new(Some("")), false, false, 0); // spacer
-
-    // Recording and audio handling. Both are settings-file only until now, and
-    // the file most people would edit by hand is the wrong one — the app reads
-    // the data directory, not ~/.config (TASK-VTT154).
-    let archive_toggle = gtk::CheckButton::with_label(
-        "Archive my recordings — saves my voice AND what I said, to disk",
-    );
-    archive_toggle.set_active(settings.archive_recordings);
-    vbox.pack_start(&archive_toggle, false, false, 0);
-
-    let archive_where = gtk::Label::new(Some(&format!(
-        "    Saved to {}. Nothing is uploaded. See the README before enabling.",
-        crate::archive::resolve_archive_dir(&settings.archive_dir, &data_dir).display()
-    )));
-    archive_where.set_halign(gtk::Align::Start);
-    vbox.pack_start(&archive_where, false, false, 0);
-
-    let denoise_toggle =
-        gtk::CheckButton::with_label("Filter low-frequency rumble before transcribing");
-    denoise_toggle.set_active(settings.denoise);
-    vbox.pack_start(&denoise_toggle, false, false, 0);
-
-    let restart_note = gtk::Label::new(Some(
-        "    These two apply on restart: systemctl --user restart vtt.service",
-    ));
-    restart_note.set_halign(gtk::Align::Start);
-    vbox.pack_start(&restart_note, false, false, 0);
-
-    // Button row
-    let btn_box = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-    vbox.pack_start(&btn_box, false, false, 0);
-
-    let reset_btn = gtk::Button::with_label("Reset Default");
-    reset_btn.set_size_request(120, -1);
-    btn_box.pack_start(&reset_btn, false, false, 0);
-
-    btn_box.pack_start(&gtk::Label::new(Some("")), true, true, 0); // spacer
-
-    let cancel_btn = gtk::Button::with_label("Cancel");
-    cancel_btn.set_size_request(80, -1);
-    btn_box.pack_start(&cancel_btn, false, false, 0);
-
-    let save_btn = gtk::Button::with_label("Save");
-    save_btn.set_size_request(80, -1);
-    btn_box.pack_start(&save_btn, false, false, 0);
 
     // Reset
     {
-        let pe = prefix_entry.clone();
-        let buf = text_view.buffer().unwrap();
-        let cb = corrections_buffer.clone();
-        let nt = newline_toggle.clone();
-        let sr = shift_radio.clone();
-        let at = archive_toggle.clone();
-        let dt = denoise_toggle.clone();
-        reset_btn.connect_clicked(move |_| {
-            pe.set_text("[Voice] ");
-            buf.set_text("");
-            cb.set_text("");
-            nt.set_active(true);
-            sr.set_active(true);
-            // Both ship off; Reset must not quietly leave archiving on.
-            at.set_active(false);
-            dt.set_active(false);
+        let d = dialog.clone();
+        dialog.reset_btn.connect_clicked(move |_| {
+            let mut form = d.read_form();
+            form.reset_to_defaults();
+            d.show_form(&form);
         });
     }
 
     // Cancel
     {
         let d = dialog.clone();
-        cancel_btn.connect_clicked(move |_| unsafe {
-            d.destroy();
+        dialog.cancel_btn.connect_clicked(move |_| unsafe {
+            d.window.destroy();
         });
     }
 
@@ -970,64 +1200,14 @@ fn show_settings_dialog(state: &Rc<RefCell<TrayState>>) {
     {
         let st = state.clone();
         let d = dialog.clone();
-        let pe = prefix_entry.clone();
-        let buf = text_view.buffer().unwrap();
-        let cb = corrections_buffer;
-        let nt = newline_toggle;
-        let sr = shift_radio;
-        let at = archive_toggle;
-        let dt = denoise_toggle;
-        let dlg_lang_en = dlg_lang_en.clone();
-        let dlg_model_buttons = dlg_model_buttons.clone();
-        let device_combo = device_combo.clone();
-        let device_count = device_names.len();
-        save_btn.connect_clicked(move |_| {
+        dialog.save_btn.connect_clicked(move |_| {
+            let form = d.read_form();
             let s = st.borrow();
             let mut settings = s.settings.write().unwrap();
-
-            settings.voice_prefix = pe.text().to_string();
-
-            settings.initial_prompt = buffer_text(&buf);
-
-            // An emptied box means "remove them all", so this assigns
-            // unconditionally rather than skipping on empty (TASK-VTT144).
-            settings.corrections = corrections::parse_pairs(&buffer_text(&cb));
-
-            settings.archive_recordings = at.is_active();
-            settings.denoise = dt.is_active();
-
-            settings.append_newline = nt.is_active();
-            settings.newline_type = if sr.is_active() {
-                NewlineType::ShiftReturn
-            } else {
-                NewlineType::PlainReturn
-            };
-
-            // Language (TASK-VTT051) — same field the top-level tray radios
-            // write; rebuild_model_menu below keeps that menu in sync.
-            settings.selected_language = if dlg_lang_en.is_active() {
-                "en".to_string()
-            } else {
-                "auto".to_string()
-            };
-
-            // Model (TASK-VTT051) — whichever radio is active; falls back to
-            // the existing selection if none matched (shouldn't happen, the
-            // group always has exactly one active button).
-            if let Some((_, key)) = dlg_model_buttons.iter().find(|(btn, _)| btn.is_active()) {
-                settings.selected_model = key.clone();
+            form.apply_to(&mut settings, d.device_count);
+            if let Some(key) = &form.model_key {
                 s.model_item.set_label(&format!("Model: {}", key));
             }
-
-            // Input device (TASK-VTT051) — combo index 0 is "Default" (-1
-            // sentinel); index i>=1 maps to device ordinal i-1, matching the
-            // order list_input_device_names() and resolve_device_ordinal use.
-            settings.selected_device_index = match device_combo.active() {
-                Some(0) | None => -1,
-                Some(i) if (i as usize) <= device_count => i as i32 - 1,
-                Some(_) => -1,
-            };
-
             update_language_label(&s, &settings.selected_language);
 
             if let Err(e) = settings.save() {
@@ -1052,12 +1232,12 @@ fn show_settings_dialog(state: &Rc<RefCell<TrayState>>) {
             drop(s);
             rebuild_model_menu(&st);
             unsafe {
-                d.destroy();
+                d.window.destroy();
             }
         });
     }
 
-    dialog.show_all();
+    dialog.window.show_all();
 }
 
 /// The whole contents of a `TextBuffer` as a String, empty when the buffer
@@ -1449,5 +1629,302 @@ mod tests {
         // Defensive — if a model name starts with a non-ASCII letter (unlikely
         // but possible), we use Unicode to_uppercase, not ASCII.
         assert_eq!(display_name_for_model("étude"), "Étude");
+    }
+
+    // ── Settings dialog (TASK-VTT204) ──
+
+    const MODEL_KEYS: &[&str] = &["small", "medium", "large-v3-turbo", "parakeet-v3"];
+
+    /// Settings with every field the dialog shows away from its default, and
+    /// the fields it does not show set too, so a test can see both kept.
+    fn edited_settings(dir: &Path) -> Settings {
+        let mut s = Settings::load(dir);
+        s.selected_language = "auto".into();
+        s.selected_model = "large-v3-turbo".into();
+        s.selected_device_index = 2;
+        s.voice_prefix = "[Speech] ".into();
+        s.initial_prompt = "Amala Vijnana, Kanjin, café".into();
+        s.corrections = vec![
+            ("ard".into(), "odd".into()),
+            ("amala vajrayana".into(), "Amala Vijnana".into()),
+        ];
+        s.append_newline = false;
+        s.newline_type = NewlineType::PlainReturn;
+        s.archive_recordings = true;
+        s.denoise = true;
+        // Not shown in the dialog; Save must leave them as they are.
+        s.hotkey_keycode = 78;
+        s.money_figures = false;
+        s.accents = false;
+        s.logging_enabled = false;
+        s.archive_dir = "/mnt/voice-archive".into();
+        s.archive_max_files = 123;
+        s.backend = "ct2".into();
+        s
+    }
+
+    #[test]
+    fn settings_dialog_round_trips_every_field_through_save_and_load() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = edited_settings(dir.path());
+        let form = SettingsForm::from_settings(&original, MODEL_KEYS, 3);
+
+        // The dialog saves onto a fresh copy loaded from disk, then reloads.
+        let mut saved = Settings::load(dir.path());
+        form.apply_to(&mut saved, 3);
+        saved.save().unwrap();
+        let loaded = Settings::load(dir.path());
+
+        assert_eq!(loaded.selected_language, original.selected_language);
+        assert_eq!(loaded.selected_model, original.selected_model);
+        assert_eq!(loaded.selected_device_index, original.selected_device_index);
+        assert_eq!(loaded.voice_prefix, original.voice_prefix);
+        assert_eq!(loaded.initial_prompt, original.initial_prompt);
+        assert_eq!(loaded.corrections, original.corrections);
+        assert_eq!(loaded.append_newline, original.append_newline);
+        assert_eq!(loaded.newline_type, original.newline_type);
+        assert_eq!(loaded.archive_recordings, original.archive_recordings);
+        assert_eq!(loaded.denoise, original.denoise);
+        // And the loaded file shows the same form the user saved.
+        assert_eq!(SettingsForm::from_settings(&loaded, MODEL_KEYS, 3), form);
+    }
+
+    #[test]
+    fn settings_dialog_round_trips_the_default_side_of_every_switch() {
+        // The edited case proves each switch saves "on"; this proves "off"
+        // and the other radio of each pair.
+        let dir = tempfile::tempdir().unwrap();
+        let mut original = Settings::load(dir.path());
+        original.selected_language = "en".into();
+        original.selected_model = "small".into();
+        original.selected_device_index = -1;
+        original.append_newline = true;
+        original.newline_type = NewlineType::ShiftReturn;
+        original.archive_recordings = false;
+        original.denoise = false;
+        let form = SettingsForm::from_settings(&original, MODEL_KEYS, 3);
+
+        let mut saved = edited_settings(dir.path());
+        form.apply_to(&mut saved, 3);
+        saved.save().unwrap();
+        let loaded = Settings::load(dir.path());
+        assert_eq!(SettingsForm::from_settings(&loaded, MODEL_KEYS, 3), form);
+        assert_eq!(loaded.selected_language, "en");
+        assert_eq!(loaded.selected_model, "small");
+        assert_eq!(loaded.selected_device_index, -1);
+        assert!(loaded.append_newline);
+        assert_eq!(loaded.newline_type, NewlineType::ShiftReturn);
+        assert!(!loaded.archive_recordings);
+        assert!(!loaded.denoise);
+    }
+
+    #[test]
+    fn settings_dialog_save_leaves_fields_it_does_not_show() {
+        let dir = tempfile::tempdir().unwrap();
+        let live = edited_settings(dir.path());
+        let form = SettingsForm::from_settings(&Settings::load(dir.path()), MODEL_KEYS, 3);
+        let mut saved = live.clone();
+        form.apply_to(&mut saved, 3);
+        assert_eq!(saved.hotkey_keycode, live.hotkey_keycode);
+        assert_eq!(saved.money_figures, live.money_figures);
+        assert_eq!(saved.accents, live.accents);
+        assert_eq!(saved.logging_enabled, live.logging_enabled);
+        assert_eq!(saved.autostart_initialized, live.autostart_initialized);
+        assert_eq!(saved.archive_dir, live.archive_dir);
+        assert_eq!(saved.archive_max_files, live.archive_max_files);
+        assert_eq!(saved.backend, live.backend);
+    }
+
+    #[test]
+    fn settings_dialog_shows_an_english_model_as_its_menu_row() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Settings::load(dir.path());
+        s.selected_model = "medium.en".into();
+        let form = SettingsForm::from_settings(&s, MODEL_KEYS, 0);
+        assert_eq!(form.model_key.as_deref(), Some("medium"));
+        s.selected_model = "CT2 large-v3-turbo".into();
+        let form = SettingsForm::from_settings(&s, MODEL_KEYS, 0);
+        assert_eq!(form.model_key.as_deref(), Some("large-v3-turbo"));
+    }
+
+    #[test]
+    fn settings_dialog_device_rows_map_to_ordinals() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Settings::load(dir.path());
+        for (index, row) in [(-1, 0), (0, 1), (2, 3)] {
+            s.selected_device_index = index;
+            let form = SettingsForm::from_settings(&s, MODEL_KEYS, 3);
+            assert_eq!(form.device_row, row, "device {index}");
+            let mut back = Settings::load(dir.path());
+            form.apply_to(&mut back, 3);
+            assert_eq!(back.selected_device_index, index);
+        }
+        // A saved device that is no longer listed shows, and saves, as Default.
+        s.selected_device_index = 5;
+        let form = SettingsForm::from_settings(&s, MODEL_KEYS, 3);
+        assert_eq!(form.device_row, 0);
+    }
+
+    #[test]
+    fn settings_dialog_reset_restores_defaults_but_keeps_language_model_device() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut form = SettingsForm::from_settings(&edited_settings(dir.path()), MODEL_KEYS, 3);
+        let before = form.clone();
+        form.reset_to_defaults();
+        assert_eq!(form.voice_prefix, "[Voice] ");
+        assert_eq!(form.initial_prompt, "");
+        assert_eq!(form.corrections_text, "");
+        assert!(form.append_newline);
+        assert!(form.shift_return);
+        assert!(
+            !form.archive_recordings,
+            "Reset must not leave archiving on"
+        );
+        assert!(!form.denoise);
+        assert_eq!(form.language_en, before.language_en);
+        assert_eq!(form.model_key, before.model_key);
+        assert_eq!(form.device_row, before.device_row);
+    }
+
+    #[test]
+    fn settings_dialog_height_fits_the_tallest_tab_when_there_is_room() {
+        assert_eq!(settings_dialog_height(600, Some(984)), 600);
+    }
+
+    #[test]
+    fn settings_dialog_height_is_capped_to_the_work_area() {
+        // 1080p less a 32 px top bar and a 64 px dock.
+        assert_eq!(settings_dialog_height(1200, Some(984)), 984 - 80);
+        // A short laptop screen.
+        assert_eq!(settings_dialog_height(900, Some(700)), 620);
+    }
+
+    #[test]
+    fn settings_dialog_height_without_a_monitor_assumes_a_laptop_screen() {
+        assert_eq!(settings_dialog_height(1200, None), 620);
+        assert_eq!(settings_dialog_height(1200, Some(0)), 620);
+    }
+
+    #[test]
+    fn settings_dialog_height_never_goes_below_its_floor() {
+        assert_eq!(settings_dialog_height(1200, Some(200)), 240);
+        assert_eq!(settings_dialog_height(100, Some(984)), 240);
+    }
+
+    /// Run GTK's pending events for about `ms` milliseconds.
+    fn pump_gtk(ms: u64) {
+        let until = std::time::Instant::now() + std::time::Duration::from_millis(ms);
+        for _ in 0..10_000 {
+            if std::time::Instant::now() >= until {
+                break;
+            }
+            for _ in 0..1_000 {
+                if !gtk::events_pending() {
+                    break;
+                }
+                gtk::main_iteration();
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    }
+
+    /// Hold the window on screen for an outside screenshot when asked.
+    fn hold_for_screenshot(stage: &str) {
+        if let Some(ms) = std::env::var("VTT_DIALOG_HOLD_MS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+        {
+            eprintln!("STAGE {stage}");
+            pump_gtk(ms);
+        }
+    }
+
+    fn assert_fully_inside(widget: &gtk::Button, window: &gtk::Window, at: &str) {
+        let (_, window_height) = window.size();
+        let (x, y) = widget
+            .translate_coordinates(window, 0, 0)
+            .expect("button is inside the window");
+        let bottom = y + widget.allocated_height();
+        assert!(widget.is_mapped(), "{at}: button not mapped");
+        assert!(
+            x >= 0 && y >= 0 && bottom <= window_height,
+            "{at}: button spans y {y}..{bottom}, window is {window_height} high"
+        );
+    }
+
+    /// Opens the real dialog, so it needs an X display:
+    /// `xvfb-run -s "-screen 0 1920x1080x24" cargo test -- --ignored settings_dialog_on_screen`
+    #[test]
+    #[ignore = "needs an X display; run under xvfb-run"]
+    fn settings_dialog_on_screen_keeps_save_visible_at_every_height() {
+        gtk::init().expect("an X display: run under xvfb-run");
+        let dir = tempfile::tempdir().unwrap();
+        let settings = edited_settings(dir.path());
+        let devices = vec![
+            "Built-in Audio Analog Stereo".to_string(),
+            "USB Microphone".to_string(),
+            "Webcam Microphone".to_string(),
+        ];
+        let dialog = build_settings_dialog(&settings, dir.path(), &devices);
+        dialog.window.show_all();
+        pump_gtk(400);
+
+        let workarea = pointer_monitor_workarea_height().expect("a monitor");
+        let (_, opened) = dialog.window.size();
+        eprintln!("workarea {workarea}, dialog opened {opened} high");
+        assert!(
+            opened <= workarea - SETTINGS_DIALOG_FRAME_ALLOWANCE,
+            "dialog {opened} high on a {workarea} work area"
+        );
+        assert_fully_inside(&dialog.save_btn, &dialog.window, "opened");
+        assert_fully_inside(&dialog.cancel_btn, &dialog.window, "opened");
+
+        // Where the screen has room, no tab needs scrolling at the opening size.
+        let outer = dialog
+            .window
+            .child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+        let notebook = outer.children()[0]
+            .clone()
+            .downcast::<gtk::Notebook>()
+            .unwrap();
+        if workarea >= 900 {
+            for page in 0..notebook.n_pages() {
+                notebook.set_current_page(Some(page));
+                pump_gtk(150);
+                let scroller = notebook
+                    .nth_page(Some(page))
+                    .unwrap()
+                    .downcast::<gtk::ScrolledWindow>()
+                    .unwrap();
+                let adj = scroller.vadjustment();
+                eprintln!(
+                    "tab {page}: content {} in view {}",
+                    adj.upper(),
+                    adj.page_size()
+                );
+                assert!(
+                    adj.upper() <= adj.page_size() + 1.0,
+                    "tab {page} needs scrolling: content {} in view {}",
+                    adj.upper(),
+                    adj.page_size()
+                );
+            }
+            notebook.set_current_page(Some(0));
+            pump_gtk(150);
+        }
+        hold_for_screenshot("opened");
+
+        // Shorter than it opened: the tab scrolls, the button row stays.
+        dialog.window.resize(SETTINGS_DIALOG_WIDTH, 260);
+        pump_gtk(400);
+        let (_, short) = dialog.window.size();
+        eprintln!("dialog resized to {short} high");
+        assert!(short < opened, "window would not shrink below {opened}");
+        assert_fully_inside(&dialog.save_btn, &dialog.window, "shortened");
+        assert_fully_inside(&dialog.cancel_btn, &dialog.window, "shortened");
+        hold_for_screenshot("shortened");
     }
 }

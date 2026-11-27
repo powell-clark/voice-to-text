@@ -32,6 +32,11 @@ still has the final say. `--file` applies them too.
   starts the service again and exits. Run `vtt --foreground` to run in
   the terminal instead; `--file`, `--doctor`, `--help` and `--version`
   are unchanged.
+- **The Linux settings window fits on screen.** It ran off the bottom of
+  the screen, leaving Save and Cancel under the dock. Settings are now
+  grouped into four tabs (General, Transcription, Output, Audio and
+  privacy), the window opens no taller than the screen less its panels and
+  dock, and Save and Cancel stay visible however short you make it.
 
 ### Security
 - **Five dependency advisories cleared**: quinn-udp 0.5.16
