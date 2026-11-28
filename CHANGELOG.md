@@ -9,7 +9,7 @@ versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [Unreleased]
+## [2.6.0] — 2026-11-28
 
 ### Added
 - **Spoken prices type as figures.** Say "Total cost ten pounds. Am I
@@ -26,17 +26,17 @@ Both run before your correction list, so a correction you have written
 still has the final say. `--file` applies them too.
 
 ### Changed
-- **`--file` reads WAV files through symphonia**, the library that already
-  reads mp3, m4a and flac, instead of hound. A WAV whose header lengths were
-  never written, as a recorder leaves when it stops mid-write, is now
-  refused instead of read as no audio; a WAV whose data is shorter than its
-  header declares is still refused. The WAV files the app writes are
-  unchanged, byte for byte.
+- **`--file` refuses an unfinished WAV file.** A WAV whose header lengths
+  were never written, as a recorder leaves when it stops mid-write, now gets
+  an error instead of being read as no audio. A WAV whose data is shorter
+  than its header declares is still refused. WAV files are now read by the
+  same library that reads mp3, m4a and flac, and the WAV files the app
+  writes are unchanged, byte for byte.
 
 ### Removed
-- **The optional CT2 backend** and its tray Backend row. An existing
-  `backend=ct2` line in settings.conf is ignored and dictation runs on the
-  built-in engine; the next save drops the line.
+- **The optional CT2 backend** and the Backend row in the tray menu. If your
+  settings.conf says `backend=ct2`, the line is ignored and dictation runs
+  on the built-in engine; the next time settings are saved the line goes.
 
 ### Fixed
 - **`vtt --doctor` passes for an upgraded install that still has an old
@@ -58,16 +58,16 @@ still has the final say. `--file` applies them too.
   dock, and Save and Cancel stay visible however short you make it.
 
 ### Security
-- **Five dependency advisories cleared**: quinn-udp 0.5.16
-  (RUSTSEC-2026-0538), rustls-webpki 0.103.17 (RUSTSEC-2026-0382),
-  webpki-roots 1.0.12 (RUSTSEC-2026-0381), rustix 1.1.6 (RUSTSEC-2026-0486)
-  and tokio 1.54.1 (RUSTSEC-2026-0386), all published after 2.5.2.
-  clipboard-win moves to 5.4.3 because 5.4.1 was yanked.
-- **chrono removed** (RUSTSEC-2026-0543: unmaintained, no fixed release).
-  Dates and times are now formatted in-house from the system clock and the
-  OS's time zone, in the same formats as before. An archive sidecar's
-  `recorded_at` now always carries milliseconds, where it carried up to
-  nanoseconds.
+- **Security updates to the libraries the app is built on**, clearing six
+  advisories published since 2.5.2: url 2.5.9 (RUSTSEC-2026-0592),
+  quinn-udp 0.5.16 (RUSTSEC-2026-0538), rustls-webpki 0.103.17
+  (RUSTSEC-2026-0382), webpki-roots 1.0.12 (RUSTSEC-2026-0381), rustix 1.1.6
+  (RUSTSEC-2026-0486) and tokio 1.54.1 (RUSTSEC-2026-0386). clipboard-win
+  moves to 5.4.3 because 5.4.1 was withdrawn.
+- **An unmaintained date library is gone** (chrono, RUSTSEC-2026-0543, no
+  fixed release). Dates and times look as they did, now formatted by the app
+  from the system clock and time zone. An archive sidecar's `recorded_at`
+  now always carries milliseconds, where it carried up to nanoseconds.
 
 ---
 
