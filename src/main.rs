@@ -1225,32 +1225,17 @@ fn migrate_legacy_model_name(raw: &str) -> String {
 /// paths that were misread during the TASK-VTT150 deployment. Exits non-zero
 /// when anything is wrong, so it is usable in a script.
 fn run_doctor() -> anyhow::Result<()> {
-    use doctor::{diagnose_running, format_report, parse_exe_link, Finding};
+    use doctor::{diagnose_running, format_report, parse_exe_link, stale_settings, Finding};
 
     let mut findings = vec![Finding::ok("version", env!("CARGO_PKG_VERSION"))];
 
     let data_dir = dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("/tmp"))
         .join("voice-to-text");
-    findings.push(Finding::ok(
-        "settings",
-        data_dir.join("settings.conf").display().to_string(),
-    ));
+    let live_settings = data_dir.join("settings.conf");
+    findings.push(Finding::ok("settings", live_settings.display().to_string()));
 
-    // The stale ~/.config copy is inert but still on disk for anyone who ran a
-    // pre-2.0 build, and editing it silently does nothing (TASK-VTT150).
-    if let Some(cfg) = dirs::config_dir() {
-        let stale = cfg.join("voice-to-text").join("settings.conf");
-        if stale.exists() {
-            findings.push(Finding::problem(
-                "stale settings",
-                format!(
-                    "{} exists and is NOT read — edits there do nothing",
-                    stale.display()
-                ),
-            ));
-        }
-    }
+    findings.extend(dirs::config_dir().and_then(|cfg| stale_settings(&cfg, &live_settings)));
 
     let s = settings::Settings::load(&data_dir);
     if s.archive_recordings {

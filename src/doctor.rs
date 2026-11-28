@@ -58,11 +58,14 @@ pub fn is_our_binary(exe_path: &Path) -> bool {
 }
 
 /// One line of the report: a check, its finding, and whether it is a problem.
+/// A note is worth reading but leaves the app working, so it does not fail the
+/// check.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Finding {
     pub label: String,
     pub value: String,
     pub is_problem: bool,
+    pub is_note: bool,
 }
 
 impl Finding {
@@ -71,16 +74,44 @@ impl Finding {
             label: label.to_string(),
             value: value.into(),
             is_problem: false,
+            is_note: false,
+        }
+    }
+
+    pub fn note(label: &str, value: impl Into<String>) -> Self {
+        Self {
+            is_note: true,
+            ..Self::ok(label, value)
         }
     }
 
     pub fn problem(label: &str, value: impl Into<String>) -> Self {
         Self {
-            label: label.to_string(),
-            value: value.into(),
             is_problem: true,
+            ..Self::ok(label, value)
         }
     }
+}
+
+/// A `settings.conf` left in the config directory by a pre-2.0 install. The
+/// app does not read it, so editing it silently does nothing (TASK-VTT150),
+/// but it breaks nothing either: a note, not a failure, or every upgraded user
+/// who still has one fails the check for good (TASK-VTT218).
+///
+/// `live` is the file the app reads. On macOS the config and data directories
+/// are the same, so the two paths match and there is nothing to report.
+pub fn stale_settings(config_dir: &Path, live: &Path) -> Option<Finding> {
+    let old = config_dir.join("voice-to-text").join("settings.conf");
+    if old == live || !old.exists() {
+        return None;
+    }
+    Some(Finding::note(
+        "stale settings",
+        format!(
+            "{} is NOT read, so edits there do nothing; rename or delete it",
+            old.display()
+        ),
+    ))
 }
 
 /// Turn one process's exe state into a finding, given the path the package
@@ -121,6 +152,8 @@ pub fn format_report(findings: &[Finding]) -> (String, bool) {
         let mark = if f.is_problem {
             any_problem = true;
             "PROBLEM"
+        } else if f.is_note {
+            "note   "
         } else {
             "ok     "
         };
@@ -252,5 +285,49 @@ mod tests {
     fn an_empty_report_does_not_panic_on_the_label_width() {
         let (_, bad) = format_report(&[]);
         assert!(!bad);
+    }
+
+    /// Lays out a config directory holding an old settings file, as a pre-2.0
+    /// install left behind, and returns it with the old file's path.
+    fn config_dir_with_old_settings() -> (tempfile::TempDir, PathBuf) {
+        let config = tempfile::tempdir().unwrap();
+        let app = config.path().join("voice-to-text");
+        std::fs::create_dir_all(&app).unwrap();
+        let old = app.join("settings.conf");
+        std::fs::write(&old, "model=small\n").unwrap();
+        (config, old)
+    }
+
+    #[test]
+    fn a_leftover_settings_file_is_noted_without_failing_the_check() {
+        // The upgrade case (TASK-VTT218): the app works, so the health check
+        // must pass, while still saying the old file is not read.
+        let (config, old) = config_dir_with_old_settings();
+        let live = Path::new("/data/voice-to-text/settings.conf");
+
+        let finding = stale_settings(config.path(), live).expect("the old file is reported");
+        let (text, bad) = format_report(&[Finding::ok("version", "2.6.0"), finding]);
+
+        assert!(!bad, "an inert leftover file must not fail the check");
+        assert!(text.contains("[note   ] stale settings"));
+        assert!(text.contains(&old.display().to_string()));
+        assert!(text.contains("NOT read"));
+        assert!(text.contains("rename or delete it"));
+        assert!(text.contains("Everything checks out"));
+    }
+
+    #[test]
+    fn the_live_settings_file_is_never_called_stale() {
+        // macOS: the config directory and the data directory are the same, so
+        // the "old" path is the file the app reads.
+        let (config, live) = config_dir_with_old_settings();
+        assert_eq!(stale_settings(config.path(), &live), None);
+    }
+
+    #[test]
+    fn no_leftover_file_means_nothing_to_report() {
+        let config = tempfile::tempdir().unwrap();
+        let live = Path::new("/data/voice-to-text/settings.conf");
+        assert_eq!(stale_settings(config.path(), live), None);
     }
 }

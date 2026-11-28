@@ -39,6 +39,12 @@ still has the final say. `--file` applies them too.
   built-in engine; the next save drops the line.
 
 ### Fixed
+- **`vtt --doctor` passes for an upgraded install that still has an old
+  settings file.** A `settings.conf` left under the config directory
+  (`~/.config` on Linux) by a version before 2.0 is not read, and it made the
+  check fail. It is now a note that names the file, and the check passes if
+  nothing else is wrong. On macOS the check no longer calls the live
+  settings file stale.
 - **Voice to Text in the app grid brings dictation back after a tray
   Quit** (Linux). Quit stops the vtt service, and the launcher used to
   start a separate copy outside it, with no automatic restart. It now
