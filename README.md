@@ -5,7 +5,7 @@ and the text types into whatever app you're in.
 
 [![Windows](https://img.shields.io/badge/Windows-11-blue?logo=windows)](https://github.com/powell-clark/voice-to-text/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-Intel%20%26%20Apple%20Silicon-blue?logo=apple)](https://github.com/powell-clark/voice-to-text/releases/latest)
-[![Linux](https://img.shields.io/badge/Linux-Ubuntu%2022.04+-orange?logo=linux)](https://github.com/powell-clark/voice-to-text/releases/latest)
+[![Linux](https://img.shields.io/badge/Linux-Ubuntu%2022.04%20%7C%2024.04-orange?logo=linux)](https://github.com/powell-clark/voice-to-text/releases/latest)
 [![CI](https://github.com/powell-clark/voice-to-text/actions/workflows/ci.yml/badge.svg)](https://github.com/powell-clark/voice-to-text/actions/workflows/ci.yml)
 
 **100% offline. No cloud. No subscriptions. GPU-accelerated.**
@@ -18,7 +18,7 @@ and the text types into whatever app you're in.
 [latest release](https://github.com/powell-clark/voice-to-text/releases/latest)
 and run it. Installs to `C:\Program Files\Voice to Text\`.
 
-**Linux (Ubuntu 22.04 / 24.04)**
+**Linux (Ubuntu 22.04 / 24.04, x86-64)**
 ```bash
 sudo add-apt-repository ppa:powellclark/voice-to-text
 sudo apt update && sudo apt install voice-to-text
@@ -29,13 +29,15 @@ sudo apt update && sudo apt install voice-to-text
 brew install powell-clark/voice-to-text/voice-to-text
 ```
 Builds from source with Metal acceleration, so the first install takes a few
-minutes. Then start it with `vtt`.
+minutes. Then start it with `vtt`. The tap is updated separately from each
+release, so it can trail the latest release.
 
 **macOS (binary)** — download the binary for your chip from the
 [latest release](https://github.com/powell-clark/voice-to-text/releases/latest)
-(**`vtt-macos-intel`** or **`vtt-macos-arm64`**), then:
+(**`vtt-macos-arm64`** for Apple Silicon, **`vtt-macos-intel`** for Intel), then
+(on an Intel Mac, write `vtt-macos-intel` in all three places):
 ```bash
-chmod +x vtt-macos-intel && xattr -d com.apple.quarantine vtt-macos-intel && ./vtt-macos-intel
+chmod +x vtt-macos-arm64 && xattr -d com.apple.quarantine vtt-macos-arm64 && ./vtt-macos-arm64
 ```
 (A signed `.app` bundle is in progress.)
 
@@ -46,12 +48,13 @@ settings.
 
 ## Updates
 
-- **Linux** — `sudo apt upgrade` picks up new releases from the PPA automatically.
+- **Linux** — `sudo apt update && sudo apt upgrade` installs a new release from
+  the PPA.
 - **Windows** — download and run a newer `voice-to-text-installer.msi`; it
   upgrades in place over the previous install (no manual uninstall needed).
   Settings and downloaded models are preserved.
-- **macOS** — `brew upgrade voice-to-text` for a Homebrew install; otherwise
-  download a new binary and replace the old one.
+- **macOS** — `brew upgrade voice-to-text` for a Homebrew install, once the tap
+  has the new version; otherwise download a new binary and replace the old one.
 
 The app also checks GitHub Releases for a newer version at launch and, if one
 exists, adds an **"Update available: vX.Y.Z"** item to the tray menu linking to
@@ -199,9 +202,11 @@ The speech engine, whisper.cpp, is pinned as a submodule
 
 - **Windows** — needs the Vulkan SDK + VS Build Tools (C++); the helper
   `scripts/build-windows.ps1` auto-discovers cmake/libclang and builds.
-- **Linux** — `sudo apt install build-essential pkg-config cmake glslc
-  libgtk-3-dev libayatana-appindicator3-dev libasound2-dev libvulkan-dev
-  libxtst-dev libnotify-bin`. Build a local `.deb`:
+- **Linux (Ubuntu 24.04)** — `sudo apt install build-essential pkg-config cmake
+  glslc libclang-dev libgtk-3-dev libayatana-appindicator3-dev libasound2-dev
+  libvulkan-dev libxtst-dev libnotify-bin`. Ubuntu 22.04 has no `glslc`
+  package, so this line does not work there; use the PPA. To build a local
+  `.deb`, also `sudo apt install devscripts debhelper`, then run
   `bash scripts/release-local.sh --install`.
 - **macOS** — `brew install cmake`, then `cargo build --release`.
 
@@ -216,7 +221,7 @@ the per-platform capability spec (generated from feature cards — re-run
 
 - **Confirm the version:** `vtt --version` on every platform.
 - **No transcription / GPU not used:** enable logging from the tray, then check
-  today's log (`%APPDATA%\voice-to-text\logs\` on Windows,
+  today's log (`%LOCALAPPDATA%\voice-to-text\` on Windows,
   `~/.local/share/voice-to-text/` on Linux). The log shows the GPU device and
   per-transcription timing.
 - **Linux hotkey not working:** requires X11 (`echo $XDG_SESSION_TYPE` →
